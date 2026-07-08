@@ -1,0 +1,353 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AssetType {
+  MULTIFAMILY
+  SELF_STORAGE
+  RV_PARK
+  MOBILE_HOME_PARK
+  RETAIL
+  OFFICE
+  INDUSTRIAL
+  HOSPITALITY
+  MIXED_USE
+  LAND
+}
+
+enum OpportunityStage {
+  LEAD
+  SELLER_CONTACTED
+  INTERESTED_SELLER
+  FINANCIALS_REQUESTED
+  T12_RECEIVED
+  RENT_ROLL_RECEIVED
+  UNDERWRITING
+  OFFER_READY
+  LOI_SENT
+  UNDER_CONTRACT
+  BUYER_MATCHED
+  CLOSING
+  PAID
+}
+
+enum TaskStatus {
+  BACKLOG
+  IN_PROGRESS
+  BLOCKED
+  COMPLETE
+}
+
+enum DocumentType {
+  T12
+  RENT_ROLL
+  OFFER_MEMO
+  LOI
+  CONTRACT
+  DUE_DILIGENCE
+  PHOTO
+  OTHER
+}
+
+enum MatchStatus {
+  NEW
+  REVIEWING
+  SENT
+  DECLINED
+  CONFIRMED
+}
+
+enum UserRole {
+  ADMIN
+  ACQUISITIONS
+  ANALYST
+  DISPOSITIONS
+}
+
+model User {
+  id             String        @id @default(cuid())
+  organizationId String
+  name           String
+  email          String        @unique
+  hashedPassword String
+  role           UserRole      @default(ACQUISITIONS)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tasks          Task[]
+  notes          Note[]
+  activities     ActivityLog[]
+
+  @@index([organizationId])
+  @@map("users")
+}
+
+model Organization {
+  id            String        @id @default(cuid())
+  name          String
+  slug          String        @unique
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  users         User[]
+  sellers       Seller[]
+  buyers        Buyer[]
+  properties    Property[]
+  opportunities Opportunity[]
+  analyses      DealAnalysis[]
+  tasks         Task[]
+  notes         Note[]
+  documents     Document[]
+  matches       BuyerMatch[]
+  activities    ActivityLog[]
+
+  @@map("organizations")
+}
+
+model Seller {
+  id             String        @id @default(cuid())
+  organizationId String
+  name           String
+  company        String?
+  email          String?
+  phone          String?
+  motivation     String?
+  city           String?
+  state          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  properties     Property[]
+  opportunities  Opportunity[]
+  notes          Note[]
+  documents      Document[]
+  activities     ActivityLog[]
+
+  @@index([organizationId])
+  @@map("sellers")
+}
+
+model Buyer {
+  id                 String        @id @default(cuid())
+  organizationId     String
+  name               String
+  company            String?
+  email              String?
+  phone              String?
+  targetAssetTypes   AssetType[]
+  targetStates       String[]
+  minimumPurchaseUsd Int?
+  maximumPurchaseUsd Int?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  organization       Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  matches            BuyerMatch[]
+  notes              Note[]
+  documents          Document[]
+  activities         ActivityLog[]
+
+  @@index([organizationId])
+  @@map("buyers")
+}
+
+model Property {
+  id             String        @id @default(cuid())
+  organizationId String
+  sellerId       String?
+  name           String
+  assetType      AssetType
+  addressLine1   String
+  city           String
+  state          String
+  postalCode     String?
+  unitCount      Int?
+  squareFeet     Int?
+  acreage        Float?
+  yearBuilt      Int?
+  occupancyRate  Float?
+  askingPriceUsd Int?
+  noiAnnualUsd   Int?
+  status         String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  seller         Seller?       @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  opportunities  Opportunity[]
+  analyses       DealAnalysis[]
+  documents      Document[]
+  notes          Note[]
+  activities     ActivityLog[]
+
+  @@index([organizationId])
+  @@index([sellerId])
+  @@map("properties")
+}
+
+model Opportunity {
+  id               String           @id @default(cuid())
+  organizationId   String
+  propertyId       String
+  sellerId         String?
+  title            String
+  stage            OpportunityStage @default(LEAD)
+  source           String?
+  priority         String?
+  targetCloseDate  DateTime?
+  contractValueUsd Int?
+  assignmentFeeUsd Int?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property         Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  seller           Seller?          @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  analysis         DealAnalysis?
+  tasks            Task[]
+  notes            Note[]
+  documents        Document[]
+  buyerMatches     BuyerMatch[]
+  activities       ActivityLog[]
+
+  @@index([organizationId])
+  @@index([propertyId])
+  @@index([sellerId])
+  @@map("opportunities")
+}
+
+model DealAnalysis {
+  id                   String        @id @default(cuid())
+  organizationId       String
+  propertyId           String
+  opportunityId        String        @unique
+  purchasePriceUsd     Int
+  renovationBudgetUsd  Int?
+  closingCostsUsd      Int?
+  grossIncomeAnnualUsd Int?
+  operatingExpensesUsd Int?
+  noiAnnualUsd         Int?
+  capRate              Float?
+  dscr                 Float?
+  debtYield            Float?
+  pricePerUnitUsd      Float?
+  analystSummary       String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  organization         Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property             Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  opportunity          Opportunity   @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([propertyId])
+  @@map("deal_analysis")
+}
+
+model Task {
+  id             String        @id @default(cuid())
+  organizationId String
+  opportunityId  String?
+  ownerId        String?
+  title          String
+  status         TaskStatus    @default(BACKLOG)
+  dueDate        DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity    Opportunity?  @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  owner          User?         @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([opportunityId])
+  @@index([ownerId])
+  @@map("tasks")
+}
+
+model Note {
+  id             String        @id @default(cuid())
+  organizationId String
+  opportunityId  String?
+  propertyId     String?
+  sellerId       String?
+  buyerId        String?
+  authorId       String?
+  body           String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity    Opportunity?  @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  property       Property?     @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  seller         Seller?       @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  buyer          Buyer?        @relation(fields: [buyerId], references: [id], onDelete: SetNull)
+  author         User?         @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@map("notes")
+}
+
+model Document {
+  id             String        @id @default(cuid())
+  organizationId String
+  opportunityId  String?
+  propertyId     String?
+  sellerId       String?
+  buyerId        String?
+  title          String
+  documentType   DocumentType
+  storageKey     String
+  mimeType       String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity    Opportunity?  @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  property       Property?     @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  seller         Seller?       @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  buyer          Buyer?        @relation(fields: [buyerId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@map("documents")
+}
+
+model BuyerMatch {
+  id             String        @id @default(cuid())
+  organizationId String
+  opportunityId  String
+  buyerId        String
+  status         MatchStatus   @default(NEW)
+  score          Int?
+  thesis         String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity    Opportunity   @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  buyer          Buyer         @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([opportunityId])
+  @@index([buyerId])
+  @@map("buyer_matches")
+}
+
+model ActivityLog {
+  id             String        @id @default(cuid())
+  organizationId String
+  opportunityId  String?
+  propertyId     String?
+  sellerId       String?
+  buyerId        String?
+  actorId        String?
+  eventType      String
+  eventLabel     String
+  eventBody      String?
+  createdAt      DateTime      @default(now())
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity    Opportunity?  @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  property       Property?     @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  seller         Seller?       @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  buyer          Buyer?        @relation(fields: [buyerId], references: [id], onDelete: SetNull)
+  actor          User?         @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@map("activity_log")
+}
