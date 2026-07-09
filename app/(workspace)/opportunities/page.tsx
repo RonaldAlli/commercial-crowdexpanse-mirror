@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Prisma } from "@prisma/client";
 
 import { EmptyState } from "@/components/empty-state";
 import { Icon } from "@/components/icons";
@@ -6,6 +7,7 @@ import { PageHeader } from "@/components/page-header";
 import { StageSelect } from "@/components/stage-select";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { requireUser } from "@/lib/auth";
+import { ilike, listQueryString, parseListParams, totalPages } from "@/lib/list-params";
 import { prisma } from "@/lib/prisma";
 import { STAGE_OPTIONS, STAGE_ORDER, stageLabel } from "@/lib/opportunity-options";
 import { titleCase } from "@/lib/property-options";
@@ -14,30 +16,47 @@ import { moveOpportunityStage } from "./actions";
 
 export const dynamic = "force-dynamic";
 
+// Search + sort apply to the List view only; the Board is a full-pipeline
+// kanban and is left untouched.
+const SORT_OPTIONS = [
+  { value: "updated", label: "Recently updated" },
+  { value: "newest", label: "Newest" },
+  { value: "title", label: "Title A–Z" },
+] as const;
+
+const SORT_KEYS = SORT_OPTIONS.map((o) => o.value);
+
+const SORT_ORDER: Record<string, Prisma.OpportunityOrderByWithRelationInput> = {
+  updated: { updatedAt: "desc" }, // default — preserves the previous ordering
+  newest: { createdAt: "desc" },
+  title: { title: "asc" },
+};
+
+const OPP_INCLUDE = {
+  property: { select: { name: true, city: true, state: true, assetType: true } },
+  seller: { select: { name: true } },
+} satisfies Prisma.OpportunityInclude;
+
 function usd(value: number | null) {
   return value == null ? null : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 1, notation: "compact" }).format(value);
 }
 
-type OppWithRels = Awaited<ReturnType<typeof loadOpportunities>>[number];
-
-async function loadOpportunities(organizationId: string) {
+async function loadBoardOpportunities(organizationId: string) {
   return prisma.opportunity.findMany({
     where: { organizationId },
-    include: {
-      property: { select: { name: true, city: true, state: true, assetType: true } },
-      seller: { select: { name: true } },
-    },
+    include: OPP_INCLUDE,
     orderBy: { updatedAt: "desc" },
   });
 }
 
+type OppWithRels = Awaited<ReturnType<typeof loadBoardOpportunities>>[number];
+
 export default async function OpportunitiesPage({
   searchParams,
 }: {
-  searchParams: { view?: string };
+  searchParams: { view?: string; q?: string; sort?: string; page?: string };
 }) {
   const user = await requireUser();
-  const opportunities = await loadOpportunities(user.organizationId);
   const view = searchParams.view === "list" ? "list" : "board";
 
   const header = (
@@ -70,33 +89,141 @@ export default async function OpportunitiesPage({
     />
   );
 
-  if (opportunities.length === 0) {
+  const emptyState = (
+    <div className="card">
+      <EmptyState
+        icon="pipeline"
+        title="No opportunities yet"
+        description="Create your first opportunity to start moving deals through the pipeline."
+        action={
+          <Link className="btn-primary" href="/opportunities/new">
+            New opportunity
+          </Link>
+        }
+      />
+    </div>
+  );
+
+  // Board view — unchanged full-pipeline kanban.
+  if (view === "board") {
+    const opportunities = await loadBoardOpportunities(user.organizationId);
     return (
       <div className="space-y-6">
         {header}
-        <div className="card">
-          <EmptyState
-            icon="pipeline"
-            title="No opportunities yet"
-            description="Create your first opportunity to start moving deals through the pipeline."
-            action={
-              <Link className="btn-primary" href="/opportunities/new">
-                New opportunity
-              </Link>
-            }
-          />
-        </div>
+        {opportunities.length === 0 ? emptyState : <Board opportunities={opportunities} />}
       </div>
     );
   }
 
+  // List view — search + sort + pagination.
+  const params = parseListParams(searchParams, { sortKeys: SORT_KEYS, defaultSort: "updated" });
+
+  const where: Prisma.OpportunityWhereInput = { organizationId: user.organizationId };
+  if (params.hasQuery) {
+    where.OR = [{ title: ilike(params.q) }, { summary: ilike(params.q) }, { source: ilike(params.q) }];
+  }
+
+  const [total, opportunities] = await Promise.all([
+    prisma.opportunity.count({ where }),
+    prisma.opportunity.findMany({
+      where,
+      include: OPP_INCLUDE,
+      orderBy: SORT_ORDER[params.sort],
+      skip: params.skip,
+      take: params.take,
+    }),
+  ]);
+
+  // No opportunities at all (unfiltered) → global empty state.
+  if (total === 0 && !params.hasQuery) {
+    return (
+      <div className="space-y-6">
+        {header}
+        {emptyState}
+      </div>
+    );
+  }
+
+  const pages = totalPages(total);
+  const pageLink = (page: number) => listQueryString({ view: "list", q: params.q, sort: params.sort, page });
+
   return (
     <div className="space-y-6">
       {header}
-      {view === "board" ? (
-        <Board opportunities={opportunities} />
+
+      {/* Search + sort (GET form — no JS required; submitting resets to page 1) */}
+      <form method="get" className="flex flex-wrap items-end gap-3">
+        <input type="hidden" name="view" value="list" />
+        <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-slate-500">
+          Search
+          <input
+            className="input h-9 py-0 text-sm"
+            name="q"
+            type="search"
+            defaultValue={params.q}
+            placeholder="Title, summary, or source…"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
+          Sort
+          <select name="sort" defaultValue={params.sort} className="input h-9 w-44 py-0 text-sm">
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="submit" className="btn">
+          Apply
+        </button>
+        {params.hasQuery ? (
+          <Link href="/opportunities?view=list" className="btn-ghost">
+            Clear
+          </Link>
+        ) : null}
+      </form>
+
+      {total > 0 ? (
+        <>
+          <ListTable opportunities={opportunities} />
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between text-sm text-slate-500">
+            <span>
+              {total} opportunit{total === 1 ? "y" : "ies"} · page {params.page} of {pages}
+            </span>
+            <div className="flex gap-2">
+              {params.page > 1 ? (
+                <Link className="btn-ghost" href={pageLink(params.page - 1)}>
+                  Previous
+                </Link>
+              ) : (
+                <span className="btn-ghost cursor-not-allowed opacity-40">Previous</span>
+              )}
+              {params.page < pages ? (
+                <Link className="btn-ghost" href={pageLink(params.page + 1)}>
+                  Next
+                </Link>
+              ) : (
+                <span className="btn-ghost cursor-not-allowed opacity-40">Next</span>
+              )}
+            </div>
+          </div>
+        </>
       ) : (
-        <ListTable opportunities={opportunities} />
+        <div className="card">
+          <EmptyState
+            icon="pipeline"
+            title="No opportunities match"
+            description={`Nothing matched “${params.q}”. Try a different search or clear it.`}
+            action={
+              <Link className="btn-primary" href="/opportunities?view=list">
+                Clear search
+              </Link>
+            }
+          />
+        </div>
       )}
     </div>
   );
