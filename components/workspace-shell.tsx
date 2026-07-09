@@ -37,10 +37,12 @@ export function WorkspaceShell({
   children,
   userEmail,
   userRole,
+  unreadCount = 0,
 }: {
   children: ReactNode;
   userEmail: string;
   userRole: UserRole;
+  unreadCount?: number;
 }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -173,13 +175,18 @@ export function WorkspaceShell({
                 className="h-9 w-60 rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-500/10"
               />
             </form>
-            <button
-              type="button"
+            <Link
+              href="/notifications"
+              title="Notifications"
               className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700"
             >
               <Icon name="bell" className="h-5 w-5" />
-              <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-brand-500 ring-2 ring-white" />
-            </button>
+              {unreadCount > 0 ? (
+                <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-500 px-1 text-[0.6rem] font-semibold text-white ring-2 ring-white">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              ) : null}
+            </Link>
           </div>
         </header>
 
