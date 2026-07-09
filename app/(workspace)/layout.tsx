@@ -6,5 +6,9 @@ import { requireUser } from "@/lib/auth";
 export default async function ProtectedLayout({ children }: { children: ReactNode }) {
   const user = await requireUser();
 
-  return <WorkspaceShell userEmail={user.email}>{children}</WorkspaceShell>;
+  return (
+    <WorkspaceShell userEmail={user.email} userRole={user.role}>
+      {children}
+    </WorkspaceShell>
+  );
 }

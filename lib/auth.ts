@@ -1,9 +1,10 @@
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { UserRole } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { hasRole } from "@/lib/authz";
 
 const SESSION_COOKIE = "ce_commercial_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
@@ -124,6 +125,20 @@ export async function requireUser(): Promise<CurrentUser> {
   const user = await getCurrentUser();
   if (!user) {
     redirect("/login");
+  }
+  return user;
+}
+
+/**
+ * Require an authenticated user holding one of the given roles. Unauthenticated
+ * callers are sent to /login; authenticated-but-unauthorized callers get a 404
+ * (notFound) rather than a redirect — consistent with the cross-org "pretend it
+ * doesn't exist" pattern, so restricted surfaces aren't disclosed.
+ */
+export async function requireRole(...roles: UserRole[]): Promise<CurrentUser> {
+  const user = await requireUser();
+  if (!hasRole(user, ...roles)) {
+    notFound();
   }
   return user;
 }

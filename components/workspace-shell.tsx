@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode, useState } from "react";
+import type { UserRole } from "@prisma/client";
 
 import { logoutAction } from "@/app/actions";
 import { Icon, type IconName } from "@/components/icons";
@@ -27,19 +28,30 @@ const navigation: NavItem[] = [
   { href: "/notes", label: "Notes", icon: "notes", section: "Workflow", title: "Notes" },
   { href: "/activity", label: "Activity", icon: "activity", section: "Workflow", title: "Activity" },
   { href: "/documents", label: "Documents", icon: "files", section: "Workflow", title: "Documents" },
+  { href: "/settings/team", label: "Team", icon: "buyers", section: "Settings", title: "Team" },
 ];
 
-const sections = ["Overview", "Records", "Workflow"];
+const sections = ["Overview", "Records", "Workflow", "Settings"];
 
 export function WorkspaceShell({
   children,
   userEmail,
+  userRole,
 }: {
   children: ReactNode;
   userEmail: string;
+  userRole: UserRole;
 }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const isAdmin = userRole === "ADMIN";
+  // The Settings section (team management) is admin-only. Non-admins never see
+  // it; direct navigation is independently blocked by requireRole (404).
+  const visibleNav = navigation.filter((item) => item.section !== "Settings" || isAdmin);
+  const visibleSections = sections.filter((section) =>
+    visibleNav.some((item) => item.section === section),
+  );
 
   const current = navigation.find((item) => pathname.startsWith(item.href));
   const initials = userEmail.slice(0, 2).toUpperCase();
@@ -73,12 +85,12 @@ export function WorkspaceShell({
         </div>
 
         <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
-          {sections.map((section) => (
+          {visibleSections.map((section) => (
             <div key={section} className="space-y-1">
               <p className="px-3 pb-1 text-[0.68rem] font-semibold uppercase tracking-[0.1em] text-slate-400">
                 {section}
               </p>
-              {navigation
+              {visibleNav
                 .filter((item) => item.section === section)
                 .map((item) => {
                   const active = pathname.startsWith(item.href);
