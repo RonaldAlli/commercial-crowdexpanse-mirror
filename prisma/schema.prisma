@@ -69,6 +69,13 @@ enum UserRole {
   DISPOSITIONS
 }
 
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
 model User {
   id             String        @id @default(cuid())
   organizationId String
@@ -104,6 +111,7 @@ model Organization {
   notes         Note[]
   documents     Document[]
   matches       BuyerMatch[]
+  invitations   Invitation[]
   activities    ActivityLog[]
 
   @@map("organizations")
@@ -340,6 +348,26 @@ model BuyerMatch {
   @@index([organizationId])
   @@index([buyerId])
   @@map("buyer_matches")
+}
+
+model Invitation {
+  id             String           @id @default(cuid())
+  organizationId String
+  email          String           // normalized lowercase
+  role           UserRole
+  tokenHash      String           @unique // HMAC of the raw token; raw is never stored
+  status         InvitationStatus @default(PENDING)
+  expiresAt      DateTime
+  invitedById    String? // audit-only plain column (no FK)
+  acceptedUserId String? // audit-only plain column (no FK)
+  acceptedAt     DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([email])
+  @@map("invitations")
 }
 
 model ActivityLog {
