@@ -164,13 +164,16 @@ model Property {
   city           String
   state          String
   postalCode     String?
+  county         String?
   unitCount      Int?
   squareFeet     Int?
   acreage        Float?
   yearBuilt      Int?
   occupancyRate  Float?
   askingPriceUsd Int?
+  estimatedValueUsd Int?
   noiAnnualUsd   Int?
+  capRate        Float?
   status         String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
