@@ -1,26 +1,65 @@
 import Link from "next/link";
+import type { Prisma } from "@prisma/client";
 
 import { EmptyState } from "@/components/empty-state";
 import { Icon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { requireUser } from "@/lib/auth";
+import { ilike, listQueryString, parseListParams, totalPages } from "@/lib/list-params";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+
+const SORT_OPTIONS = [
+  { value: "newest", label: "Newest" },
+  { value: "name", label: "Name A–Z" },
+  { value: "updated", label: "Recently updated" },
+] as const;
+
+const SORT_KEYS = SORT_OPTIONS.map((o) => o.value);
+
+const SORT_ORDER: Record<string, Prisma.SellerOrderByWithRelationInput> = {
+  newest: { createdAt: "desc" }, // default — preserves the previous ordering
+  name: { name: "asc" },
+  updated: { updatedAt: "desc" },
+};
 
 function marketLabel(city: string | null, state: string | null) {
   return [city, state].filter(Boolean).join(", ") || "—";
 }
 
-export default async function SellersPage() {
+export default async function SellersPage({
+  searchParams,
+}: {
+  searchParams: { q?: string; sort?: string; page?: string };
+}) {
   const user = await requireUser();
+  const params = parseListParams(searchParams, { sortKeys: SORT_KEYS, defaultSort: "newest" });
 
-  const sellers = await prisma.seller.findMany({
-    where: { organizationId: user.organizationId },
-    include: { _count: { select: { opportunities: true, properties: true } } },
-    orderBy: { createdAt: "desc" },
-  });
+  const where: Prisma.SellerWhereInput = { organizationId: user.organizationId };
+  if (params.hasQuery) {
+    where.OR = [
+      { name: ilike(params.q) },
+      { company: ilike(params.q) },
+      { email: ilike(params.q) },
+      { city: ilike(params.q) },
+    ];
+  }
+
+  const [total, sellers] = await Promise.all([
+    prisma.seller.count({ where }),
+    prisma.seller.findMany({
+      where,
+      include: { _count: { select: { opportunities: true, properties: true } } },
+      orderBy: SORT_ORDER[params.sort],
+      skip: params.skip,
+      take: params.take,
+    }),
+  ]);
+
+  const pages = totalPages(total);
+  const pageLink = (page: number) => listQueryString({ q: params.q, sort: params.sort, page });
 
   return (
     <div className="space-y-6">
@@ -36,55 +75,125 @@ export default async function SellersPage() {
         }
       />
 
+      {/* Search + sort (GET form — no JS required; submitting resets to page 1) */}
+      <form method="get" className="flex flex-wrap items-end gap-3">
+        <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-slate-500">
+          Search
+          <input
+            className="input h-9 py-0 text-sm"
+            name="q"
+            type="search"
+            defaultValue={params.q}
+            placeholder="Name, company, email, or city…"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
+          Sort
+          <select name="sort" defaultValue={params.sort} className="input h-9 w-44 py-0 text-sm">
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="submit" className="btn">
+          Apply
+        </button>
+        {params.hasQuery ? (
+          <Link href="/sellers" className="btn-ghost">
+            Clear
+          </Link>
+        ) : null}
+      </form>
+
       {sellers.length > 0 ? (
-        <div className="card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] border-collapse">
-              <thead className="border-b border-slate-200 bg-slate-50/60">
-                <tr>
-                  <th className="table-head">Seller</th>
-                  <th className="table-head">Market</th>
-                  <th className="table-head">Motivation</th>
-                  <th className="table-head">Deals</th>
-                  <th className="table-head">Contact</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {sellers.map((seller) => (
-                  <tr key={seller.id} className="transition-colors hover:bg-slate-50/60">
-                    <td className="table-cell">
-                      <Link href={`/sellers/${seller.id}`} className="font-medium text-slate-900 hover:text-brand-700">
-                        {seller.name}
-                      </Link>
-                      {seller.company ? <p className="text-xs text-slate-500">{seller.company}</p> : null}
-                    </td>
-                    <td className="table-cell whitespace-nowrap">{marketLabel(seller.city, seller.state)}</td>
-                    <td className="table-cell max-w-xs text-slate-600">{seller.motivation ?? "—"}</td>
-                    <td className="table-cell">
-                      <Badge tone={seller._count.opportunities > 0 ? "success" : "neutral"}>
-                        {seller._count.opportunities}
-                      </Badge>
-                    </td>
-                    <td className="table-cell whitespace-nowrap">
-                      {seller.email ? (
-                        <p className="flex items-center gap-1.5 text-slate-600">
-                          <Icon name="mail" className="h-3.5 w-3.5 text-slate-400" />
-                          {seller.email}
-                        </p>
-                      ) : null}
-                      {seller.phone ? (
-                        <p className="mt-1 flex items-center gap-1.5 text-slate-500">
-                          <Icon name="phone" className="h-3.5 w-3.5 text-slate-400" />
-                          {seller.phone}
-                        </p>
-                      ) : null}
-                      {!seller.email && !seller.phone ? <span className="text-slate-400">—</span> : null}
-                    </td>
+        <>
+          <div className="card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] border-collapse">
+                <thead className="border-b border-slate-200 bg-slate-50/60">
+                  <tr>
+                    <th className="table-head">Seller</th>
+                    <th className="table-head">Market</th>
+                    <th className="table-head">Motivation</th>
+                    <th className="table-head">Deals</th>
+                    <th className="table-head">Contact</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {sellers.map((seller) => (
+                    <tr key={seller.id} className="transition-colors hover:bg-slate-50/60">
+                      <td className="table-cell">
+                        <Link href={`/sellers/${seller.id}`} className="font-medium text-slate-900 hover:text-brand-700">
+                          {seller.name}
+                        </Link>
+                        {seller.company ? <p className="text-xs text-slate-500">{seller.company}</p> : null}
+                      </td>
+                      <td className="table-cell whitespace-nowrap">{marketLabel(seller.city, seller.state)}</td>
+                      <td className="table-cell max-w-xs text-slate-600">{seller.motivation ?? "—"}</td>
+                      <td className="table-cell">
+                        <Badge tone={seller._count.opportunities > 0 ? "success" : "neutral"}>
+                          {seller._count.opportunities}
+                        </Badge>
+                      </td>
+                      <td className="table-cell whitespace-nowrap">
+                        {seller.email ? (
+                          <p className="flex items-center gap-1.5 text-slate-600">
+                            <Icon name="mail" className="h-3.5 w-3.5 text-slate-400" />
+                            {seller.email}
+                          </p>
+                        ) : null}
+                        {seller.phone ? (
+                          <p className="mt-1 flex items-center gap-1.5 text-slate-500">
+                            <Icon name="phone" className="h-3.5 w-3.5 text-slate-400" />
+                            {seller.phone}
+                          </p>
+                        ) : null}
+                        {!seller.email && !seller.phone ? <span className="text-slate-400">—</span> : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between text-sm text-slate-500">
+            <span>
+              {total} seller{total === 1 ? "" : "s"} · page {params.page} of {pages}
+            </span>
+            <div className="flex gap-2">
+              {params.page > 1 ? (
+                <Link className="btn-ghost" href={pageLink(params.page - 1)}>
+                  Previous
+                </Link>
+              ) : (
+                <span className="btn-ghost cursor-not-allowed opacity-40">Previous</span>
+              )}
+              {params.page < pages ? (
+                <Link className="btn-ghost" href={pageLink(params.page + 1)}>
+                  Next
+                </Link>
+              ) : (
+                <span className="btn-ghost cursor-not-allowed opacity-40">Next</span>
+              )}
+            </div>
+          </div>
+        </>
+      ) : params.hasQuery ? (
+        <div className="card">
+          <EmptyState
+            icon="sellers"
+            title="No sellers match"
+            description={`Nothing matched “${params.q}”. Try a different search or clear it.`}
+            action={
+              <Link className="btn-primary" href="/sellers">
+                Clear search
+              </Link>
+            }
+          />
         </div>
       ) : (
         <div className="card">
