@@ -1,6 +1,6 @@
 "use server";
 
-import { MatchStatus } from "@prisma/client";
+import { MatchStatus, OpportunityStage } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
 import { requireUser } from "@/lib/auth";
@@ -10,6 +10,7 @@ import {
   type MatchOpportunity,
   type MatchResult,
 } from "@/lib/matching";
+import { STAGE_ORDER, stageLabel } from "@/lib/opportunity-options";
 
 export type MatchActionState = { error?: string } | undefined;
 
@@ -158,6 +159,35 @@ export async function updateMatchStatus(
       eventLabel: `Buyer match ${existing.buyer.name}: ${existing.status} → ${status}`,
     },
   });
+
+  // Confirming a buyer advances the opportunity to BUYER_MATCHED — but only
+  // forward: never downgrade an opportunity already at or past that stage.
+  if (status === MatchStatus.CONFIRMED) {
+    const opp = await prisma.opportunity.findFirst({
+      where: { id: existing.opportunityId, organizationId: user.organizationId },
+      select: { id: true, stage: true, propertyId: true, sellerId: true },
+    });
+    if (opp && STAGE_ORDER.indexOf(opp.stage) < STAGE_ORDER.indexOf(OpportunityStage.BUYER_MATCHED)) {
+      await prisma.opportunity.update({
+        where: { id: opp.id },
+        data: { stage: OpportunityStage.BUYER_MATCHED },
+      });
+      await prisma.activityLog.create({
+        data: {
+          organizationId: user.organizationId,
+          opportunityId: opp.id,
+          propertyId: opp.propertyId,
+          sellerId: opp.sellerId,
+          actorId: user.id,
+          eventType: "opportunity.stage_changed",
+          eventLabel: `Stage: ${stageLabel(opp.stage)} → ${stageLabel(OpportunityStage.BUYER_MATCHED)}`,
+          eventBody: `Advanced automatically on confirmed buyer match: ${existing.buyer.name}`,
+        },
+      });
+      revalidatePath("/opportunities");
+      revalidatePath("/dashboard");
+    }
+  }
 
   revalidatePath(`/opportunities/${existing.opportunityId}`);
   revalidatePath("/matches");
