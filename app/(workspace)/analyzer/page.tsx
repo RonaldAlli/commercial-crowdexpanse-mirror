@@ -1,98 +1,130 @@
-import { Icon } from "@/components/icons";
+import Link from "next/link";
+
+import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
-import { analyzerSnapshot } from "@/lib/demo-data";
+import { requireUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { titleCase } from "@/lib/property-options";
 
-const underwritingChecklist = [
-  "T12 normalized for one-time payroll and maintenance spikes",
-  "Rent roll reconciled to bank statements and occupancy claims",
-  "Tax reassessment stress-tested under post-close valuation",
-  "Insurance and utility assumptions pressure-tested against market comps",
-];
+export const dynamic = "force-dynamic";
 
-const inputs = [
-  { label: "Purchase price", value: analyzerSnapshot.purchasePrice },
-  { label: "Renovation budget", value: analyzerSnapshot.renovationBudget },
-  { label: "Closing costs", value: analyzerSnapshot.closingCosts },
-  { label: "Gross income", value: analyzerSnapshot.grossIncome },
-  { label: "Operating expenses", value: analyzerSnapshot.operatingExpenses },
-  { label: "Price / unit", value: analyzerSnapshot.pricePerUnit },
-];
+function pct(value: number | null) {
+  return value == null ? "—" : `${value}%`;
+}
 
-const returns = [
-  { label: "NOI", value: analyzerSnapshot.noi, tone: "text-slate-900" },
-  { label: "Cap rate", value: analyzerSnapshot.capRate, tone: "text-emerald-600" },
-  { label: "Debt yield", value: analyzerSnapshot.debtYield, tone: "text-emerald-600" },
-  { label: "DSCR", value: analyzerSnapshot.dscr, tone: "text-emerald-600" },
-];
+export default async function AnalyzerPage() {
+  const user = await requireUser();
 
-export default function AnalyzerPage() {
+  const opportunities = await prisma.opportunity.findMany({
+    where: { organizationId: user.organizationId },
+    include: {
+      property: { select: { name: true, assetType: true } },
+      analysis: { select: { capRate: true, noiAnnualUsd: true, dscr: true } },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  const analyzed = opportunities.filter((o) => o.analysis);
+  const needsAnalysis = opportunities.filter((o) => !o.analysis);
+
+  const header = (
+    <PageHeader
+      eyebrow="Underwriting"
+      title="Deal Analyzer"
+      description="Underwrite each opportunity — NOI, cap rate, DSCR, debt yield, and spread."
+    />
+  );
+
+  if (opportunities.length === 0) {
+    return (
+      <div className="space-y-6">
+        {header}
+        <div className="card">
+          <EmptyState
+            icon="analyzer"
+            title="No opportunities to analyze"
+            description="Create an opportunity first, then underwrite it here."
+            action={
+              <Link className="btn-primary" href="/opportunities/new">
+                New opportunity
+              </Link>
+            }
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        eyebrow="Commercial deal analyzer"
-        title="Deal analyzer"
-        description={analyzerSnapshot.dealName}
-        actions={<button className="btn-ghost">Duplicate scenario</button>}
-      />
+    <div className="space-y-8">
+      {header}
 
-      {/* Headline returns */}
-      <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {returns.map((r) => (
-          <div key={r.label} className="card p-5">
-            <p className="eyebrow">{r.label}</p>
-            <p className={`metric mt-3 text-3xl font-semibold ${r.tone}`}>{r.value}</p>
-          </div>
-        ))}
-      </section>
-
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-        <article className="card lg:col-span-3">
-          <div className="border-b border-slate-100 px-5 py-4">
-            <p className="eyebrow">Underwriting inputs</p>
-            <h2 className="mt-0.5 text-base font-semibold text-slate-900">Deal basis</h2>
-          </div>
-          <div className="grid grid-cols-2 gap-px bg-slate-100 sm:grid-cols-3">
-            {inputs.map((m) => (
-              <div key={m.label} className="bg-white px-5 py-4">
-                <p className="text-xs text-slate-500">{m.label}</p>
-                <p className="metric mt-1 text-lg font-semibold text-slate-900">{m.value}</p>
-              </div>
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <h2 className="text-base font-semibold text-slate-900">Analyzed</h2>
+          <Badge tone="brand">{analyzed.length}</Badge>
+        </div>
+        {analyzed.length > 0 ? (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {analyzed.map((o) => (
+              <Link key={o.id} href={`/analyzer/${o.id}`} className="card p-5 transition-shadow hover:shadow-md">
+                <p className="truncate font-semibold text-slate-900">{o.title}</p>
+                <p className="mt-0.5 truncate text-xs text-slate-500">
+                  {o.property.name} · {titleCase(o.property.assetType)}
+                </p>
+                <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <p className="text-[0.7rem] uppercase tracking-wide text-slate-400">Cap</p>
+                    <p className="metric text-sm font-semibold text-slate-900">{pct(o.analysis!.capRate)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[0.7rem] uppercase tracking-wide text-slate-400">NOI</p>
+                    <p className="metric text-sm font-semibold text-slate-900">
+                      {o.analysis!.noiAnnualUsd != null ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 }).format(o.analysis!.noiAnnualUsd) : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[0.7rem] uppercase tracking-wide text-slate-400">DSCR</p>
+                    <p className="metric text-sm font-semibold text-slate-900">{o.analysis!.dscr != null ? `${o.analysis!.dscr}x` : "—"}</p>
+                  </div>
+                </div>
+              </Link>
             ))}
           </div>
-        </article>
-
-        <article className="card lg:col-span-2">
-          <div className="border-b border-slate-100 px-5 py-4">
-            <p className="eyebrow">Analyst readout</p>
-            <h2 className="mt-0.5 text-base font-semibold text-slate-900">Decision framing</h2>
+        ) : (
+          <div className="card">
+            <EmptyState icon="analyzer" title="No analyzed deals yet" description="Run analysis on an opportunity below to see its metrics here." />
           </div>
-          <div className="space-y-5 p-5">
-            <div className="rounded-lg border border-brand-100 bg-brand-50 p-4">
-              <div className="mb-2 flex items-center gap-2">
-                <Icon name="spark" className="h-4 w-4 text-brand-600" />
-                <Badge tone="brand">Summary</Badge>
-              </div>
-              <p className="text-sm leading-relaxed text-slate-700">
-                {analyzerSnapshot.analystSummary}
-              </p>
-            </div>
+        )}
+      </section>
 
-            <div>
-              <p className="mb-3 text-sm font-semibold text-slate-900">Diligence checklist</p>
-              <ul className="space-y-3">
-                {underwritingChecklist.map((item) => (
-                  <li key={item} className="flex gap-3">
-                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-                      <Icon name="check" className="h-3 w-3" strokeWidth={2.5} />
-                    </span>
-                    <p className="text-sm leading-relaxed text-slate-600">{item}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <h2 className="text-base font-semibold text-slate-900">Needs analysis</h2>
+          <Badge tone="warning">{needsAnalysis.length}</Badge>
+        </div>
+        {needsAnalysis.length > 0 ? (
+          <div className="card overflow-hidden">
+            <ul className="divide-y divide-slate-100">
+              {needsAnalysis.map((o) => (
+                <li key={o.id} className="flex items-center justify-between gap-4 px-5 py-4">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-900">{o.title}</p>
+                    <p className="mt-0.5 truncate text-xs text-slate-500">
+                      {o.property.name} · {titleCase(o.property.assetType)}
+                    </p>
+                  </div>
+                  <Link className="btn-ghost shrink-0" href={`/analyzer/${o.id}/edit`}>
+                    Run analysis
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
-        </article>
+        ) : (
+          <p className="text-sm text-slate-500">Every opportunity has been analyzed.</p>
+        )}
       </section>
     </div>
   );

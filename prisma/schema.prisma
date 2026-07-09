@@ -231,6 +231,9 @@ model DealAnalysis {
   closingCostsUsd      Int?
   grossIncomeAnnualUsd Int?
   operatingExpensesUsd Int?
+  loanAmountUsd        Int?
+  interestRatePct      Float?
+  amortizationYears    Int?
   noiAnnualUsd         Int?
   capRate              Float?
   dscr                 Float?
