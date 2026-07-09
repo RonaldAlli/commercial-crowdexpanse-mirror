@@ -19,6 +19,7 @@ const navigation: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard", section: "Overview", title: "Acquisitions dashboard" },
   { href: "/opportunities", label: "Pipeline", icon: "pipeline", section: "Overview", title: "Opportunity pipeline" },
   { href: "/analyzer", label: "Deal Analyzer", icon: "analyzer", section: "Overview", title: "Deal analyzer" },
+  { href: "/matches", label: "Matches", icon: "spark", section: "Overview", title: "Buyer matches" },
   { href: "/sellers", label: "Sellers", icon: "sellers", section: "Records", title: "Sellers" },
   { href: "/buyers", label: "Buyers", icon: "buyers", section: "Records", title: "Buyers" },
   { href: "/properties", label: "Properties", icon: "properties", section: "Records", title: "Properties" },
