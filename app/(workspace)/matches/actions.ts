@@ -15,7 +15,8 @@ export type MatchActionState = { error?: string } | undefined;
 
 // Only buyers scoring at or above this floor (i.e. with at least one real
 // dimension fit beyond mere data completeness) get a persisted BuyerMatch.
-export const MATCH_THRESHOLD = 25;
+// Module-local (a "use server" file may only export async functions).
+const MATCH_THRESHOLD = 25;
 
 const VALID_STATUSES = new Set<string>(Object.values(MatchStatus));
 

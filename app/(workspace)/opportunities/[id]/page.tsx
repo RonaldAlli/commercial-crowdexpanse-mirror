@@ -7,8 +7,10 @@ import { Icon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
 import { StageSelect } from "@/components/stage-select";
 import { Badge, statusTone } from "@/components/ui/badge";
+import { GenerateMatchesButton, MatchRowControls } from "@/components/match-controls";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { matchStatusLabel, matchStatusTone } from "@/lib/match-options";
 import { STAGE_OPTIONS, stageLabel } from "@/lib/opportunity-options";
 import { titleCase } from "@/lib/property-options";
 
@@ -35,6 +37,12 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
   if (!opportunity) {
     notFound();
   }
+
+  const matches = await prisma.buyerMatch.findMany({
+    where: { opportunityId: opportunity.id, organizationId: user.organizationId },
+    include: { buyer: { select: { id: true, name: true, company: true } } },
+    orderBy: [{ score: "desc" }, { createdAt: "desc" }],
+  });
 
   const terms: { label: string; value: string | null }[] = [
     { label: "Source", value: opportunity.source },
@@ -152,6 +160,51 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
           </article>
         </div>
       </div>
+
+      <article className="card">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">Buyer Matches</h2>
+            <p className="text-xs text-slate-500">
+              Deterministic fit across asset type, location, and price. {matches.length > 0 ? `${matches.length} match${matches.length === 1 ? "" : "es"}.` : null}
+            </p>
+          </div>
+          <GenerateMatchesButton opportunityId={opportunity.id} />
+        </div>
+        {matches.length > 0 ? (
+          <ul className="divide-y divide-slate-100">
+            {matches.map((m) => (
+              <li key={m.id} className="px-5 py-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link href={`/buyers/${m.buyer.id}`} className="text-sm font-medium text-brand-700 hover:underline">
+                        {m.buyer.name}
+                      </Link>
+                      {m.buyer.company ? <span className="text-xs text-slate-400">{m.buyer.company}</span> : null}
+                      <Badge tone={matchStatusTone(m.status)}>{matchStatusLabel(m.status)}</Badge>
+                    </div>
+                    {m.thesis ? <p className="mt-1 text-xs leading-relaxed text-slate-500">{m.thesis}</p> : null}
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    <div className="flex items-baseline gap-1">
+                      <span className="metric text-lg font-semibold text-slate-900">{m.score ?? "—"}</span>
+                      <span className="text-xs text-slate-400">/100</span>
+                    </div>
+                    <MatchRowControls matchId={m.id} current={m.status} />
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyState
+            icon="buyers"
+            title="No buyer matches yet"
+            description="Run “Find matching buyers” to score buyers in your organization against this opportunity."
+          />
+        )}
+      </article>
 
       <NotesSection organizationId={user.organizationId} type="opportunity" id={opportunity.id} />
     </div>
