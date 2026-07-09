@@ -1,0 +1,258 @@
+"use server";
+
+import { OpportunityStage } from "@prisma/client";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+
+import { requireUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { stageLabel } from "@/lib/opportunity-options";
+
+export type OpportunityFormState = { error?: string } | undefined;
+
+const VALID_STAGES = new Set<string>(Object.values(OpportunityStage));
+
+function orNull(value: string) {
+  return value.length ? value : null;
+}
+
+function intOrNull(raw: string) {
+  const cleaned = raw.replace(/[,$%\s]/g, "");
+  if (!cleaned) return null;
+  const n = Number.parseInt(cleaned, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+function dateOrNull(raw: string) {
+  if (!raw) return null;
+  const d = new Date(`${raw}T00:00:00.000Z`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function parseOpportunity(formData: FormData) {
+  const str = (key: string) => String(formData.get(key) ?? "").trim();
+  return {
+    title: str("title"),
+    propertyId: str("propertyId"),
+    sellerId: str("sellerId"),
+    stage: str("stage"),
+    source: str("source"),
+    priority: str("priority"),
+    targetCloseDate: dateOrNull(str("targetCloseDate")),
+    contractValueUsd: intOrNull(str("contractValueUsd")),
+    assignmentFeeUsd: intOrNull(str("assignmentFeeUsd")),
+    summary: str("summary"),
+  };
+}
+
+/** Validate + resolve property/seller within the caller's org. */
+async function buildPayload(formData: FormData, organizationId: string, forCreate: boolean) {
+  const data = parseOpportunity(formData);
+
+  if (!data.title) return { error: "Opportunity title is required." } as const;
+  if (!data.propertyId) return { error: "A property is required." } as const;
+
+  const property = await prisma.property.findFirst({
+    where: { id: data.propertyId, organizationId },
+    select: { id: true },
+  });
+  if (!property) return { error: "Selected property was not found in your organization." } as const;
+
+  let sellerId: string | null = null;
+  if (data.sellerId) {
+    const seller = await prisma.seller.findFirst({
+      where: { id: data.sellerId, organizationId },
+      select: { id: true },
+    });
+    if (!seller) return { error: "Selected seller was not found in your organization." } as const;
+    sellerId = seller.id;
+  }
+
+  // Stage is required on create (defaults to LEAD if absent); on edit an invalid
+  // value is rejected rather than silently reset.
+  let stage: OpportunityStage;
+  if (data.stage) {
+    if (!VALID_STAGES.has(data.stage)) return { error: "Select a valid pipeline stage." } as const;
+    stage = data.stage as OpportunityStage;
+  } else if (forCreate) {
+    stage = OpportunityStage.LEAD;
+  } else {
+    return { error: "Select a valid pipeline stage." } as const;
+  }
+
+  return {
+    payload: {
+      title: data.title,
+      propertyId: property.id,
+      sellerId,
+      stage,
+      source: orNull(data.source),
+      priority: orNull(data.priority),
+      targetCloseDate: data.targetCloseDate,
+      contractValueUsd: data.contractValueUsd,
+      assignmentFeeUsd: data.assignmentFeeUsd,
+      summary: orNull(data.summary),
+    },
+  } as const;
+}
+
+export async function createOpportunity(
+  _prev: OpportunityFormState,
+  formData: FormData,
+): Promise<OpportunityFormState> {
+  const user = await requireUser();
+  const result = await buildPayload(formData, user.organizationId, true);
+  if ("error" in result) return { error: result.error };
+
+  const opportunity = await prisma.opportunity.create({
+    data: { organizationId: user.organizationId, ...result.payload },
+  });
+
+  await prisma.activityLog.create({
+    data: {
+      organizationId: user.organizationId,
+      opportunityId: opportunity.id,
+      propertyId: opportunity.propertyId,
+      sellerId: opportunity.sellerId,
+      actorId: user.id,
+      eventType: "opportunity.created",
+      eventLabel: `Opportunity created: ${opportunity.title}`,
+      eventBody: `Stage: ${stageLabel(opportunity.stage)}`,
+    },
+  });
+
+  revalidatePath("/opportunities");
+  revalidatePath("/dashboard");
+  redirect(`/opportunities/${opportunity.id}`);
+}
+
+export async function updateOpportunity(
+  id: string,
+  _prev: OpportunityFormState,
+  formData: FormData,
+): Promise<OpportunityFormState> {
+  const user = await requireUser();
+
+  const existing = await prisma.opportunity.findFirst({
+    where: { id, organizationId: user.organizationId },
+  });
+  if (!existing) return { error: "Opportunity not found." };
+
+  const result = await buildPayload(formData, user.organizationId, false);
+  if ("error" in result) return { error: result.error };
+
+  const opportunity = await prisma.opportunity.update({
+    where: { id: existing.id },
+    data: result.payload,
+  });
+
+  const stageChanged = existing.stage !== opportunity.stage;
+
+  // Non-stage change detection so we don't log a noisy "updated" on a pure move.
+  const nonStageChanged =
+    existing.title !== opportunity.title ||
+    existing.propertyId !== opportunity.propertyId ||
+    existing.sellerId !== opportunity.sellerId ||
+    existing.source !== opportunity.source ||
+    existing.priority !== opportunity.priority ||
+    existing.contractValueUsd !== opportunity.contractValueUsd ||
+    existing.assignmentFeeUsd !== opportunity.assignmentFeeUsd ||
+    existing.summary !== opportunity.summary ||
+    existing.targetCloseDate?.getTime() !== opportunity.targetCloseDate?.getTime();
+
+  if (stageChanged) {
+    await prisma.activityLog.create({
+      data: {
+        organizationId: user.organizationId,
+        opportunityId: opportunity.id,
+        propertyId: opportunity.propertyId,
+        sellerId: opportunity.sellerId,
+        actorId: user.id,
+        eventType: "opportunity.stage_changed",
+        eventLabel: `Stage: ${stageLabel(existing.stage)} → ${stageLabel(opportunity.stage)}`,
+      },
+    });
+  }
+
+  if (nonStageChanged) {
+    await prisma.activityLog.create({
+      data: {
+        organizationId: user.organizationId,
+        opportunityId: opportunity.id,
+        propertyId: opportunity.propertyId,
+        sellerId: opportunity.sellerId,
+        actorId: user.id,
+        eventType: "opportunity.updated",
+        eventLabel: `Opportunity updated: ${opportunity.title}`,
+      },
+    });
+  }
+
+  revalidatePath("/opportunities");
+  revalidatePath(`/opportunities/${opportunity.id}`);
+  redirect(`/opportunities/${opportunity.id}`);
+}
+
+/** Inline stage move (pipeline board / detail). Logs opportunity.stage_changed only. */
+export async function moveOpportunityStage(id: string, formData: FormData) {
+  const user = await requireUser();
+  const nextStage = String(formData.get("stage") ?? "").trim();
+
+  if (!VALID_STAGES.has(nextStage)) {
+    return;
+  }
+
+  const existing = await prisma.opportunity.findFirst({
+    where: { id, organizationId: user.organizationId },
+  });
+  if (!existing || existing.stage === nextStage) {
+    return;
+  }
+
+  await prisma.opportunity.update({
+    where: { id: existing.id },
+    data: { stage: nextStage as OpportunityStage },
+  });
+
+  await prisma.activityLog.create({
+    data: {
+      organizationId: user.organizationId,
+      opportunityId: existing.id,
+      propertyId: existing.propertyId,
+      sellerId: existing.sellerId,
+      actorId: user.id,
+      eventType: "opportunity.stage_changed",
+      eventLabel: `Stage: ${stageLabel(existing.stage)} → ${stageLabel(nextStage)}`,
+    },
+  });
+
+  revalidatePath("/opportunities");
+  revalidatePath(`/opportunities/${existing.id}`);
+  revalidatePath("/dashboard");
+}
+
+export async function deleteOpportunity(id: string) {
+  const user = await requireUser();
+
+  const existing = await prisma.opportunity.findFirst({
+    where: { id, organizationId: user.organizationId },
+  });
+  if (!existing) {
+    redirect("/opportunities");
+  }
+
+  await prisma.opportunity.delete({ where: { id: existing.id } });
+
+  await prisma.activityLog.create({
+    data: {
+      organizationId: user.organizationId,
+      actorId: user.id,
+      eventType: "opportunity.deleted",
+      eventLabel: `Opportunity deleted: ${existing.title}`,
+    },
+  });
+
+  revalidatePath("/opportunities");
+  revalidatePath("/dashboard");
+  redirect("/opportunities");
+}
