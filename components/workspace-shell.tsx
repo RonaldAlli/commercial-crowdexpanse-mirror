@@ -161,17 +161,18 @@ export function WorkspaceShell({
           </div>
 
           <div className="ml-auto flex items-center gap-2">
-            <div className="relative hidden md:block">
+            <form method="get" action="/search" className="relative hidden md:block">
               <Icon
                 name="search"
                 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
               />
               <input
                 type="search"
+                name="q"
                 placeholder="Search deals, sellers…"
                 className="h-9 w-60 rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-500/10"
               />
-            </div>
+            </form>
             <button
               type="button"
               className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700"
