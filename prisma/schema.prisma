@@ -336,8 +336,8 @@ model BuyerMatch {
   opportunity    Opportunity   @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
   buyer          Buyer         @relation(fields: [buyerId], references: [id], onDelete: Cascade)
 
+  @@unique([opportunityId, buyerId])
   @@index([organizationId])
-  @@index([opportunityId])
   @@index([buyerId])
   @@map("buyer_matches")
 }

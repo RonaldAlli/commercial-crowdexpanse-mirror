@@ -75,6 +75,18 @@ export async function generateMatches(
     },
   });
 
+  // Pre-existing matches for this opportunity — used only for created-vs-updated
+  // accounting. The write itself is an atomic upsert on the
+  // (opportunityId, buyerId) unique constraint, so no duplicate can ever be created.
+  const existingBuyerIds = new Set(
+    (
+      await prisma.buyerMatch.findMany({
+        where: { opportunityId: opportunity.id, organizationId: user.organizationId },
+        select: { buyerId: true },
+      })
+    ).map((m) => m.buyerId),
+  );
+
   let created = 0;
   let updated = 0;
 
@@ -84,31 +96,21 @@ export async function generateMatches(
 
     const thesis = buildThesis(result);
 
-    // No unique constraint on (opportunityId, buyerId) yet, so upsert by hand.
-    const existing = await prisma.buyerMatch.findFirst({
-      where: { opportunityId: opportunity.id, buyerId: buyer.id, organizationId: user.organizationId },
-      select: { id: true },
+    await prisma.buyerMatch.upsert({
+      where: { opportunityId_buyerId: { opportunityId: opportunity.id, buyerId: buyer.id } },
+      update: { score: result.score, thesis },
+      create: {
+        organizationId: user.organizationId,
+        opportunityId: opportunity.id,
+        buyerId: buyer.id,
+        status: MatchStatus.NEW,
+        score: result.score,
+        thesis,
+      },
     });
 
-    if (existing) {
-      await prisma.buyerMatch.update({
-        where: { id: existing.id },
-        data: { score: result.score, thesis },
-      });
-      updated += 1;
-    } else {
-      await prisma.buyerMatch.create({
-        data: {
-          organizationId: user.organizationId,
-          opportunityId: opportunity.id,
-          buyerId: buyer.id,
-          status: MatchStatus.NEW,
-          score: result.score,
-          thesis,
-        },
-      });
-      created += 1;
-    }
+    if (existingBuyerIds.has(buyer.id)) updated += 1;
+    else created += 1;
   }
 
   await prisma.activityLog.create({
