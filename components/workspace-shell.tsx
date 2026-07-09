@@ -25,7 +25,7 @@ const navigation: NavItem[] = [
   { href: "/tasks", label: "Tasks", icon: "tasks", section: "Workflow", title: "Tasks" },
   { href: "/notes", label: "Notes", icon: "notes", section: "Workflow", title: "Notes" },
   { href: "/activity", label: "Activity", icon: "activity", section: "Workflow", title: "Activity" },
-  { href: "/files", label: "Files", icon: "files", section: "Workflow", title: "Document center" },
+  { href: "/documents", label: "Documents", icon: "files", section: "Workflow", title: "Documents" },
 ];
 
 const sections = ["Overview", "Records", "Workflow"];
