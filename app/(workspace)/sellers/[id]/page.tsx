@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { EmptyState } from "@/components/empty-state";
+import { NotesSection } from "@/components/notes-section";
 import { Icon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -149,6 +150,8 @@ export default async function SellerDetailPage({ params }: { params: { id: strin
           )}
         </article>
       </div>
+
+      <NotesSection organizationId={user.organizationId} type="seller" id={seller.id} />
     </div>
   );
 }

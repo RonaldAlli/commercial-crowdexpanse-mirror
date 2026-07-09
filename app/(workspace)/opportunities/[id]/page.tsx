@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { EmptyState } from "@/components/empty-state";
+import { NotesSection } from "@/components/notes-section";
 import { Icon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
 import { StageSelect } from "@/components/stage-select";
@@ -151,6 +152,8 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
           </article>
         </div>
       </div>
+
+      <NotesSection organizationId={user.organizationId} type="opportunity" id={opportunity.id} />
     </div>
   );
 }

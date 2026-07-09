@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { EmptyState } from "@/components/empty-state";
+import { NotesSection } from "@/components/notes-section";
 import { Icon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -133,6 +134,8 @@ export default async function BuyerDetailPage({ params }: { params: { id: string
           )}
         </article>
       </div>
+
+      <NotesSection organizationId={user.organizationId} type="buyer" id={buyer.id} />
     </div>
   );
 }
