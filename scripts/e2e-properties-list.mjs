@@ -10,10 +10,12 @@
 // city, state), unlike Seller/Buyer — the factory supplies valid defaults and
 // each search-coverage row varies only the field under test.
 import { prisma } from "../lib/prisma.ts";
+import { assertTestDatabase } from "./e2e-guard.mjs";
 import { parseListParams, ilike, totalPages, LIST_PAGE_SIZE } from "../lib/list-params.ts";
 
 const TAG = "e2e-properties";
 let ok = 0;
+assertTestDatabase(); // abort unless DATABASE_URL targets a *_test database
 const fail = [];
 function assert(cond, msg) {
   if (cond) { ok++; console.log(`  ✓ ${msg}`); }

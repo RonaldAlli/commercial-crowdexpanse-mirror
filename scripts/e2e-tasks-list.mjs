@@ -6,11 +6,13 @@
 // clamp), search coverage (title/description) + case-insensitivity, org scoping,
 // pagination slicing, and every sort mode (workflow priority, due, newest, title).
 import { prisma } from "../lib/prisma.ts";
+import { assertTestDatabase } from "./e2e-guard.mjs";
 import { parseListParams, ilike, totalPages, LIST_PAGE_SIZE } from "../lib/list-params.ts";
 import { sortTasks, TASK_SORT_KEYS } from "../lib/task-sort.ts";
 
 const TAG = "e2e-tasks";
 let ok = 0;
+assertTestDatabase(); // abort unless DATABASE_URL targets a *_test database
 const fail = [];
 function assert(cond, msg) {
   if (cond) { ok++; console.log(`  ✓ ${msg}`); }

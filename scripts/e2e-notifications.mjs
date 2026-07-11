@@ -5,10 +5,12 @@
 // self-exclusion, system (null-actor) inclusion, mark-all-read advances the
 // cursor, new events re-raise unread, org scoping, and the feed cap.
 import { prisma } from "../lib/prisma.ts";
+import { assertTestDatabase } from "./e2e-guard.mjs";
 import { unreadCount, recentNotifications, markAllRead, NOTIFICATIONS_CAP } from "../lib/notifications.ts";
 
 const TAG = "e2e-notifications";
 let ok = 0;
+assertTestDatabase(); // abort unless DATABASE_URL targets a *_test database
 const fail = [];
 function assert(cond, msg) {
   if (cond) { ok++; console.log(`  ✓ ${msg}`); }

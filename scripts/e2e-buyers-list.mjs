@@ -6,10 +6,12 @@
 // coverage (name/company/email) + case-insensitivity, org scoping, pagination
 // slicing, and sort.
 import { prisma } from "../lib/prisma.ts";
+import { assertTestDatabase } from "./e2e-guard.mjs";
 import { parseListParams, ilike, totalPages, LIST_PAGE_SIZE } from "../lib/list-params.ts";
 
 const TAG = "e2e-buyers";
 let ok = 0;
+assertTestDatabase(); // abort unless DATABASE_URL targets a *_test database
 const fail = [];
 function assert(cond, msg) {
   if (cond) { ok++; console.log(`  ✓ ${msg}`); }

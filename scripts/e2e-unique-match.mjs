@@ -5,12 +5,14 @@
 // (opportunityId, buyerId) pair throws a P2002 unique-constraint violation;
 // (3) org scoping is preserved (a second org's opp+buyer is unaffected).
 import { PrismaClient, MatchStatus } from "@prisma/client";
+import { assertTestDatabase } from "./e2e-guard.mjs";
 import { scoreBuyerForOpportunity } from "../lib/matching.ts";
 
 const prisma = new PrismaClient();
 
 const TAG = "e2e-unique-match";
 let ok = 0;
+assertTestDatabase(); // abort unless DATABASE_URL targets a *_test database
 const fail = [];
 function assert(cond, msg) {
   if (cond) { ok++; console.log(`  ✓ ${msg}`); }

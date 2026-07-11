@@ -5,10 +5,12 @@
 // field coverage (title/source/address/county/email), org scoping, the
 // per-group cap, and the min-length / no-match empty paths.
 import { prisma } from "../lib/prisma.ts";
+import { assertTestDatabase } from "./e2e-guard.mjs";
 import { searchAll, SEARCH_GROUP_CAP } from "../lib/search.ts";
 
 const TAG = "e2e-search";
 let ok = 0;
+assertTestDatabase(); // abort unless DATABASE_URL targets a *_test database
 const fail = [];
 function assert(cond, msg) {
   if (cond) { ok++; console.log(`  ✓ ${msg}`); }

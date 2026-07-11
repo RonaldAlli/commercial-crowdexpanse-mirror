@@ -10,12 +10,18 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 
+import { assertTestDatabase } from "./e2e-guard.mjs";
+
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..");
-const SELF = "e2e-all.mjs";
+// Not tests: the runner itself and the shared guard module.
+const IGNORE = new Set(["e2e-all.mjs", "e2e-guard.mjs"]);
+
+// Refuse to run the whole suite unless we target a *_test database.
+assertTestDatabase({ log: true });
 
 const scripts = readdirSync(here)
-  .filter((f) => /^e2e-.*\.mjs$/.test(f) && f !== SELF)
+  .filter((f) => /^e2e-.*\.mjs$/.test(f) && !IGNORE.has(f))
   .sort();
 
 if (scripts.length === 0) {

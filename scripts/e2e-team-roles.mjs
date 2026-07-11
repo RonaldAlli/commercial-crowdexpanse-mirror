@@ -6,12 +6,14 @@
 // last-admin lockout guard holds, invalid roles are rejected, org scoping is
 // enforced, and a user.role_changed audit row is written per successful change.
 import { PrismaClient, UserRole } from "@prisma/client";
+import { assertTestDatabase } from "./e2e-guard.mjs";
 import { roleChangeError } from "../lib/authz.ts";
 
 const prisma = new PrismaClient();
 
 const TAG = "e2e-team-roles";
 let ok = 0;
+assertTestDatabase(); // abort unless DATABASE_URL targets a *_test database
 const fail = [];
 function assert(cond, msg) {
   if (cond) { ok++; console.log(`  ✓ ${msg}`); }

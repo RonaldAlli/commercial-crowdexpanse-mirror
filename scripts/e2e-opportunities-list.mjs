@@ -10,10 +10,12 @@
 // assetType/addressLine1/city/state — so each throwaway org gets one property up
 // front that all of its opportunities reference.
 import { prisma } from "../lib/prisma.ts";
+import { assertTestDatabase } from "./e2e-guard.mjs";
 import { parseListParams, ilike, totalPages, LIST_PAGE_SIZE } from "../lib/list-params.ts";
 
 const TAG = "e2e-opportunities";
 let ok = 0;
+assertTestDatabase(); // abort unless DATABASE_URL targets a *_test database
 const fail = [];
 function assert(cond, msg) {
   if (cond) { ok++; console.log(`  ✓ ${msg}`); }

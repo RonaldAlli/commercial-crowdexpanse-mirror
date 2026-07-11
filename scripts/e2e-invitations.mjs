@@ -7,6 +7,7 @@
 // global email conflict, accept-creates-user, single-use, expiry (incl. EXPIRED
 // persistence), revoke, org scoping, and the audit trail.
 import { InvitationStatus, UserRole } from "@prisma/client";
+import { assertTestDatabase } from "./e2e-guard.mjs";
 
 import { prisma } from "../lib/prisma.ts";
 import {
@@ -25,6 +26,7 @@ import { hashPassword, verifyPassword } from "../lib/password.ts";
 
 const TAG = "e2e-invitations";
 let ok = 0;
+assertTestDatabase(); // abort unless DATABASE_URL targets a *_test database
 const fail = [];
 function assert(cond, msg) {
   if (cond) { ok++; console.log(`  ✓ ${msg}`); }
