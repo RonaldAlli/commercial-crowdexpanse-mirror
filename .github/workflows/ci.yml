@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    name: Typecheck, E2E, build
+    runs-on: ubuntu-latest
+
+    # Ephemeral PostgreSQL for this job only. Major version matches production
+    # (16). Credentials are throwaway and local to the runner — no production
+    # database is ever reachable from CI.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: commercial_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # Points only at the ephemeral service container above.
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/commercial_test
+      # Dummy — CI never handles real sessions or the production secret.
+      SESSION_SECRET: ci-dummy-secret-not-used-in-production
+      # Throwaway upload dir; nothing in the test/build path writes real files.
+      UPLOAD_DIR: /tmp/ci-uploads
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Apply schema to ephemeral database
+        run: npx prisma db push --skip-generate
+
+      - name: Typecheck and E2E
+        run: npm run test:ci
+
+      - name: Build
+        run: npm run build
