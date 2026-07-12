@@ -1,7 +1,7 @@
 # Version 1.1 — Operational Excellence
 
 > **Theme:** Make the existing workflow trustworthy before adding surface area.
-> **Status:** 🟡 In progress (~92%). Testing/CI, Better Lists, permissions (Slices 1 + 2), member lifecycle, invitation resend, and organization settings done; email delivery (3d) and performance remain.
+> **Status:** 🟡 In progress (~93%). Testing/CI, Better Lists, permissions (Slices 1 + 2), member lifecycle, invitation resend, and organization settings (3c — shipped & deployed to production) done; email delivery (3d), performance, unit-test depth, and lint-in-CI remain.
 
 ## Goal
 Everything the team already does daily should be fast, safe, tested, and permission-aware. No new domain surface — depth over breadth.

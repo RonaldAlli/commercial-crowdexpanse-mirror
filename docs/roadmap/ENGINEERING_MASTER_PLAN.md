@@ -83,9 +83,9 @@ From an internal deal-flow tool → to an intelligence-augmented CRE origination
 - **Authorization:** Role model (`ADMIN`, `ACQUISITIONS`, `ANALYST`, `DISPOSITIONS`) via `lib/authz.ts` (e.g. last-admin protection).
 - **Multi-tenancy:** Every domain model carries `organizationId`; all queries scope by it. This is the core security invariant.
 - **Storage:** Documents on local filesystem under `UPLOAD_DIR` (25 MB cap, path-traversal guard in `lib/storage.ts`); metadata in Postgres.
-- **Domain modules:** Sellers, Buyers, Properties, Opportunities (13-stage pipeline), Deal Analyzer (`DealAnalysis`), Buyer Matching (`lib/matching.ts`), Tasks, Notes, Documents, Notifications/Activity, Team, Invitations, Global Search.
+- **Domain modules:** Sellers, Buyers, Properties, Opportunities (13-stage pipeline), Deal Analyzer (`DealAnalysis`), Buyer Matching (`lib/matching.ts`), Tasks, Notes, Documents, Notifications/Activity, Team (member lifecycle), Invitations (resend/token rotation), Organization Settings (`OrganizationSettings`, `lib/org-settings.ts` — configurable invite expiry + default role; drives invitation creation), Global Search.
 - **Deployment:** Node build served by pm2 (`crowdexpanse-commercial`, port 3030) behind Caddy; single VPS. See [Operations](./OPERATIONS_ROADMAP.md).
-- **Testing/CI:** 10 E2E scripts (`scripts/e2e-*.mjs`) → dedicated `_test` DB with a no-override guard; GitHub Actions CI (mirror) with ephemeral Postgres. See [Testing](./TESTING_ROADMAP.md).
+- **Testing/CI:** 13 E2E scripts (`scripts/e2e-*.mjs`) → dedicated `_test` DB with a no-override guard; GitHub Actions CI (mirror) with ephemeral Postgres. See [Testing](./TESTING_ROADMAP.md).
 
 ### Data Flow
 Browser → middleware (session gate) → Server Component (reads via Prisma, org-scoped) / Server Action (writes, revalidate) → Postgres. Documents stream through a Server Action to `UPLOAD_DIR`. Activity/notification rows are written alongside domain writes.
