@@ -1,7 +1,7 @@
 # Version 1.1 — Operational Excellence
 
 > **Theme:** Make the existing workflow trustworthy before adding surface area.
-> **Status:** 🟡 In progress (~94%). Testing/CI, Better Lists, permissions (Slices 1 + 2), member lifecycle, invitation resend, organization settings (3c — shipped & deployed), and email **infrastructure** (3d-i — MessageService + `EmailMessage` outbox, no feature wired) done; invitation delivery (3d-ii), performance, unit-test depth, and lint-in-CI remain. Password reset is split out as Slice 3e.
+> **Status:** 🟡 In progress (~94%). Testing/CI, Better Lists, permissions (Slices 1 + 2), member lifecycle, invitation resend, organization settings (3c — shipped & deployed), and email **infrastructure** (3d-i — MessageService + `EmailMessage` outbox, no feature wired; shipped & deployed to production) done; invitation delivery (3d-ii), performance, unit-test depth, and lint-in-CI remain. Password reset is split out as Slice 3e.
 
 ## Goal
 Everything the team already does daily should be fast, safe, tested, and permission-aware. No new domain surface — depth over breadth.

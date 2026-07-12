@@ -43,7 +43,7 @@
 | Version | Theme | Status |
 |---|---|---|
 | 1.0 | Foundation | ✅ Shipped |
-| 1.1 | Operational Excellence | 🟡 ~94% (testing/CI/lists + D4 backups + permissions Slices 1–2 + member lifecycle/migrations + invitation resend + org settings shipped & deployed; email **infrastructure** 3d-i landed; invitation delivery 3d-ii + performance + unit-test depth + lint-in-CI remain) |
+| 1.1 | Operational Excellence | 🟡 ~94% (testing/CI/lists + D4 backups + permissions Slices 1–2 + member lifecycle/migrations + invitation resend + org settings + email **infrastructure** 3d-i all shipped & deployed to production; invitation delivery 3d-ii + performance + unit-test depth + lint-in-CI remain) |
 | 1.2 | Commercial Intelligence | 🔴 Planned |
 | 1.3 | Commercial Underwriting | 🟡 Foundation (~35%) |
 | 1.4 | Closing Center | 🔴 Planned |
