@@ -84,6 +84,12 @@ enum InvitationStatus {
   EXPIRED
 }
 
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
 model User {
   id             String        @id @default(cuid())
   organizationId String
@@ -132,6 +138,7 @@ model Organization {
   invitations   Invitation[]
   activities    ActivityLog[]
   settings      OrganizationSettings?
+  emailMessages EmailMessage[]
 
   @@map("organizations")
 }
@@ -148,6 +155,37 @@ model OrganizationSettings {
   organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("organization_settings")
+}
+
+// Outbound email ledger (the "outbox"). One row per send attempt-target, written
+// by lib/email/message-service BEFORE the transport is invoked, then advanced to
+// SENT/FAILED. Deliberately stores METADATA ONLY — never the rendered html/text,
+// invitation/reset links, tokens, or secrets (same philosophy as invitation
+// token hashes). `templateVersion` gives reproducibility without retaining the
+// body: support can reconstruct "what would have been sent" from template + data
+// context. PENDING/FAILED rows with attempts < maxAttempts are the drain target.
+model EmailMessage {
+  id                String        @id @default(cuid())
+  organizationId    String?       // nullable: some system emails aren't org-scoped
+  toEmail           String
+  template          String        // MessageKind vocabulary (open, like ActivityLog.eventType)
+  templateVersion   Int           @default(1)
+  subject           String        // metadata only — never the body
+  status            EmailStatus   @default(PENDING)
+  attempts          Int           @default(0)
+  maxAttempts       Int           @default(3)
+  providerMessageId String?
+  error             String?
+  correlationId     String?       // ties to the triggering entity (invitationId, …)
+  lastAttemptAt     DateTime?
+  sentAt            DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([organizationId])
+  @@map("email_messages")
 }
 
 model Seller {

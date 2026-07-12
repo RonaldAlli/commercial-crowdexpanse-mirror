@@ -27,6 +27,7 @@
 | Team Management (Roster/Roles/Lifecycle) | 🟢 Good | 1.1 | 85% |
 | Invitations | 🟢 Good | 1.1 | 85% |
 | Organization Settings | 🟢 Good | 1.1 | 90% |
+| Communications / Email (cross-cutting) | 🟡 Partial | 1.1 | 40% |
 | Testing & CI (cross-cutting) | ✅ Complete | 1.1 | 100% |
 | Backups & DR (cross-cutting, D4) | ✅ Complete (code+docs) | 1.1 | 100%¹ |
 | Deal Analyzer / Underwriting | 🟡 Partial | 1.3 | 35% |
@@ -42,7 +43,7 @@
 | Version | Theme | Status |
 |---|---|---|
 | 1.0 | Foundation | ✅ Shipped |
-| 1.1 | Operational Excellence | 🟡 ~93% (testing/CI/lists + D4 backups + permissions Slices 1–2 + member lifecycle/migrations + invitation resend + org settings shipped & deployed; email transport 3d + performance + unit-test depth + lint-in-CI remain) |
+| 1.1 | Operational Excellence | 🟡 ~94% (testing/CI/lists + D4 backups + permissions Slices 1–2 + member lifecycle/migrations + invitation resend + org settings shipped & deployed; email **infrastructure** 3d-i landed; invitation delivery 3d-ii + performance + unit-test depth + lint-in-CI remain) |
 | 1.2 | Commercial Intelligence | 🔴 Planned |
 | 1.3 | Commercial Underwriting | 🟡 Foundation (~35%) |
 | 1.4 | Closing Center | 🔴 Planned |
@@ -56,10 +57,12 @@ Roadmap → Architecture → Specification → Implementation → Testing → Do
 Nothing skips a step. See the [EMP lifecycle](./ENGINEERING_MASTER_PLAN.md#development-lifecycle).
 
 ## Top priorities right now
-1. **1.1 Email transport (highest-priority engineering task):** reusable email/messaging infrastructure (Slice 3d / D6) — a general transport that unblocks invitation delivery, password reset, and notifications (not an invitation-only feature). (Organization settings 3c, invitation resend 3b, member lifecycle 3a, and permissions Slices 1–2 are complete and deployed.)
+1. **1.1 Invitation delivery (Slice 3d-ii):** wire `createInvite`/`resendInvite` to `MessageService` (accept-link email, copy-link fallback retained) — the first consumer of the 3d-i email infrastructure, which is now merged. (Email transport infra 3d-i, org settings 3c, invitation resend 3b, member lifecycle 3a, and permissions Slices 1–2 are complete.)
 2. **1.1 Testing depth:** unit tests for pure `lib/*` modules.
 3. **1.1 Lint in CI:** add lint to the CI pipeline; keep CI green on `main`.
 4. **1.1 Performance:** latency budgets for board + search; index review.
+
+**Deferred from 3d-i (operational / later slices):** schedule the outbox drain (cron) once a feature registers a resend resolver; bounce/complaint webhooks + an admin failed-send view; password reset is its own **Slice 3e**.
 
 **Operational follow-ups (not engineering code — see [Operations → Backups](./OPERATIONS_ROADMAP.md)):** provision Cloudflare R2 bucket/credentials, store the backup passphrase off-host, and enable the documented cron schedule. (D4 backup/restore tooling itself is ✅ complete.)
 

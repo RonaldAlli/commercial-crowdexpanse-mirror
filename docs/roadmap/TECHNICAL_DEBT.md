@@ -11,11 +11,11 @@
 | D3 | **Local filesystem document storage** | Doesn't scale past one VPS; no redundancy | Documents growth / 1.4 Closing |
 | D4 | **Backups implemented** (`scripts/backup.sh`, six-stage, encrypted, verified restore) — **not yet scheduled; R2 creds not provisioned** | Off-host DR incomplete until R2 + cron enabled | Provision R2 bucket/creds + enable cron/timers (operational step) |
 | D5 | **`.next` nested files root-owned on host** | Plain `npm run build` fails on host; must use `build:isolated` | One-time `sudo chown`; low urgency |
-| D6 | **No email transport** | Invitations can't deliver; no notifications/campaigns | 1.1 (invitations) / 2.0 (campaigns) |
+| D6 | **Email transport infrastructure shipped (Slice 3d-i); not yet consumed** — `MessageService`/`EmailMessage` outbox, Console + SMTP transports, versioned templates. **Deferred:** cron-scheduled drain (needs a per-kind resolver), bounce/complaint webhooks + admin failed-send view, Resend/API transport | Invitations still deliver by copy-link until wired; digests/campaigns pending | Wire invitation delivery (3d-ii, 1.1); schedule drain when a resolver exists; campaigns 2.0 |
 | D7 | ✅ **Resolved — RBAC enforced across all write actions** (Slice 1 + 2) | Policy in `lib/permissions.ts`, enforced + audited in `lib/authorize.ts`; every create/update/delete/move/manage checks it. Field-level limited to opportunity stage by decision | Resolved (Slice 2) |
 | D8 | **No unit tests on pure logic** | Underwriting/matching math unguarded | 1.1 (lib), 1.3 (formulas) |
 | D9 | **Gitea Actions unconfirmed** | CI runs only on the GitHub mirror | When a Gitea runner is confirmed |
-| D10 | **Password reset absent; session policy partial** | No self-serve password reset; session lifetime is a fixed 8h TTL. Per-user immediate invalidation now exists (`sessionsValidAfter` epoch, added in 3a for deactivation) | 1.1 hardening (password reset needs email — D6) |
+| D10 | **Password reset absent; session policy partial** | No self-serve password reset; session lifetime is a fixed 8h TTL. Per-user immediate invalidation now exists (`sessionsValidAfter` epoch, added in 3a for deactivation) | **Slice 3e** — password reset builds on the 3d-i email infrastructure (D6) |
 
 ## Future Refactors
 - **Migrations:** ✅ done (D1). `prisma migrate` adopted with a `0_init` baseline of the pre-existing schema; `scripts/test-db.mjs` and CI use `migrate deploy`. Author new migrations via the no-shadow path (`migrate diff` → `migrate deploy`) since the app role lacks CREATEDB.
