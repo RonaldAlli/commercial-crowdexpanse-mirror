@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";
+import { authorize } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 import { titleCase } from "@/lib/property-options";
 
@@ -169,6 +170,7 @@ export async function updateProperty(
 
 export async function deleteProperty(id: string) {
   const user = await requireUser();
+  await authorize(user, "DELETE", "PROPERTY", { targetId: id, propertyId: id });
 
   const existing = await prisma.property.findFirst({
     where: { id, organizationId: user.organizationId },

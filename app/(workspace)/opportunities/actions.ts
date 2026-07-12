@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";
+import { authorize, authorizeStageMove } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 import { stageLabel } from "@/lib/opportunity-options";
 
@@ -209,6 +210,14 @@ export async function moveOpportunityStage(id: string, formData: FormData) {
     return;
   }
 
+  // Pipeline movement is authorized by BOTH current and target stage (workflow
+  // segment ownership), not the destination alone.
+  await authorizeStageMove(user, existing.stage, nextStage as OpportunityStage, {
+    opportunityId: existing.id,
+    sellerId: existing.sellerId ?? undefined,
+    propertyId: existing.propertyId,
+  });
+
   await prisma.opportunity.update({
     where: { id: existing.id },
     data: { stage: nextStage as OpportunityStage },
@@ -233,6 +242,7 @@ export async function moveOpportunityStage(id: string, formData: FormData) {
 
 export async function deleteOpportunity(id: string) {
   const user = await requireUser();
+  await authorize(user, "DELETE", "OPPORTUNITY", { targetId: id, opportunityId: id });
 
   const existing = await prisma.opportunity.findFirst({
     where: { id, organizationId: user.organizationId },

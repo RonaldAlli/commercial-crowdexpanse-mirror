@@ -7,6 +7,7 @@ import { Icon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { requireUser } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { titleCase } from "@/lib/property-options";
 
@@ -70,11 +71,13 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
               <Icon name="notes" className="h-4 w-4" />
               Edit
             </Link>
-            <form action={deletePropertyBound}>
-              <button type="submit" className="btn border border-rose-200 bg-white text-rose-600 hover:bg-rose-50">
-                Delete
-              </button>
-            </form>
+            {can(user.role, "DELETE", "PROPERTY") ? (
+              <form action={deletePropertyBound}>
+                <button type="submit" className="btn border border-rose-200 bg-white text-rose-600 hover:bg-rose-50">
+                  Delete
+                </button>
+              </form>
+            ) : null}
           </>
         }
       />

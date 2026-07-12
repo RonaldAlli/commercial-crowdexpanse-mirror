@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { Prisma } from "@prisma/client";
+import type { Prisma, UserRole } from "@prisma/client";
 
 import { EmptyState } from "@/components/empty-state";
 import { Icon } from "@/components/icons";
@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/page-header";
 import { StageSelect } from "@/components/stage-select";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { requireUser } from "@/lib/auth";
+import { canMoveStage } from "@/lib/permissions";
 import { ilike, listQueryString, parseListParams, totalPages } from "@/lib/list-params";
 import { prisma } from "@/lib/prisma";
 import { STAGE_OPTIONS, STAGE_ORDER, stageLabel } from "@/lib/opportunity-options";
@@ -110,7 +111,7 @@ export default async function OpportunitiesPage({
     return (
       <div className="space-y-6">
         {header}
-        {opportunities.length === 0 ? emptyState : <Board opportunities={opportunities} />}
+        {opportunities.length === 0 ? emptyState : <Board opportunities={opportunities} role={user.role} />}
       </div>
     );
   }
@@ -229,7 +230,7 @@ export default async function OpportunitiesPage({
   );
 }
 
-function Board({ opportunities }: { opportunities: OppWithRels[] }) {
+function Board({ opportunities, role }: { opportunities: OppWithRels[]; role: UserRole }) {
   const byStage = new Map<string, OppWithRels[]>();
   for (const stage of STAGE_ORDER) byStage.set(stage, []);
   for (const opp of opportunities) byStage.get(opp.stage)?.push(opp);
@@ -239,6 +240,9 @@ function Board({ opportunities }: { opportunities: OppWithRels[] }) {
       <div className="flex gap-4" style={{ minWidth: "min-content" }}>
         {STAGE_ORDER.map((stage) => {
           const items = byStage.get(stage) ?? [];
+          const moveableStages = STAGE_OPTIONS.filter(
+            (s) => s.value === stage || canMoveStage(role, stage, s.value),
+          );
           return (
             <div key={stage} className="flex w-72 shrink-0 flex-col">
               <div className="mb-2 flex items-center justify-between px-1">
@@ -264,9 +268,11 @@ function Board({ opportunities }: { opportunities: OppWithRels[] }) {
                       )}
                       {opp.priority ? <Badge tone={statusTone(opp.priority)}>{opp.priority}</Badge> : null}
                     </div>
-                    <div className="mt-2">
-                      <StageSelect action={moveOpportunityStage.bind(null, opp.id)} current={opp.stage} stages={STAGE_OPTIONS} className="w-full" />
-                    </div>
+                    {moveableStages.length > 1 ? (
+                      <div className="mt-2">
+                        <StageSelect action={moveOpportunityStage.bind(null, opp.id)} current={opp.stage} stages={moveableStages} className="w-full" />
+                      </div>
+                    ) : null}
                   </div>
                 ))}
                 {items.length === 0 ? <p className="px-1 py-4 text-center text-xs text-slate-400">—</p> : null}

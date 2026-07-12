@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";
+import { authorize } from "@/lib/authorize";
 import { NOTE_LINK_META, type NoteLinkType } from "@/lib/note-links";
 import { prisma } from "@/lib/prisma";
 
@@ -112,6 +113,7 @@ export async function updateNote(id: string, _prev: NoteFormState, formData: For
 
 export async function deleteNote(id: string) {
   const user = await requireUser();
+  await authorize(user, "DELETE", "NOTE", { targetId: id });
 
   const existing = await prisma.note.findFirst({
     where: { id, organizationId: user.organizationId },

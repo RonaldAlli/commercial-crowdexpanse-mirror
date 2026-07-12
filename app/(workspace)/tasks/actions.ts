@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";
+import { authorize } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 import { statusLabel } from "@/lib/task-options";
 
@@ -187,6 +188,7 @@ export async function setTaskStatus(id: string, formData: FormData) {
 
 export async function deleteTask(id: string) {
   const user = await requireUser();
+  await authorize(user, "DELETE", "TASK", { targetId: id });
 
   const existing = await prisma.task.findFirst({
     where: { id, organizationId: user.organizationId },

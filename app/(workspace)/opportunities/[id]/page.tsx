@@ -9,6 +9,7 @@ import { StageSelect } from "@/components/stage-select";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { GenerateMatchesButton, MatchRowControls } from "@/components/match-controls";
 import { requireUser } from "@/lib/auth";
+import { can, canMoveStage } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { matchStatusLabel, matchStatusTone } from "@/lib/match-options";
 import { STAGE_OPTIONS, stageLabel } from "@/lib/opportunity-options";
@@ -54,6 +55,13 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
 
   const deleteOpportunityBound = deleteOpportunity.bind(null, opportunity.id);
 
+  // Only the stages this role may move to from the current stage (plus the
+  // current stage itself, which stays selected). Server re-checks on submit.
+  const moveableStages = STAGE_OPTIONS.filter(
+    (s) => s.value === opportunity.stage || canMoveStage(user.role, opportunity.stage, s.value),
+  );
+  const canRemoveMatch = can(user.role, "DELETE", "BUYER_MATCH");
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -66,11 +74,13 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
               <Icon name="notes" className="h-4 w-4" />
               Edit
             </Link>
-            <form action={deleteOpportunityBound}>
-              <button type="submit" className="btn border border-rose-200 bg-white text-rose-600 hover:bg-rose-50">
-                Delete
-              </button>
-            </form>
+            {can(user.role, "DELETE", "OPPORTUNITY") ? (
+              <form action={deleteOpportunityBound}>
+                <button type="submit" className="btn border border-rose-200 bg-white text-rose-600 hover:bg-rose-50">
+                  Delete
+                </button>
+              </form>
+            ) : null}
           </>
         }
       />
@@ -83,7 +93,9 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
                 <p className="eyebrow">Stage</p>
                 <Badge tone="info" dot>{stageLabel(opportunity.stage)}</Badge>
               </div>
-              <StageSelect action={moveOpportunityStage.bind(null, opportunity.id)} current={opportunity.stage} stages={STAGE_OPTIONS} />
+              {moveableStages.length > 1 ? (
+                <StageSelect action={moveOpportunityStage.bind(null, opportunity.id)} current={opportunity.stage} stages={moveableStages} />
+              ) : null}
             </div>
             <dl className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {terms.map((t) => (
@@ -191,7 +203,7 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
                       <span className="metric text-lg font-semibold text-slate-900">{m.score ?? "—"}</span>
                       <span className="text-xs text-slate-400">/100</span>
                     </div>
-                    <MatchRowControls matchId={m.id} current={m.status} />
+                    <MatchRowControls matchId={m.id} current={m.status} canRemove={canRemoveMatch} />
                   </div>
                 </div>
               </li>

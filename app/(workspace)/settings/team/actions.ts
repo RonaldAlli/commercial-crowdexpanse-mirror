@@ -4,6 +4,7 @@ import { InvitationStatus, UserRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
 import { requireUser } from "@/lib/auth";
+import { checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
 import { hasRole, roleChangeError } from "@/lib/authz";
 import {
   generateInviteToken,
@@ -29,6 +30,9 @@ export async function updateMemberRole(
   role: string,
 ): Promise<TeamActionState> {
   const actor = await requireUser();
+  if (!(await checkAuthorized(actor, "MANAGE", "TEAM", { targetId: userId }))) {
+    return { error: GENERIC_DENIAL };
+  }
   if (!hasRole(actor, UserRole.ADMIN)) return { error: "Not authorized." };
 
   const target = await prisma.user.findFirst({
@@ -81,6 +85,9 @@ export async function createInvite(
   role: string,
 ): Promise<{ token?: string; error?: string }> {
   const actor = await requireUser();
+  if (!(await checkAuthorized(actor, "MANAGE", "INVITATION"))) {
+    return { error: GENERIC_DENIAL };
+  }
   if (!hasRole(actor, UserRole.ADMIN)) return { error: "Not authorized." };
 
   const normalized = normalizeEmail(email);
@@ -121,6 +128,9 @@ export async function createInvite(
 /** Revoke a pending invitation. ADMIN-only, org-scoped. */
 export async function revokeInvite(invitationId: string): Promise<TeamActionState> {
   const actor = await requireUser();
+  if (!(await checkAuthorized(actor, "MANAGE", "INVITATION", { targetId: invitationId }))) {
+    return { error: GENERIC_DENIAL };
+  }
   if (!hasRole(actor, UserRole.ADMIN)) return { error: "Not authorized." };
 
   const invite = await prisma.invitation.findFirst({

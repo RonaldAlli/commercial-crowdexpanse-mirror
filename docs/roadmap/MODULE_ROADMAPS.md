@@ -122,13 +122,13 @@
 - **Testing:** `e2e-notifications.mjs`. Good.
 - **Future AI:** Smart prioritization (2.0).
 
-## Team Management — 🟡 (~40%) {#team-management}
-- **Current:** Roster; role assignment (`ADMIN`/`ACQUISITIONS`/`ANALYST`/`DISPOSITIONS`); last-admin protection (`lib/authz.ts`); `/settings/team`.
-- **Completed:** Slice 1 — roster + role changes with guardrail.
-- **Future (1.1):** Permission matrix + enforcement; member deactivation/removal; org settings; audit of role changes.
-- **Dependencies:** Auth, Organization, Invitations.
-- **Known Issues:** Roles exist but aren't yet enforced across all server actions.
-- **Testing:** `e2e-team-roles.mjs`. Good for role-change rules; expand to permission enforcement.
+## Team Management — 🟡 (~50%) {#team-management}
+- **Current:** Roster; role assignment (`ADMIN`/`ACQUISITIONS`/`ANALYST`/`DISPOSITIONS`); last-admin protection (`lib/authz.ts`); `/settings/team` gated to ADMIN; role/invite actions now route through the permission layer (`MANAGE TEAM` / `MANAGE INVITATION`).
+- **Completed:** Slice 1 — roster + role changes with guardrail; permission-layer enforcement on role and invitation actions.
+- **Future (1.1):** Member deactivation/removal; org settings; broader audit of role changes; email delivery (Invitations).
+- **Dependencies:** Auth, Organization, Invitations, [Permissions](#permissions).
+- **Known Issues:** Member lifecycle (deactivate/remove) not yet built.
+- **Testing:** `e2e-team-roles.mjs` (role-change rules) + `e2e-permissions.mjs` (MANAGE enforcement + audit).
 - **Future AI:** None.
 
 ## Invitations — 🟡 (~55%) {#invitations}
@@ -140,6 +140,15 @@
 - **Testing:** `e2e-invitations.mjs` (create/accept/revoke/scope/audit). Strong.
 - **Future AI:** None.
 
+## Permissions (cross-cutting) — 🟡 (~55%) {#permissions}
+- **Current:** Single-source policy in `lib/permissions.ts` — a pure, unit-testable matrix of `can(role, action, resource)` plus segment-based `canMoveStage(role, current, target)`. Server enforcement + best-effort audit in `lib/authorize.ts` (`authorize`/`checkAuthorized`/`authorizeStageMove`), writing an `authorization.denied` ActivityLog row (role/resource/action/target) on every denial. Users only ever see one generic message.
+- **Completed (Slice 1 — high-risk ops):** deletes on all record types route through `authorize()` (uniform audit, even where every role is allowed); pipeline stage movement enforced by BOTH current and target stage (ACQUISITIONS own LEAD…UNDER_CONTRACT, DISPOSITIONS own UNDER_CONTRACT…PAID, ADMIN any incl. backward, ANALYST none); team-role and invitation actions gated by `MANAGE`. UI controls are hidden when unauthorized (defense-in-depth) but the server is always the source of truth.
+- **Future (Slice 2):** enforce ordinary create/update across server actions; extend UI hiding to edit/create entry points; consider RLS (D2) as a backstop.
+- **Dependencies:** Auth, Organization; consumed by every write-bearing module.
+- **Known Issues:** Create/update not yet enforced (deferred to Slice 2); audit is intentionally best-effort (a logging failure never blocks a denial).
+- **Testing:** `e2e-permissions.mjs` — pure truth table for `can`/`canMoveStage` (incl. the seven required pipeline cases) + DB-backed enforcement/audit/org-scoping against the `_test` DB.
+- **Future AI:** None (keep authorization deterministic).
+
 ## Better Lists (cross-cutting) — 🟢 {#better-lists}
 - **Current:** Shared `lib/list-params.ts` (page size 20, min query 2, sort whitelist, current-order default) powering Sellers, Buyers, Properties, Opportunities-List, Tasks.
 - **Completed:** All five core lists.
@@ -150,7 +159,7 @@
 - **Future AI:** Natural-language list queries (2.0).
 
 ## Testing & CI (cross-cutting) — ✅
-- **Current:** 10 E2E scripts; dedicated `_test` DB + no-override guard; runner; setup/reset/sweep tooling; GitHub Actions CI with ephemeral Postgres.
+- **Current:** 11 E2E scripts; dedicated `_test` DB + no-override guard; runner; setup/reset/sweep tooling; GitHub Actions CI with ephemeral Postgres.
 - **Completed:** Slices 1–3.
 - **Future:** Unit tests for pure `lib/*`; lint in CI; perf/load/security/DR (Testing Roadmap); Gitea Actions decision.
 - **Dependencies:** all modules.

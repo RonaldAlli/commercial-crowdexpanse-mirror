@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";
+import { authorize } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 
 export type BuyerFormState = { error?: string } | undefined;
@@ -152,6 +153,7 @@ export async function updateBuyer(
 
 export async function deleteBuyer(id: string) {
   const user = await requireUser();
+  await authorize(user, "DELETE", "BUYER", { targetId: id, buyerId: id });
 
   const existing = await prisma.buyer.findFirst({
     where: { id, organizationId: user.organizationId },

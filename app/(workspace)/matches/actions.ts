@@ -4,6 +4,7 @@ import { MatchStatus, OpportunityStage } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
 import { requireUser } from "@/lib/auth";
+import { checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 import {
   scoreBuyerForOpportunity,
@@ -199,6 +200,9 @@ export async function updateMatchStatus(
 /** Remove a match. */
 export async function deleteMatch(matchId: string): Promise<MatchActionState> {
   const user = await requireUser();
+  if (!(await checkAuthorized(user, "DELETE", "BUYER_MATCH", { targetId: matchId }))) {
+    return { error: GENERIC_DENIAL };
+  }
 
   const existing = await prisma.buyerMatch.findFirst({
     where: { id: matchId, organizationId: user.organizationId },

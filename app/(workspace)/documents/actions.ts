@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";
+import { authorize } from "@/lib/authorize";
 import { NOTE_LINK_META, type NoteLinkType } from "@/lib/note-links";
 import { prisma } from "@/lib/prisma";
 import { buildStorageKey, MAX_UPLOAD_BYTES, persistFile, removeFile } from "@/lib/storage";
@@ -140,6 +141,7 @@ export async function updateDocument(id: string, _prev: DocumentFormState, formD
 
 export async function deleteDocument(id: string) {
   const user = await requireUser();
+  await authorize(user, "DELETE", "DOCUMENT", { targetId: id });
 
   const existing = await prisma.document.findFirst({
     where: { id, organizationId: user.organizationId },

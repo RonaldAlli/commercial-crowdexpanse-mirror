@@ -22,8 +22,20 @@ export function GenerateMatchesButton({ opportunityId }: { opportunityId: string
   );
 }
 
-/** Per-row status dropdown + remove control for one buyer match. */
-export function MatchRowControls({ matchId, current }: { matchId: string; current: string }) {
+/**
+ * Per-row status dropdown + remove control for one buyer match. The Remove
+ * control is hidden unless `canRemove` (server-decided from the caller's role);
+ * deleteMatch is still authorized server-side regardless.
+ */
+export function MatchRowControls({
+  matchId,
+  current,
+  canRemove = false,
+}: {
+  matchId: string;
+  current: string;
+  canRemove?: boolean;
+}) {
   const [pending, start] = useTransition();
   return (
     <div className="flex items-center gap-3">
@@ -44,16 +56,18 @@ export function MatchRowControls({ matchId, current }: { matchId: string; curren
           </option>
         ))}
       </select>
-      <button
-        type="button"
-        className="text-xs font-medium text-rose-600 hover:underline disabled:opacity-50"
-        disabled={pending}
-        onClick={() => start(async () => {
-          await deleteMatch(matchId);
-        })}
-      >
-        Remove
-      </button>
+      {canRemove ? (
+        <button
+          type="button"
+          className="text-xs font-medium text-rose-600 hover:underline disabled:opacity-50"
+          disabled={pending}
+          onClick={() => start(async () => {
+            await deleteMatch(matchId);
+          })}
+        >
+          Remove
+        </button>
+      ) : null}
     </div>
   );
 }
