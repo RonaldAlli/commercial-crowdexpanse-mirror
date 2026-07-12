@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";
-import { authorize } from "@/lib/authorize";
+import { authorize, checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 
 export type SellerFormState = { error?: string } | undefined;
@@ -31,6 +31,7 @@ export async function createSeller(
   formData: FormData,
 ): Promise<SellerFormState> {
   const user = await requireUser();
+  if (!(await checkAuthorized(user, "CREATE", "SELLER"))) return { error: GENERIC_DENIAL };
   const data = parseSeller(formData);
 
   if (!data.name) {
@@ -72,6 +73,9 @@ export async function updateSeller(
   formData: FormData,
 ): Promise<SellerFormState> {
   const user = await requireUser();
+  if (!(await checkAuthorized(user, "UPDATE", "SELLER", { targetId: id, sellerId: id }))) {
+    return { error: GENERIC_DENIAL };
+  }
   const data = parseSeller(formData);
 
   if (!data.name) {

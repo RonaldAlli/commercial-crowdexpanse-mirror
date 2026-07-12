@@ -12,7 +12,7 @@
 | D4 | **Backups implemented** (`scripts/backup.sh`, six-stage, encrypted, verified restore) — **not yet scheduled; R2 creds not provisioned** | Off-host DR incomplete until R2 + cron enabled | Provision R2 bucket/creds + enable cron/timers (operational step) |
 | D5 | **`.next` nested files root-owned on host** | Plain `npm run build` fails on host; must use `build:isolated` | One-time `sudo chown`; low urgency |
 | D6 | **No email transport** | Invitations can't deliver; no notifications/campaigns | 1.1 (invitations) / 2.0 (campaigns) |
-| D7 | **Roles enforced on high-risk ops (Slice 1); create/update still open** | Deletes, pipeline moves, team/invite actions are now policy-checked + audited; ordinary create/update remain unenforced | 1.1 permission matrix **Slice 2** (create/update) |
+| D7 | ✅ **Resolved — RBAC enforced across all write actions** (Slice 1 + 2) | Policy in `lib/permissions.ts`, enforced + audited in `lib/authorize.ts`; every create/update/delete/move/manage checks it. Field-level limited to opportunity stage by decision | Resolved (Slice 2) |
 | D8 | **No unit tests on pure logic** | Underwriting/matching math unguarded | 1.1 (lib), 1.3 (formulas) |
 | D9 | **Gitea Actions unconfirmed** | CI runs only on the GitHub mirror | When a Gitea runner is confirmed |
 | D10 | **Password reset / session policy absent** | Operational friction; unclear session lifetime | 1.1 hardening |
@@ -20,7 +20,7 @@
 ## Future Refactors
 - **Migrations:** adopt `prisma migrate` with a baseline from current schema (resolves D1); wire into deploy + CI.
 - **Storage abstraction:** put an interface in front of `lib/storage.ts` so local↔object storage is swappable (D3).
-- **Authorization layer:** ✅ centralized in `lib/permissions.ts` (pure policy) + `lib/authorize.ts` (enforcement + audit). Slice 1 covers high-risk ops; Slice 2 extends it to create/update (D7).
+- **Authorization layer:** ✅ done (D7). Centralized in `lib/permissions.ts` (pure policy) + `lib/authorize.ts` (enforcement + audit); all write actions checked, denials audited, ADMIN denial report at `/settings/security`. Future (post-1.1): field-level financial permissions and RLS backstop only if a business need appears.
 - **List relation search:** generalize `lib/list-params.ts` to support relation filters cleanly (deferred across Better Lists slices).
 
 ## Performance

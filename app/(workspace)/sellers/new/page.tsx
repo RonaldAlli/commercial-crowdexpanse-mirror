@@ -1,9 +1,16 @@
+import { notFound } from "next/navigation";
+
 import { PageHeader } from "@/components/page-header";
 import { SellerForm } from "@/components/seller-form";
+import { requireUser } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 
 import { createSeller } from "../actions";
 
-export default function NewSellerPage() {
+export default async function NewSellerPage() {
+  const user = await requireUser();
+  if (!can(user.role, "CREATE", "SELLER")) notFound();
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <PageHeader

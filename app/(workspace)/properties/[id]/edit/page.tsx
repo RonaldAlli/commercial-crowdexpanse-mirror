@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { PropertyForm } from "@/components/property-form";
 import { requireUser } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { ASSET_TYPE_OPTIONS, PROPERTY_STATUSES } from "@/lib/property-options";
 
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function EditPropertyPage({ params }: { params: { id: string } }) {
   const user = await requireUser();
+  if (!can(user.role, "UPDATE", "PROPERTY")) notFound();
 
   const [property, sellers] = await Promise.all([
     prisma.property.findFirst({ where: { id: params.id, organizationId: user.organizationId } }),

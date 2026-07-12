@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";
-import { authorize, authorizeStageMove } from "@/lib/authorize";
+import { authorize, authorizeStageMove, checkAuthorized, checkStageMove, GENERIC_DENIAL } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 import { stageLabel } from "@/lib/opportunity-options";
 
@@ -102,6 +102,7 @@ export async function createOpportunity(
   formData: FormData,
 ): Promise<OpportunityFormState> {
   const user = await requireUser();
+  if (!(await checkAuthorized(user, "CREATE", "OPPORTUNITY"))) return { error: GENERIC_DENIAL };
   const result = await buildPayload(formData, user.organizationId, true);
   if ("error" in result) return { error: result.error };
 
@@ -133,6 +134,9 @@ export async function updateOpportunity(
   formData: FormData,
 ): Promise<OpportunityFormState> {
   const user = await requireUser();
+  if (!(await checkAuthorized(user, "UPDATE", "OPPORTUNITY", { targetId: id, opportunityId: id }))) {
+    return { error: GENERIC_DENIAL };
+  }
 
   const existing = await prisma.opportunity.findFirst({
     where: { id, organizationId: user.organizationId },
@@ -141,6 +145,17 @@ export async function updateOpportunity(
 
   const result = await buildPayload(formData, user.organizationId, false);
   if ("error" in result) return { error: result.error };
+
+  // Stage is a field with its own permission (segment ownership). A stage change
+  // the caller isn't allowed to make rejects the ENTIRE update — no partial save.
+  if (existing.stage !== result.payload.stage) {
+    const allowed = await checkStageMove(user, existing.stage, result.payload.stage, {
+      opportunityId: existing.id,
+      sellerId: existing.sellerId ?? undefined,
+      propertyId: existing.propertyId,
+    });
+    if (!allowed) return { error: GENERIC_DENIAL };
+  }
 
   const opportunity = await prisma.opportunity.update({
     where: { id: existing.id },

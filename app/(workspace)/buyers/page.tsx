@@ -6,6 +6,7 @@ import { Icon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { requireUser } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { ilike, listQueryString, parseListParams, totalPages } from "@/lib/list-params";
 import { prisma } from "@/lib/prisma";
 import { titleCase } from "@/lib/property-options";
@@ -78,10 +79,12 @@ export default async function BuyersPage({
         title="Buyers"
         description="Capital partners by asset appetite, target market, and purchase range."
         actions={
-          <Link className="btn-primary" href="/buyers/new">
-            Add buyer
-            <Icon name="arrowUpRight" className="h-4 w-4" />
-          </Link>
+          can(user.role, "CREATE", "BUYER") ? (
+            <Link className="btn-primary" href="/buyers/new">
+              Add buyer
+              <Icon name="arrowUpRight" className="h-4 w-4" />
+            </Link>
+          ) : null
         }
       />
 
@@ -196,9 +199,11 @@ export default async function BuyersPage({
             title="No buyers yet"
             description="Add capital partners to match against your acquisition pipeline."
             action={
-              <Link className="btn-primary" href="/buyers/new">
-                Add buyer
-              </Link>
+              can(user.role, "CREATE", "BUYER") ? (
+                <Link className="btn-primary" href="/buyers/new">
+                  Add buyer
+                </Link>
+              ) : null
             }
           />
         </div>

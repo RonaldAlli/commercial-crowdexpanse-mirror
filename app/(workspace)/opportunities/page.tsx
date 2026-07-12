@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/page-header";
 import { StageSelect } from "@/components/stage-select";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { requireUser } from "@/lib/auth";
-import { canMoveStage } from "@/lib/permissions";
+import { can, canMoveStage } from "@/lib/permissions";
 import { ilike, listQueryString, parseListParams, totalPages } from "@/lib/list-params";
 import { prisma } from "@/lib/prisma";
 import { STAGE_OPTIONS, STAGE_ORDER, stageLabel } from "@/lib/opportunity-options";
@@ -81,10 +81,12 @@ export default async function OpportunitiesPage({
               List
             </Link>
           </div>
-          <Link className="btn-primary" href="/opportunities/new">
-            New opportunity
-            <Icon name="arrowUpRight" className="h-4 w-4" />
-          </Link>
+          {can(user.role, "CREATE", "OPPORTUNITY") ? (
+            <Link className="btn-primary" href="/opportunities/new">
+              New opportunity
+              <Icon name="arrowUpRight" className="h-4 w-4" />
+            </Link>
+          ) : null}
         </div>
       }
     />
@@ -97,9 +99,11 @@ export default async function OpportunitiesPage({
         title="No opportunities yet"
         description="Create your first opportunity to start moving deals through the pipeline."
         action={
-          <Link className="btn-primary" href="/opportunities/new">
-            New opportunity
-          </Link>
+          can(user.role, "CREATE", "OPPORTUNITY") ? (
+            <Link className="btn-primary" href="/opportunities/new">
+              New opportunity
+            </Link>
+          ) : null
         }
       />
     </div>

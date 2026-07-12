@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";
+import { checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
 import { computeAnalysis } from "@/lib/analysis";
 import { prisma } from "@/lib/prisma";
 
@@ -33,6 +34,9 @@ export async function saveAnalysis(
   formData: FormData,
 ): Promise<AnalysisFormState> {
   const user = await requireUser();
+  if (!(await checkAuthorized(user, "UPDATE", "DEAL_ANALYSIS", { opportunityId }))) {
+    return { error: GENERIC_DENIAL };
+  }
 
   // Org-scope through the opportunity, and pull property context for the math.
   const opportunity = await prisma.opportunity.findFirst({

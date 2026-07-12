@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { OpportunityForm } from "@/components/opportunity-form";
 import { requireUser } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { PRIORITY_OPTIONS, STAGE_OPTIONS } from "@/lib/opportunity-options";
 
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function EditOpportunityPage({ params }: { params: { id: string } }) {
   const user = await requireUser();
+  if (!can(user.role, "UPDATE", "OPPORTUNITY")) notFound();
 
   const [opportunity, properties, sellers] = await Promise.all([
     prisma.opportunity.findFirst({ where: { id: params.id, organizationId: user.organizationId } }),

@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";
-import { authorize } from "@/lib/authorize";
+import { authorize, checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 import { titleCase } from "@/lib/property-options";
 
@@ -107,6 +107,7 @@ export async function createProperty(
   formData: FormData,
 ): Promise<PropertyFormState> {
   const user = await requireUser();
+  if (!(await checkAuthorized(user, "CREATE", "PROPERTY"))) return { error: GENERIC_DENIAL };
   const result = await buildPayload(formData, user.organizationId);
   if ("error" in result) return { error: result.error };
 
@@ -137,6 +138,9 @@ export async function updateProperty(
   formData: FormData,
 ): Promise<PropertyFormState> {
   const user = await requireUser();
+  if (!(await checkAuthorized(user, "UPDATE", "PROPERTY", { targetId: id, propertyId: id }))) {
+    return { error: GENERIC_DENIAL };
+  }
 
   const existing = await prisma.property.findFirst({
     where: { id, organizationId: user.organizationId },

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { AnalysisForm } from "@/components/analysis-form";
 import { PageHeader } from "@/components/page-header";
 import { requireUser } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 import { saveAnalysis } from "../../actions";
@@ -16,6 +17,7 @@ function usd(value: number | null) {
 
 export default async function EditAnalysisPage({ params }: { params: { opportunityId: string } }) {
   const user = await requireUser();
+  if (!can(user.role, "UPDATE", "DEAL_ANALYSIS")) notFound();
 
   const opportunity = await prisma.opportunity.findFirst({
     where: { id: params.opportunityId, organizationId: user.organizationId },

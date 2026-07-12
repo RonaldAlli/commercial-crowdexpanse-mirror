@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";
-import { authorize } from "@/lib/authorize";
+import { authorize, checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 
 export type BuyerFormState = { error?: string } | undefined;
@@ -71,6 +71,7 @@ export async function createBuyer(
   formData: FormData,
 ): Promise<BuyerFormState> {
   const user = await requireUser();
+  if (!(await checkAuthorized(user, "CREATE", "BUYER"))) return { error: GENERIC_DENIAL };
   const data = parseBuyer(formData);
   const error = validate(data);
   if (error) return { error };
@@ -111,6 +112,9 @@ export async function updateBuyer(
   formData: FormData,
 ): Promise<BuyerFormState> {
   const user = await requireUser();
+  if (!(await checkAuthorized(user, "UPDATE", "BUYER", { targetId: id, buyerId: id }))) {
+    return { error: GENERIC_DENIAL };
+  }
 
   const existing = await prisma.buyer.findFirst({
     where: { id, organizationId: user.organizationId },

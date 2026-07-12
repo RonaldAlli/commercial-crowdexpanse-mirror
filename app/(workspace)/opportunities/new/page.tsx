@@ -1,6 +1,9 @@
 import { PageHeader } from "@/components/page-header";
 import { OpportunityForm } from "@/components/opportunity-form";
+import { notFound } from "next/navigation";
+
 import { requireUser } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { PRIORITY_OPTIONS, STAGE_OPTIONS } from "@/lib/opportunity-options";
 
@@ -10,6 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function NewOpportunityPage() {
   const user = await requireUser();
+  if (!can(user.role, "CREATE", "OPPORTUNITY")) notFound();
 
   const [properties, sellers] = await Promise.all([
     prisma.property.findMany({

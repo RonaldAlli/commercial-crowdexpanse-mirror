@@ -70,10 +70,12 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
         description={`${opportunity.property.name} · ${titleCase(opportunity.property.assetType)}`}
         actions={
           <>
-            <Link className="btn-ghost" href={`/opportunities/${opportunity.id}/edit`}>
-              <Icon name="notes" className="h-4 w-4" />
-              Edit
-            </Link>
+            {can(user.role, "UPDATE", "OPPORTUNITY") ? (
+              <Link className="btn-ghost" href={`/opportunities/${opportunity.id}/edit`}>
+                <Icon name="notes" className="h-4 w-4" />
+                Edit
+              </Link>
+            ) : null}
             {can(user.role, "DELETE", "OPPORTUNITY") ? (
               <form action={deleteOpportunityBound}>
                 <button type="submit" className="btn border border-rose-200 bg-white text-rose-600 hover:bg-rose-50">

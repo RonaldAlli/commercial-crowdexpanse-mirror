@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { EmptyState } from "@/components/empty-state";
 import { Icon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { requireUser } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { computeAnalysis } from "@/lib/analysis";
 import { prisma } from "@/lib/prisma";
 import { titleCase } from "@/lib/property-options";
@@ -33,7 +35,28 @@ export default async function AnalysisViewPage({ params }: { params: { opportuni
     notFound();
   }
   if (!opportunity.analysis) {
-    redirect(`/analyzer/${opportunity.id}/edit`);
+    // Writers go straight to the builder. Read-only roles can't create one and
+    // would hit the guarded edit route's notFound() — show an empty view instead.
+    if (can(user.role, "UPDATE", "DEAL_ANALYSIS")) {
+      redirect(`/analyzer/${opportunity.id}/edit`);
+    }
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          eyebrow="Underwriting"
+          title={opportunity.title}
+          description={`${opportunity.property.name} · ${titleCase(opportunity.property.assetType)}`}
+          actions={
+            <Link className="btn-ghost" href={`/opportunities/${opportunity.id}`}>
+              Opportunity
+            </Link>
+          }
+        />
+        <div className="card">
+          <EmptyState icon="analyzer" title="No analysis yet" description="An analyst hasn't underwritten this opportunity yet." />
+        </div>
+      </div>
+    );
   }
 
   const a = opportunity.analysis;
@@ -75,10 +98,12 @@ export default async function AnalysisViewPage({ params }: { params: { opportuni
             <Link className="btn-ghost" href={`/opportunities/${opportunity.id}`}>
               Opportunity
             </Link>
-            <Link className="btn-primary" href={`/analyzer/${opportunity.id}/edit`}>
-              <Icon name="notes" className="h-4 w-4" />
-              Edit analysis
-            </Link>
+            {can(user.role, "UPDATE", "DEAL_ANALYSIS") ? (
+              <Link className="btn-primary" href={`/analyzer/${opportunity.id}/edit`}>
+                <Icon name="notes" className="h-4 w-4" />
+                Edit analysis
+              </Link>
+            ) : null}
           </>
         }
       />

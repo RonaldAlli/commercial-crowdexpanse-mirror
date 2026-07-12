@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";
-import { authorize } from "@/lib/authorize";
+import { authorize, checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
 import { NOTE_LINK_META, type NoteLinkType } from "@/lib/note-links";
 import { prisma } from "@/lib/prisma";
 
@@ -52,6 +52,7 @@ async function buildPayload(formData: FormData, organizationId: string) {
 
 export async function createNote(_prev: NoteFormState, formData: FormData): Promise<NoteFormState> {
   const user = await requireUser();
+  if (!(await checkAuthorized(user, "CREATE", "NOTE"))) return { error: GENERIC_DENIAL };
   const result = await buildPayload(formData, user.organizationId);
   if ("error" in result) return { error: result.error };
 
@@ -81,6 +82,9 @@ export async function createNote(_prev: NoteFormState, formData: FormData): Prom
 
 export async function updateNote(id: string, _prev: NoteFormState, formData: FormData): Promise<NoteFormState> {
   const user = await requireUser();
+  if (!(await checkAuthorized(user, "UPDATE", "NOTE", { targetId: id }))) {
+    return { error: GENERIC_DENIAL };
+  }
 
   const existing = await prisma.note.findFirst({
     where: { id, organizationId: user.organizationId },

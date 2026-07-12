@@ -44,6 +44,9 @@ export async function generateMatches(
   opportunityId: string,
 ): Promise<{ created: number; updated: number; considered: number } | { error: string }> {
   const user = await requireUser();
+  if (!(await checkAuthorized(user, "CREATE", "BUYER_MATCH", { opportunityId }))) {
+    return { error: GENERIC_DENIAL };
+  }
 
   const opportunity = await prisma.opportunity.findFirst({
     where: { id: opportunityId, organizationId: user.organizationId },
@@ -136,6 +139,9 @@ export async function updateMatchStatus(
   status: string,
 ): Promise<MatchActionState> {
   const user = await requireUser();
+  if (!(await checkAuthorized(user, "UPDATE", "BUYER_MATCH", { targetId: matchId }))) {
+    return { error: GENERIC_DENIAL };
+  }
 
   if (!VALID_STATUSES.has(status)) return { error: "Invalid match status." };
 

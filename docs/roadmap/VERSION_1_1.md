@@ -1,7 +1,7 @@
 # Version 1.1 — Operational Excellence
 
 > **Theme:** Make the existing workflow trustworthy before adding surface area.
-> **Status:** 🟡 In progress (~82%). Testing/CI, Better Lists, and permissions Slice 1 (high-risk ops) done; permissions Slice 2 (create/update), team/invite lifecycle, and performance remain.
+> **Status:** 🟡 In progress (~88%). Testing/CI, Better Lists, and permissions (Slices 1 + 2) done; team/invite lifecycle and performance remain.
 
 ## Goal
 Everything the team already does daily should be fast, safe, tested, and permission-aware. No new domain surface — depth over breadth.
@@ -13,10 +13,11 @@ Search + sort + pagination shipped for **all five core lists** (Sellers, Buyers,
 - **Remaining:** relation search (seller-name on properties; property/seller/owner on opportunities & tasks); optional extra sorts (e.g. asking-price); saved views / column controls; board-view filtering for Opportunities.
 - See [Better Lists module roadmap](./MODULE_ROADMAPS.md#better-lists).
 
-### 2. Permissions — 🟡 partial (Slice 1 done)
-Role model exists (`ADMIN`/`ACQUISITIONS`/`ANALYST`/`DISPOSITIONS`) with last-admin protection.
-- **Slice 1 (done):** documented **permission matrix** as a single source of truth (`lib/permissions.ts`), enforced server-side for **high-risk operations** — deletes (all record types), pipeline stage movement (segment-based on current **and** target stage), and team/invitation management — with an `authorization.denied` audit trail and a generic user-facing message. Unauthorized UI controls are hidden; the server is always authoritative. Covered by `e2e-permissions.mjs`.
-- **Remaining (Slice 2):** enforce ordinary create/update in server actions and hide their entry points; complete Team Management (member lifecycle) and Invitations (email delivery, resend/expiry UX).
+### 2. Permissions — 🟢 done (Slices 1 + 2)
+Role model (`ADMIN`/`ACQUISITIONS`/`ANALYST`/`DISPOSITIONS`) with last-admin protection, now fully enforced.
+- **Slice 1:** documented **permission matrix** as a single source of truth (`lib/permissions.ts`), enforced server-side for high-risk operations — deletes, pipeline stage movement (segment-based on current **and** target stage), team/invitation management — with an `authorization.denied` audit trail and a generic user-facing message.
+- **Slice 2:** ordinary create/update enforced across every write action; opportunity-edit stage changes rejected in full when disallowed (the one field-level rule — no `canEditField`); create/edit UI hidden and `/new` + `/[id]/edit` routes guarded (`can()` + `notFound()`, no audit on page loads); ADMIN-only **Access denials** report at `/settings/security`. The five [Authorization Principles](./ENGINEERING_MASTER_PLAN.md#authorization-principles) are documented in the EMP.
+- **Remaining for 1.1 (separate modules):** complete Team Management (member lifecycle) and Invitations (email delivery, resend/expiry UX).
 - See [Permissions](./MODULE_ROADMAPS.md#permissions), [Team Management](./MODULE_ROADMAPS.md#team-management), and [Invitations](./MODULE_ROADMAPS.md#invitations).
 
 ### 3. Testing — 🟢 done (foundation)
@@ -33,7 +34,7 @@ GitHub Actions on the mirror with ephemeral Postgres runs `test:ci` + build on p
 - Introduce Prisma query timing in dev; eliminate N+1 in list includes.
 
 ## Release Checklist (1.1)
-- [~] Permission matrix documented and enforced in server actions. (Slice 1: high-risk ops done; Slice 2: create/update pending.)
+- [x] Permission matrix documented and enforced in server actions. (Slices 1 + 2 complete; enforcement + audit across all write actions.)
 - [ ] Team Management Slice 2 + Invitations delivery shipped.
 - [ ] Relation search decision made (ship or explicitly defer to 1.2).
 - [ ] Unit tests for the four pure `lib/*` modules.

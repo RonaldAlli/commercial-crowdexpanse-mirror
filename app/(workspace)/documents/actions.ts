@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";
-import { authorize } from "@/lib/authorize";
+import { authorize, checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
 import { NOTE_LINK_META, type NoteLinkType } from "@/lib/note-links";
 import { prisma } from "@/lib/prisma";
 import { buildStorageKey, MAX_UPLOAD_BYTES, persistFile, removeFile } from "@/lib/storage";
@@ -56,6 +56,7 @@ async function resolveMeta(formData: FormData, organizationId: string) {
 
 export async function uploadDocument(_prev: DocumentFormState, formData: FormData): Promise<DocumentFormState> {
   const user = await requireUser();
+  if (!(await checkAuthorized(user, "CREATE", "DOCUMENT"))) return { error: GENERIC_DENIAL };
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
@@ -105,6 +106,9 @@ export async function uploadDocument(_prev: DocumentFormState, formData: FormDat
 /** Edit metadata only (title, type, link) — not the file bytes. */
 export async function updateDocument(id: string, _prev: DocumentFormState, formData: FormData): Promise<DocumentFormState> {
   const user = await requireUser();
+  if (!(await checkAuthorized(user, "UPDATE", "DOCUMENT", { targetId: id }))) {
+    return { error: GENERIC_DENIAL };
+  }
 
   const existing = await prisma.document.findFirst({
     where: { id, organizationId: user.organizationId },

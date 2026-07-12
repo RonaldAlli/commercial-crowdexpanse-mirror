@@ -140,13 +140,15 @@
 - **Testing:** `e2e-invitations.mjs` (create/accept/revoke/scope/audit). Strong.
 - **Future AI:** None.
 
-## Permissions (cross-cutting) — 🟡 (~55%) {#permissions}
+## Permissions (cross-cutting) — 🟢 (~90%) {#permissions}
+- **Principles:** the five non-negotiable rules live in the EMP → [Authorization Principles](./ENGINEERING_MASTER_PLAN.md#authorization-principles). Read them before adding any write action.
 - **Current:** Single-source policy in `lib/permissions.ts` — a pure, unit-testable matrix of `can(role, action, resource)` plus segment-based `canMoveStage(role, current, target)`. Server enforcement + best-effort audit in `lib/authorize.ts` (`authorize`/`checkAuthorized`/`authorizeStageMove`), writing an `authorization.denied` ActivityLog row (role/resource/action/target) on every denial. Users only ever see one generic message.
-- **Completed (Slice 1 — high-risk ops):** deletes on all record types route through `authorize()` (uniform audit, even where every role is allowed); pipeline stage movement enforced by BOTH current and target stage (ACQUISITIONS own LEAD…UNDER_CONTRACT, DISPOSITIONS own UNDER_CONTRACT…PAID, ADMIN any incl. backward, ANALYST none); team-role and invitation actions gated by `MANAGE`. UI controls are hidden when unauthorized (defense-in-depth) but the server is always the source of truth.
-- **Future (Slice 2):** enforce ordinary create/update across server actions; extend UI hiding to edit/create entry points; consider RLS (D2) as a backstop.
+- **Completed (Slice 1 — high-risk ops):** deletes on all record types route through `authorize()` (uniform audit, even where every role is allowed); pipeline stage movement enforced by BOTH current and target stage (ACQUISITIONS own LEAD…UNDER_CONTRACT, DISPOSITIONS own UNDER_CONTRACT…PAID, ADMIN any incl. backward, ANALYST none); team-role and invitation actions gated by `MANAGE`.
+- **Completed (Slice 2 — create/update + surfaces):** ordinary create/update enforced across every write action (sellers, properties, opportunities, buyers, deal analysis, buyer-match generation/status, tasks/notes/documents for uniform audit); an opportunity edit that changes `stage` is rejected in full if the move isn't allowed (stage is the one field-level rule — no `canEditField`); create/edit UI entry points hidden and `/new` + `/[id]/edit` routes guarded with `can()` + `notFound()` (no audit on page loads); ADMIN-only read-only **Access denials** report at `/settings/security` (actor/role/resource/action/target/timestamp + counts by user and resource·action, from existing `ActivityLog`).
+- **Future (1.2+):** field-level financial permissions if a business need appears; RLS (D2) as a backstop; denial thresholds/alerting (deferred, edges into 2.0).
 - **Dependencies:** Auth, Organization; consumed by every write-bearing module.
-- **Known Issues:** Create/update not yet enforced (deferred to Slice 2); audit is intentionally best-effort (a logging failure never blocks a denial).
-- **Testing:** `e2e-permissions.mjs` — pure truth table for `can`/`canMoveStage` (incl. the seven required pipeline cases) + DB-backed enforcement/audit/org-scoping against the `_test` DB.
+- **Known Issues:** Audit is intentionally best-effort (a logging failure never blocks a denial); no field-level permissions beyond opportunity stage (by decision).
+- **Testing:** `e2e-permissions.mjs` — pure truth table for `can`/`canMoveStage` (incl. the seven required pipeline cases) + DB-backed enforcement/audit/org-scoping (create/update, edit-path stage denial, submit-only audit invariant) against the `_test` DB.
 - **Future AI:** None (keep authorization deterministic).
 
 ## Better Lists (cross-cutting) — 🟢 {#better-lists}

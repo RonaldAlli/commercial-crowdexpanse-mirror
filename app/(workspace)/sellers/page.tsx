@@ -6,6 +6,7 @@ import { Icon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { requireUser } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { ilike, listQueryString, parseListParams, totalPages } from "@/lib/list-params";
 import { prisma } from "@/lib/prisma";
 
@@ -68,10 +69,12 @@ export default async function SellersPage({
         title="Sellers"
         description="Owner relationships and motivation tracking across active markets."
         actions={
-          <Link className="btn-primary" href="/sellers/new">
-            Add seller
-            <Icon name="arrowUpRight" className="h-4 w-4" />
-          </Link>
+          can(user.role, "CREATE", "SELLER") ? (
+            <Link className="btn-primary" href="/sellers/new">
+              Add seller
+              <Icon name="arrowUpRight" className="h-4 w-4" />
+            </Link>
+          ) : null
         }
       />
 
@@ -202,9 +205,11 @@ export default async function SellersPage({
             title="No sellers yet"
             description="Add your first motivated seller to start building acquisition pipeline."
             action={
-              <Link className="btn-primary" href="/sellers/new">
-                Add seller
-              </Link>
+              can(user.role, "CREATE", "SELLER") ? (
+                <Link className="btn-primary" href="/sellers/new">
+                  Add seller
+                </Link>
+              ) : null
             }
           />
         </div>

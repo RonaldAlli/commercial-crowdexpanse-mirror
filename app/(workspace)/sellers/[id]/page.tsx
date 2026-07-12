@@ -55,10 +55,12 @@ export default async function SellerDetailPage({ params }: { params: { id: strin
         description={seller.company ?? undefined}
         actions={
           <>
-            <Link className="btn-ghost" href={`/sellers/${seller.id}/edit`}>
-              <Icon name="notes" className="h-4 w-4" />
-              Edit
-            </Link>
+            {can(user.role, "UPDATE", "SELLER") ? (
+              <Link className="btn-ghost" href={`/sellers/${seller.id}/edit`}>
+                <Icon name="notes" className="h-4 w-4" />
+                Edit
+              </Link>
+            ) : null}
             {can(user.role, "DELETE", "SELLER") ? (
               <form action={deleteSellerBound}>
                 <button

@@ -6,6 +6,7 @@ import { Icon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { requireUser } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { ilike, listQueryString, parseListParams, totalPages } from "@/lib/list-params";
 import { prisma } from "@/lib/prisma";
 import { titleCase } from "@/lib/property-options";
@@ -79,10 +80,12 @@ export default async function PropertiesPage({
         title="Properties"
         description="Asset inventory tied to sellers, underwriting, and opportunity flow."
         actions={
-          <Link className="btn-primary" href="/properties/new">
-            Add property
-            <Icon name="arrowUpRight" className="h-4 w-4" />
-          </Link>
+          can(user.role, "CREATE", "PROPERTY") ? (
+            <Link className="btn-primary" href="/properties/new">
+              Add property
+              <Icon name="arrowUpRight" className="h-4 w-4" />
+            </Link>
+          ) : null
         }
       />
 
@@ -203,9 +206,11 @@ export default async function PropertiesPage({
             title="No properties yet"
             description="Add your first commercial asset to start underwriting and matching."
             action={
-              <Link className="btn-primary" href="/properties/new">
-                Add property
-              </Link>
+              can(user.role, "CREATE", "PROPERTY") ? (
+                <Link className="btn-primary" href="/properties/new">
+                  Add property
+                </Link>
+              ) : null
             }
           />
         </div>

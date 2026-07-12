@@ -1,6 +1,9 @@
 import { PageHeader } from "@/components/page-header";
 import { PropertyForm } from "@/components/property-form";
+import { notFound } from "next/navigation";
+
 import { requireUser } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { ASSET_TYPE_OPTIONS, PROPERTY_STATUSES } from "@/lib/property-options";
 
@@ -10,6 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function NewPropertyPage() {
   const user = await requireUser();
+  if (!can(user.role, "CREATE", "PROPERTY")) notFound();
 
   const sellers = await prisma.seller.findMany({
     where: { organizationId: user.organizationId },

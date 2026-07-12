@@ -51,10 +51,12 @@ export default async function BuyerDetailPage({ params }: { params: { id: string
         description={buyer.company ?? undefined}
         actions={
           <>
-            <Link className="btn-ghost" href={`/buyers/${buyer.id}/edit`}>
-              <Icon name="notes" className="h-4 w-4" />
-              Edit
-            </Link>
+            {can(user.role, "UPDATE", "BUYER") ? (
+              <Link className="btn-ghost" href={`/buyers/${buyer.id}/edit`}>
+                <Icon name="notes" className="h-4 w-4" />
+                Edit
+              </Link>
+            ) : null}
             {can(user.role, "DELETE", "BUYER") ? (
               <form action={deleteBuyerBound}>
                 <button type="submit" className="btn border border-rose-200 bg-white text-rose-600 hover:bg-rose-50">

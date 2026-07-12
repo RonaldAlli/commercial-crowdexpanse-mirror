@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";
-import { authorize } from "@/lib/authorize";
+import { authorize, checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 import { statusLabel } from "@/lib/task-options";
 
@@ -75,6 +75,7 @@ async function buildPayload(formData: FormData, organizationId: string, forCreat
 
 export async function createTask(_prev: TaskFormState, formData: FormData): Promise<TaskFormState> {
   const user = await requireUser();
+  if (!(await checkAuthorized(user, "CREATE", "TASK"))) return { error: GENERIC_DENIAL };
   const result = await buildPayload(formData, user.organizationId, true);
   if ("error" in result) return { error: result.error };
 
@@ -103,6 +104,9 @@ export async function updateTask(
   formData: FormData,
 ): Promise<TaskFormState> {
   const user = await requireUser();
+  if (!(await checkAuthorized(user, "UPDATE", "TASK", { targetId: id }))) {
+    return { error: GENERIC_DENIAL };
+  }
 
   const existing = await prisma.task.findFirst({
     where: { id, organizationId: user.organizationId },
@@ -157,6 +161,7 @@ export async function updateTask(
 /** Inline status change from the task list. Logs task.completed or task.updated. */
 export async function setTaskStatus(id: string, formData: FormData) {
   const user = await requireUser();
+  await authorize(user, "UPDATE", "TASK", { targetId: id });
   const next = String(formData.get("status") ?? "").trim();
   if (!VALID_STATUSES.has(next)) return;
 

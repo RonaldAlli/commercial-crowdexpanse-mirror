@@ -94,7 +94,16 @@ Browser → middleware (session gate) → Server Component (reads via Prisma, or
 `Organization` owns everything. `Seller` → `Property` → `Opportunity` (pipeline) → `DealAnalysis` (underwriting) and `BuyerMatch` (→ `Buyer`). `Task`/`Note`/`Document`/`ActivityLog` attach to opportunities and records. See [FEATURE_DEPENDENCIES.md](./FEATURE_DEPENDENCIES.md).
 
 ### Security Model
-Session-cookie auth → middleware gate → per-request `requireUser`/`requireRole` → org-scoped queries. Uploads are size-capped and path-guarded. Secrets via env (`SESSION_SECRET`, `DATABASE_URL`). Future: audit hardening, rate limiting, RBAC matrix — see [Tech Debt](./TECHNICAL_DEBT.md) and [1.1](./VERSION_1_1.md).
+Session-cookie auth → middleware gate → per-request `requireUser`/`requireRole` → org-scoped queries. Uploads are size-capped and path-guarded. Secrets via env (`SESSION_SECRET`, `DATABASE_URL`). RBAC is enforced through the Authorization Principles below. Future: audit hardening, rate limiting — see [Tech Debt](./TECHNICAL_DEBT.md) and [1.1](./VERSION_1_1.md).
+
+### Authorization Principles
+The permission model has one policy source (`lib/permissions.ts`, pure) and one enforcement/audit layer (`lib/authorize.ts`). Every contributor must follow these rules; the [Permissions module roadmap](./MODULE_ROADMAPS.md#permissions) links here.
+
+1. **UI is never authoritative.** Hidden buttons and route guards are convenience and defense-in-depth only. The server is the sole source of truth.
+2. **Server actions always enforce permissions.** Every write-bearing server action checks the policy before mutating — never rely on the caller having been gated upstream.
+3. **`authorization.denied` is logged only for attempted mutations.** A denied *action* is a security event and is recorded (actor, role, resource, action, target, timestamp). Page loads, hidden-control checks, and route-guard `notFound()`s are **not** logged — use the pure `can()`/`canMoveStage()` for those, and `authorize()`/`checkAuthorized()`/`authorizeStageMove()` (which log) only inside server actions.
+4. **Every new write action must call `authorize()`** (or `checkAuthorized()` for state-returning actions; the stage-move variants for pipeline changes). No write reaches Prisma without passing the policy.
+5. **Every new feature must declare its resource/action mapping** in `lib/permissions.ts` (the `Resource`/`Action` matrix, and `canMoveStage` for any staged workflow) — the matrix is the single place the model is defined.
 
 ### Organization Scoping
 The load-bearing invariant: **no query crosses `organizationId`.** Every new model, query, and E2E must assert org isolation (the E2E suite already does per module).

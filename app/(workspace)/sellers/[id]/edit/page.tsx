@@ -3,12 +3,14 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { SellerForm } from "@/components/seller-form";
 import { requireUser } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 import { updateSeller } from "../../actions";
 
 export default async function EditSellerPage({ params }: { params: { id: string } }) {
   const user = await requireUser();
+  if (!can(user.role, "UPDATE", "SELLER")) notFound();
 
   const seller = await prisma.seller.findFirst({
     where: { id: params.id, organizationId: user.organizationId },
