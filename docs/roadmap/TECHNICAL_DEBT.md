@@ -9,7 +9,7 @@
 | D1 | **No Prisma migration history** — schema managed by `db push` | No auditable schema evolution; risky for prod changes | **Before 1.2** (first real schema growth) |
 | D2 | **Org scoping by convention, not RLS** | A missed `organizationId` filter could leak data | When adding contributors / before scale; add cross-org tests now |
 | D3 | **Local filesystem document storage** | Doesn't scale past one VPS; no redundancy | Documents growth / 1.4 Closing |
-| D4 | **No automated DB/document backups** | Data-loss risk; no verified restore | **Immediate** (Ops top priority) |
+| D4 | **Backups implemented** (`scripts/backup.sh`, six-stage, encrypted, verified restore) — **not yet scheduled; R2 creds not provisioned** | Off-host DR incomplete until R2 + cron enabled | Provision R2 bucket/creds + enable cron/timers (operational step) |
 | D5 | **`.next` nested files root-owned on host** | Plain `npm run build` fails on host; must use `build:isolated` | One-time `sudo chown`; low urgency |
 | D6 | **No email transport** | Invitations can't deliver; no notifications/campaigns | 1.1 (invitations) / 2.0 (campaigns) |
 | D7 | **Roles defined but not fully enforced** | Any authed user can do most actions | 1.1 permission matrix |
@@ -46,4 +46,4 @@
 
 ## Debt policy
 - A change may add debt **only** with an entry here and a trigger.
-- Release checklists review this list; no release ships with an open **release-blocking** item (currently: D4 backups before relying on prod data further).
+- Release checklists review this list; no release ships with an open **release-blocking** item. (D4 backups are now implemented + restore-verified locally; the remaining release-blocking piece is enabling the **off-host mirror** — provision R2 creds — and scheduling.)

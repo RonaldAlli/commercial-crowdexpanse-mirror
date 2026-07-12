@@ -31,6 +31,9 @@ yarn-error.log*
 .env*.local
 /.env.test
 
+# backup encryption passphrase (never commit; keep an off-host copy for DR)
+/.backup-passphrase
+
 # vercel
 .vercel
 
