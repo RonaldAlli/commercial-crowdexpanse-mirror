@@ -7,7 +7,7 @@
 | Version | Theme | Status | Detail |
 |---|---|---|---|
 | **1.0** | Foundation (auth, multi-tenancy, core records, pipeline) | ✅ Shipped | — |
-| **1.1** | **Operational Excellence** | 🟡 In progress (~75%) | [VERSION_1_1.md](./VERSION_1_1.md) |
+| **1.1** | **Operational Excellence** | 🟡 In progress (~80%) | [VERSION_1_1.md](./VERSION_1_1.md) |
 | **1.2** | **Commercial Intelligence** | 🔴 Planned | [VERSION_1_2.md](./VERSION_1_2.md) |
 | **1.3** | **Commercial Underwriting** | 🟡 Foundation exists | [VERSION_1_3.md](./VERSION_1_3.md) |
 | **1.4** | **Closing Center** | 🔴 Planned | [VERSION_1_4.md](./VERSION_1_4.md) |

@@ -26,18 +26,21 @@
 | Team Management (Roster/Roles) | 🟡 Partial | 1.1 | 40% |
 | Invitations | 🟡 Partial | 1.1 | 55% |
 | Testing & CI (cross-cutting) | ✅ Complete | 1.1 | 100% |
+| Backups & DR (cross-cutting, D4) | ✅ Complete (code+docs) | 1.1 | 100%¹ |
 | Deal Analyzer / Underwriting | 🟡 Partial | 1.3 | 35% |
 | Commercial Intelligence (Market/Owner/Property/Portfolio) | 🔴 Planned | 1.2 | 0% |
 | Closing Center | 🔴 Planned | 1.4 | 0% |
 | Automation & Campaigns | 🔴 Planned | 2.0 | 0% |
 | AI Layer | 🔴 Planned | 2.0 | 0% |
 
+¹ Backup/restore tooling is complete in code and documentation (six-stage pipeline, verified restore drill). Two **operational** follow-ups remain and are intentionally outside the codebase: provisioning the Cloudflare R2 bucket + credentials, and enabling the documented cron schedule. Until both are done, runs report 5/6 (off-site mirror pending).
+
 ## Release progress
 
 | Version | Theme | Status |
 |---|---|---|
 | 1.0 | Foundation | ✅ Shipped |
-| 1.1 | Operational Excellence | 🟡 ~75% (testing/CI/lists done; permissions + performance remain) |
+| 1.1 | Operational Excellence | 🟡 ~80% (testing/CI/lists + D4 backups done; permissions + performance remain) |
 | 1.2 | Commercial Intelligence | 🔴 Planned |
 | 1.3 | Commercial Underwriting | 🟡 Foundation (~35%) |
 | 1.4 | Closing Center | 🔴 Planned |
@@ -51,10 +54,11 @@ Roadmap → Architecture → Specification → Implementation → Testing → Do
 Nothing skips a step. See the [EMP lifecycle](./ENGINEERING_MASTER_PLAN.md#development-lifecycle).
 
 ## Top priorities right now
-1. **Ops:** automated backups + restore drill (Tech Debt **D4** — release-blocking for relying on prod data).
-2. **1.1 Permissions:** documented + enforced permission matrix; finish Team Management + Invitations delivery.
-3. **1.1 Testing depth:** unit tests for pure `lib/*`; lint in CI.
-4. **1.1 Performance:** latency budgets for board + search; index review.
+1. **1.1 Permissions (highest-priority engineering task):** documented + enforced permission matrix across server actions; finish Team Management + Invitations delivery.
+2. **1.1 Testing depth:** unit tests for pure `lib/*`; lint in CI.
+3. **1.1 Performance:** latency budgets for board + search; index review.
+
+**Operational follow-ups (not engineering code — see [Operations → Backups](./OPERATIONS_ROADMAP.md)):** provision Cloudflare R2 bucket/credentials, store the backup passphrase off-host, and enable the documented cron schedule. (D4 backup/restore tooling itself is ✅ complete.)
 
 ## How to update this dashboard
 - Change a module's Status/% when its roadmap scope moves (same PR as the change).
