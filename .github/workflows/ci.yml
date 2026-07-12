@@ -52,8 +52,8 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Apply schema to ephemeral database
-        run: npx prisma db push --skip-generate
+      - name: Apply migrations to ephemeral database
+        run: npx prisma migrate deploy
 
       - name: Typecheck and E2E
         run: npm run test:ci

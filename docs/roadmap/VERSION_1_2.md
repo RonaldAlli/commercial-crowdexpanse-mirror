@@ -26,7 +26,7 @@ Org-level rollups: pipeline value by stage, exposure by market/asset type, sourc
 ## Architecture notes
 - New data lands as **structured columns or child tables**, org-scoped, additive (no breaking changes to core records).
 - Prefer deterministic enrichment (imports, joins) over inference. Any inference is flagged and reviewable.
-- Introduces the first real need for **schema migrations** — resolve the `db push`→migration decision here (see [Tech Debt](./TECHNICAL_DEBT.md)).
+- **Schema migrations** already resolved in 1.1 (Slice 3a-i adopted `prisma migrate`), so 1.2 schema growth rides on the existing migration history (see [Tech Debt](./TECHNICAL_DEBT.md)).
 
 ## Dependencies
 - 1.1 permissions (who can see/edit enrichment).

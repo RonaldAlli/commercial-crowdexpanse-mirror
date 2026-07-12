@@ -2,8 +2,8 @@
 //
 // Loads `.env.test` (so it targets the dedicated local test DB, never prod),
 // enforces the *_test guard, then:
-//   setup  → prisma db push               (materialize the schema)
-//   reset  → prisma db push --force-reset  (drop + recreate tables; no CREATEDB)
+//   setup  → prisma migrate deploy         (apply committed migrations)
+//   reset  → prisma migrate reset --force  (drop + re-apply migrations; no CREATEDB)
 //   sweep  → delete leftover "e2e-" orgs   (reap orphans from a crashed run)
 //
 // The database itself is created once, out of band, by a privileged role:
@@ -44,11 +44,14 @@ function runPrisma(args) {
 }
 
 if (cmd === "setup") {
-  console.log(`[test-db] Pushing schema to ${dbName} ...`);
-  runPrisma(["db", "push"]);
+  // Apply committed migrations (no shadow DB needed — deploy never diffs).
+  console.log(`[test-db] Applying migrations to ${dbName} (migrate deploy) ...`);
+  runPrisma(["migrate", "deploy"]);
 } else if (cmd === "reset") {
-  console.log(`[test-db] Resetting ${dbName} (force-reset) ...`);
-  runPrisma(["db", "push", "--force-reset"]);
+  // Drop everything and re-apply migrations from scratch. --skip-seed keeps it
+  // deterministic; the guard above already refused any non-*_test target.
+  console.log(`[test-db] Resetting ${dbName} (migrate reset) ...`);
+  runPrisma(["migrate", "reset", "--force", "--skip-seed"]);
 } else if (cmd === "sweep") {
   const { PrismaClient } = await import("@prisma/client");
   const prisma = new PrismaClient();

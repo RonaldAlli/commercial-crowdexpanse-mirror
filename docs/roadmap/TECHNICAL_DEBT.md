@@ -6,7 +6,7 @@
 
 | # | Item | Impact | Trigger to fix |
 |---|---|---|---|
-| D1 | **No Prisma migration history** — schema managed by `db push` | No auditable schema evolution; risky for prod changes | **Before 1.2** (first real schema growth) |
+| D1 | ✅ **Resolved — Prisma Migrate adopted** (baseline `0_init` captures the pre-existing schema; test tooling + CI run `migrate deploy`) | Schema evolution is now auditable and versioned | Resolved (Slice 3a-i) |
 | D2 | **Org scoping by convention, not RLS** | A missed `organizationId` filter could leak data | When adding contributors / before scale; add cross-org tests now |
 | D3 | **Local filesystem document storage** | Doesn't scale past one VPS; no redundancy | Documents growth / 1.4 Closing |
 | D4 | **Backups implemented** (`scripts/backup.sh`, six-stage, encrypted, verified restore) — **not yet scheduled; R2 creds not provisioned** | Off-host DR incomplete until R2 + cron enabled | Provision R2 bucket/creds + enable cron/timers (operational step) |
@@ -18,7 +18,7 @@
 | D10 | **Password reset / session policy absent** | Operational friction; unclear session lifetime | 1.1 hardening |
 
 ## Future Refactors
-- **Migrations:** adopt `prisma migrate` with a baseline from current schema (resolves D1); wire into deploy + CI.
+- **Migrations:** ✅ done (D1). `prisma migrate` adopted with a `0_init` baseline of the pre-existing schema; `scripts/test-db.mjs` and CI use `migrate deploy`. Author new migrations via the no-shadow path (`migrate diff` → `migrate deploy`) since the app role lacks CREATEDB.
 - **Storage abstraction:** put an interface in front of `lib/storage.ts` so local↔object storage is swappable (D3).
 - **Authorization layer:** ✅ done (D7). Centralized in `lib/permissions.ts` (pure policy) + `lib/authorize.ts` (enforcement + audit); all write actions checked, denials audited, ADMIN denial report at `/settings/security`. Future (post-1.1): field-level financial permissions and RLS backstop only if a business need appears.
 - **List relation search:** generalize `lib/list-params.ts` to support relation filters cleanly (deferred across Better Lists slices).

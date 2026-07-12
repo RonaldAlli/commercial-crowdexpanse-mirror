@@ -78,7 +78,7 @@ From an internal deal-flow tool → to an intelligence-augmented CRE origination
 
 ### Current Architecture
 - **Framework:** Next.js 14.2 (App Router), React 18, TypeScript. Server Components + Server Actions; minimal client JS. Pages are `force-dynamic`.
-- **Data:** PostgreSQL 16 via Prisma 5. Schema is `db push`-managed (no migration history yet — see [Tech Debt](./TECHNICAL_DEBT.md)).
+- **Data:** PostgreSQL 16 via Prisma 5. Schema is **migration-managed** (`prisma migrate`, baseline `0_init`). Author changes on the no-shadow path — `prisma migrate diff … --script` into a new `prisma/migrations/<ts>_name/` folder, then `prisma migrate deploy` (the app DB role has no CREATEDB, so `migrate dev`'s shadow DB is unavailable). Test tooling and CI run `migrate deploy`.
 - **Auth:** Cookie session (`ce_commercial_session`); `middleware.ts` redirects unauthenticated traffic to `/login`; `lib/auth.ts` provides `requireUser`/`requireRole`.
 - **Authorization:** Role model (`ADMIN`, `ACQUISITIONS`, `ANALYST`, `DISPOSITIONS`) via `lib/authz.ts` (e.g. last-admin protection).
 - **Multi-tenancy:** Every domain model carries `organizationId`; all queries scope by it. This is the core security invariant.

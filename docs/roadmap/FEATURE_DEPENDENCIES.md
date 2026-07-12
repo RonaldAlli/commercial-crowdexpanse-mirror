@@ -43,7 +43,7 @@ Testing & CI  ── underpins everything (a change isn't done without it)
 5. **Workflows precede AI** — every 2.0 AI capability augments a deterministic workflow that already exists and has a fallback.
 
 ## Cross-cutting enablers (needed by many)
-- **Schema migrations** (blocks 1.2+): move off ad-hoc `db push` to a migration history.
+- **Schema migrations** (blocks 1.2+): ✅ resolved in 3a-i — `prisma migrate` with a `0_init` baseline; test/CI run `migrate deploy`.
 - **Object storage** (blocks Documents scale / 1.4): local FS → S3-class.
 - **Email transport** (blocks Invitations delivery / Notifications / 2.0 campaigns).
 - **Permission matrix** (blocks safe multi-role operation across 1.1+).
