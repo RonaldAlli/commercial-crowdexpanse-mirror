@@ -122,13 +122,13 @@
 - **Testing:** `e2e-notifications.mjs`. Good.
 - **Future AI:** Smart prioritization (2.0).
 
-## Team Management — 🟡 (~50%) {#team-management}
-- **Current:** Roster; role assignment (`ADMIN`/`ACQUISITIONS`/`ANALYST`/`DISPOSITIONS`); last-admin protection (`lib/authz.ts`); `/settings/team` gated to ADMIN; role/invite actions now route through the permission layer (`MANAGE TEAM` / `MANAGE INVITATION`).
-- **Completed:** Slice 1 — roster + role changes with guardrail; permission-layer enforcement on role and invitation actions.
-- **Future (1.1):** Member deactivation/removal; org settings; broader audit of role changes; email delivery (Invitations).
+## Team Management — 🟡 (~65%) {#team-management}
+- **Current:** Roster; role assignment (`ADMIN`/`ACQUISITIONS`/`ANALYST`/`DISPOSITIONS`); last-admin protection (`lib/authz.ts`); member **lifecycle** (`UserLifecycleState` — ACTIVE/DEACTIVATED, SUSPENDED reserved); `/settings/team` gated to ADMIN; role/lifecycle/invite actions route through the permission layer (`MANAGE TEAM` / `MANAGE INVITATION`).
+- **Completed:** Slice 1 — roster + role changes with guardrail. Slice 3a — member **deactivation/reactivation** (deactivation-only, no hard delete): self-deactivation and last-**active**-admin deactivation blocked; deactivated users can't log in (`getCurrentUser` + login gate) and all their sessions are invalidated immediately via a per-user epoch (`sessionsValidAfter`); reactivation restores access without reviving old cookies; roster shows a lifecycle badge + deactivate/reactivate controls; assignee pickers are active-only while existing assignments keep attribution ("(deactivated)"); `user.deactivated` / `user.reactivated` audited.
+- **Future (1.1):** org settings; email delivery (Invitations). Hard deletion intentionally **out of scope**.
 - **Dependencies:** Auth, Organization, Invitations, [Permissions](#permissions).
-- **Known Issues:** Member lifecycle (deactivate/remove) not yet built.
-- **Testing:** `e2e-team-roles.mjs` (role-change rules) + `e2e-permissions.mjs` (MANAGE enforcement + audit).
+- **Known Issues:** None blocking; bulk reassignment of a deactivated member's open tasks is a possible future nicety.
+- **Testing:** `e2e-team-roles.mjs` (role-change rules) + `e2e-member-lifecycle.mjs` (deactivation guards, session epoch, active-only pickers, audit, org-scoping) + `e2e-permissions.mjs` (MANAGE enforcement).
 - **Future AI:** None.
 
 ## Invitations — 🟡 (~55%) {#invitations}

@@ -9,9 +9,11 @@ import { ROLE_OPTIONS } from "@/lib/user-options";
 export function MemberRoleSelect({
   userId,
   current,
+  disabled = false,
 }: {
   userId: string;
   current: string;
+  disabled?: boolean;
 }) {
   const [pending, start] = useTransition();
   const [value, setValue] = useState(current);
@@ -21,7 +23,7 @@ export function MemberRoleSelect({
     <div className="flex flex-col items-end gap-1">
       <select
         value={value}
-        disabled={pending}
+        disabled={pending || disabled}
         onChange={(e) => {
           const next = e.target.value;
           const previous = value;

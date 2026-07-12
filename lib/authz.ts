@@ -37,3 +37,29 @@ export function roleChangeError(input: {
 
   return null;
 }
+
+/**
+ * Decide whether an ADMIN may deactivate a target member.
+ * Returns null when allowed, or a human-readable reason to reject. Self-
+ * deactivation is always blocked (avoids accidental lockouts and confusing
+ * session behavior), and the last ACTIVE admin can't be deactivated. Counts
+ * must exclude already-deactivated users so a dead admin never "covers" the org.
+ */
+export function deactivationError(input: {
+  isSelf: boolean;
+  targetIsInOrg: boolean;
+  targetRole: UserRole;
+  targetIsActive: boolean; // currently ACTIVE (not already deactivated)
+  orgActiveAdminCount: number; // ACTIVE admins in the target's org
+}): string | null {
+  const { isSelf, targetIsInOrg, targetRole, targetIsActive, orgActiveAdminCount } = input;
+
+  if (!targetIsInOrg) return "Member not found.";
+  if (isSelf) return "You can't deactivate your own account.";
+  if (!targetIsActive) return null; // already deactivated — no-op, not an error
+  if (targetRole === UserRole.ADMIN && orgActiveAdminCount <= 1) {
+    return "Can't deactivate the last admin.";
+  }
+
+  return null;
+}

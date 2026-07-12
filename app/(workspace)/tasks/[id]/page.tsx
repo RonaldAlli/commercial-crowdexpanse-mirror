@@ -19,7 +19,7 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
   const task = await prisma.task.findFirst({
     where: { id: params.id, organizationId: user.organizationId },
     include: {
-      owner: { select: { name: true, email: true } },
+      owner: { select: { name: true, email: true, lifecycleState: true } },
       opportunity: { select: { id: true, title: true } },
     },
   });
@@ -31,7 +31,7 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
   const deleteTaskBound = deleteTask.bind(null, task.id);
 
   const details: { label: string; value: React.ReactNode }[] = [
-    { label: "Owner", value: task.owner?.name ?? "Unassigned" },
+    { label: "Owner", value: task.owner ? `${task.owner.name}${task.owner.lifecycleState !== "ACTIVE" ? " (deactivated)" : ""}` : "Unassigned" },
     { label: "Due date", value: task.dueDate ? task.dueDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }) : "—" },
     {
       label: "Opportunity",

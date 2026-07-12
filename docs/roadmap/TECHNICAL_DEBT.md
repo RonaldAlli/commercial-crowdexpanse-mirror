@@ -15,7 +15,7 @@
 | D7 | ✅ **Resolved — RBAC enforced across all write actions** (Slice 1 + 2) | Policy in `lib/permissions.ts`, enforced + audited in `lib/authorize.ts`; every create/update/delete/move/manage checks it. Field-level limited to opportunity stage by decision | Resolved (Slice 2) |
 | D8 | **No unit tests on pure logic** | Underwriting/matching math unguarded | 1.1 (lib), 1.3 (formulas) |
 | D9 | **Gitea Actions unconfirmed** | CI runs only on the GitHub mirror | When a Gitea runner is confirmed |
-| D10 | **Password reset / session policy absent** | Operational friction; unclear session lifetime | 1.1 hardening |
+| D10 | **Password reset absent; session policy partial** | No self-serve password reset; session lifetime is a fixed 8h TTL. Per-user immediate invalidation now exists (`sessionsValidAfter` epoch, added in 3a for deactivation) | 1.1 hardening (password reset needs email — D6) |
 
 ## Future Refactors
 - **Migrations:** ✅ done (D1). `prisma migrate` adopted with a `0_init` baseline of the pre-existing schema; `scripts/test-db.mjs` and CI use `migrate deploy`. Author new migrations via the no-shadow path (`migrate diff` → `migrate deploy`) since the app role lacks CREATEDB.

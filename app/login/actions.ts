@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { UserLifecycleState } from "@prisma/client";
 
 import { createSession } from "@/lib/auth";
 import { verifyPassword } from "@/lib/password";
@@ -18,6 +19,11 @@ export async function loginAction(_: { error?: string } | undefined, formData: F
 
   if (!user || !verifyPassword(password, user.hashedPassword)) {
     return { error: "Invalid email or password." };
+  }
+
+  // Only shown AFTER credentials verify, so it's not credential enumeration.
+  if (user.lifecycleState !== UserLifecycleState.ACTIVE) {
+    return { error: "This account has been deactivated. Please contact your organization administrator." };
   }
 
   await createSession(user.id);

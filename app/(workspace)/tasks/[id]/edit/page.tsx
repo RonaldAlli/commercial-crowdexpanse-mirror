@@ -13,14 +13,26 @@ export const dynamic = "force-dynamic";
 export default async function EditTaskPage({ params }: { params: { id: string } }) {
   const user = await requireUser();
 
-  const [task, owners, opportunities] = await Promise.all([
+  const [task, activeOwners, opportunities] = await Promise.all([
     prisma.task.findFirst({ where: { id: params.id, organizationId: user.organizationId } }),
-    prisma.user.findMany({ where: { organizationId: user.organizationId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.user.findMany({ where: { organizationId: user.organizationId, lifecycleState: "ACTIVE" }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.opportunity.findMany({ where: { organizationId: user.organizationId }, select: { id: true, title: true }, orderBy: { updatedAt: "desc" } }),
   ]);
 
   if (!task) {
     notFound();
+  }
+
+  // Only ACTIVE members are offered as owners, but if this task is currently
+  // owned by a since-deactivated member, keep them in the list (labelled) so the
+  // existing assignment is preserved and visible rather than silently dropped.
+  let owners = activeOwners;
+  if (task.ownerId && !activeOwners.some((o) => o.id === task.ownerId)) {
+    const current = await prisma.user.findFirst({
+      where: { id: task.ownerId, organizationId: user.organizationId },
+      select: { id: true, name: true },
+    });
+    if (current) owners = [...activeOwners, { id: current.id, name: `${current.name} (deactivated)` }];
   }
 
   const action = updateTask.bind(null, task.id);

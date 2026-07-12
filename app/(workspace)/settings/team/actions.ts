@@ -1,11 +1,11 @@
 "use server";
 
-import { InvitationStatus, UserRole } from "@prisma/client";
+import { InvitationStatus, UserLifecycleState, UserRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
 import { requireUser } from "@/lib/auth";
 import { checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
-import { hasRole, roleChangeError } from "@/lib/authz";
+import { deactivationError, hasRole, roleChangeError } from "@/lib/authz";
 import {
   generateInviteToken,
   hashInviteToken,
@@ -43,8 +43,9 @@ export async function updateMemberRole(
   // No-op — nothing to change, and no spurious audit entry.
   if (target && target.role === role) return undefined;
 
+  // Only ACTIVE admins "cover" the org — a deactivated admin can't log in.
   const orgAdminCount = await prisma.user.count({
-    where: { organizationId: actor.organizationId, role: UserRole.ADMIN },
+    where: { organizationId: actor.organizationId, role: UserRole.ADMIN, lifecycleState: UserLifecycleState.ACTIVE },
   });
 
   const err = roleChangeError({
@@ -68,6 +69,105 @@ export async function updateMemberRole(
       actorId: actor.id,
       eventType: "user.role_changed",
       eventLabel: `Role: ${roleLabel(previousRole)} → ${roleLabel(role)} for ${target!.name}`,
+    },
+  });
+
+  revalidatePath("/settings/team");
+  return undefined;
+}
+
+/**
+ * Deactivate an org member. ADMIN-only (MANAGE TEAM), org-scoped. Self-
+ * deactivation and last-active-admin deactivation are blocked. Sets the session
+ * epoch so every existing cookie for the target is invalidated immediately.
+ * Writes a user.deactivated audit entry. Deterministic — no AI.
+ */
+export async function deactivateMember(userId: string): Promise<TeamActionState> {
+  const actor = await requireUser();
+  if (!(await checkAuthorized(actor, "MANAGE", "TEAM", { targetId: userId }))) {
+    return { error: GENERIC_DENIAL };
+  }
+  if (!hasRole(actor, UserRole.ADMIN)) return { error: "Not authorized." };
+
+  const target = await prisma.user.findFirst({
+    where: { id: userId, organizationId: actor.organizationId },
+    select: { id: true, name: true, role: true, lifecycleState: true },
+  });
+
+  const orgActiveAdminCount = await prisma.user.count({
+    where: { organizationId: actor.organizationId, role: UserRole.ADMIN, lifecycleState: UserLifecycleState.ACTIVE },
+  });
+
+  const err = deactivationError({
+    isSelf: target?.id === actor.id,
+    targetIsInOrg: Boolean(target),
+    targetRole: target?.role ?? UserRole.ACQUISITIONS,
+    targetIsActive: target?.lifecycleState === UserLifecycleState.ACTIVE,
+    orgActiveAdminCount,
+  });
+  if (err) return { error: err };
+
+  // Guard returned null for an already-deactivated target — nothing to do.
+  if (target!.lifecycleState !== UserLifecycleState.ACTIVE) return undefined;
+
+  await prisma.user.update({
+    where: { id: target!.id },
+    data: {
+      lifecycleState: UserLifecycleState.DEACTIVATED,
+      deactivatedAt: new Date(),
+      deactivatedById: actor.id,
+      sessionsValidAfter: new Date(), // invalidate all existing sessions now
+    },
+  });
+
+  await prisma.activityLog.create({
+    data: {
+      organizationId: actor.organizationId,
+      actorId: actor.id,
+      eventType: "user.deactivated",
+      eventLabel: `Deactivated ${target!.name}`,
+    },
+  });
+
+  revalidatePath("/settings/team");
+  return undefined;
+}
+
+/**
+ * Reactivate a deactivated member. ADMIN-only (MANAGE TEAM), org-scoped.
+ * Deliberately does NOT clear sessionsValidAfter, so previously-issued cookies
+ * stay invalid; only a fresh login (issuedAt > sessionsValidAfter) works.
+ */
+export async function reactivateMember(userId: string): Promise<TeamActionState> {
+  const actor = await requireUser();
+  if (!(await checkAuthorized(actor, "MANAGE", "TEAM", { targetId: userId }))) {
+    return { error: GENERIC_DENIAL };
+  }
+  if (!hasRole(actor, UserRole.ADMIN)) return { error: "Not authorized." };
+
+  const target = await prisma.user.findFirst({
+    where: { id: userId, organizationId: actor.organizationId },
+    select: { id: true, name: true, lifecycleState: true },
+  });
+  if (!target) return { error: "Member not found." };
+  if (target.lifecycleState === UserLifecycleState.ACTIVE) return undefined; // no-op
+
+  await prisma.user.update({
+    where: { id: target.id },
+    data: {
+      lifecycleState: UserLifecycleState.ACTIVE,
+      deactivatedAt: null,
+      deactivatedById: null,
+      // sessionsValidAfter is intentionally left untouched.
+    },
+  });
+
+  await prisma.activityLog.create({
+    data: {
+      organizationId: actor.organizationId,
+      actorId: actor.id,
+      eventType: "user.reactivated",
+      eventLabel: `Reactivated ${target.name}`,
     },
   });
 

@@ -12,7 +12,7 @@ export default async function NewTaskPage() {
   const user = await requireUser();
 
   const [owners, opportunities] = await Promise.all([
-    prisma.user.findMany({ where: { organizationId: user.organizationId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.user.findMany({ where: { organizationId: user.organizationId, lifecycleState: "ACTIVE" }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.opportunity.findMany({ where: { organizationId: user.organizationId }, select: { id: true, title: true }, orderBy: { updatedAt: "desc" } }),
   ]);
 

@@ -42,7 +42,7 @@ export default async function TasksPage({
     prisma.task.findMany({
       where,
       include: {
-        owner: { select: { name: true } },
+        owner: { select: { name: true, lifecycleState: true } },
         opportunity: { select: { id: true, title: true } },
       },
       orderBy: { id: "asc" },
@@ -139,7 +139,7 @@ export default async function TasksPage({
                       <td className="table-cell">
                         <TaskStatusSelect action={setTaskStatus.bind(null, task.id)} current={task.status} statuses={STATUS_OPTIONS} />
                       </td>
-                      <td className="table-cell whitespace-nowrap text-slate-600">{task.owner?.name ?? "Unassigned"}</td>
+                      <td className="table-cell whitespace-nowrap text-slate-600">{task.owner ? `${task.owner.name}${task.owner.lifecycleState !== "ACTIVE" ? " (deactivated)" : ""}` : "Unassigned"}</td>
                       <td className="table-cell whitespace-nowrap">
                         {task.dueDate ? task.dueDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }) : "—"}
                       </td>

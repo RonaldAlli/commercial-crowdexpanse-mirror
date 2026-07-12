@@ -3,6 +3,7 @@ import { InvitationStatus, UserRole } from "@prisma/client";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { MemberRoleSelect } from "@/components/member-role-select";
+import { MemberLifecycleControls } from "@/components/member-lifecycle-controls";
 import { InviteForm, RevokeInviteButton } from "@/components/invite-controls";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -17,7 +18,7 @@ export default async function TeamPage() {
   const [members, pendingInvites] = await Promise.all([
     prisma.user.findMany({
       where: { organizationId: user.organizationId },
-      select: { id: true, name: true, email: true, role: true, createdAt: true },
+      select: { id: true, name: true, email: true, role: true, createdAt: true, lifecycleState: true },
       orderBy: [{ role: "asc" }, { createdAt: "asc" }],
     }),
     // Active invites only — PENDING and not past expiry (lazy expiry).
@@ -44,17 +45,19 @@ export default async function TeamPage() {
         <ul className="divide-y divide-slate-100">
           {members.map((m) => {
             const isSelf = m.id === user.id;
+            const deactivated = m.lifecycleState !== "ACTIVE";
             return (
-              <li key={m.id} className="flex items-center justify-between gap-4 px-5 py-4">
+              <li key={m.id} className={`flex items-center justify-between gap-4 px-5 py-4 ${deactivated ? "bg-slate-50/60" : ""}`}>
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
+                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white ${deactivated ? "bg-slate-400" : "bg-slate-900"}`}>
                     {m.name.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="truncate text-sm font-medium text-slate-900">{m.name}</span>
+                      <span className={`truncate text-sm font-medium ${deactivated ? "text-slate-500" : "text-slate-900"}`}>{m.name}</span>
                       {isSelf ? <span className="text-[10px] uppercase tracking-wide text-slate-400">You</span> : null}
                       <Badge tone={roleTone(m.role)}>{roleLabel(m.role)}</Badge>
+                      {deactivated ? <Badge tone="danger">Deactivated</Badge> : null}
                     </div>
                     <p className="truncate text-xs text-slate-500">{m.email}</p>
                     <p className="text-xs text-slate-400">
@@ -62,7 +65,11 @@ export default async function TeamPage() {
                     </p>
                   </div>
                 </div>
-                <MemberRoleSelect userId={m.id} current={m.role} />
+                <div className="flex shrink-0 items-center gap-4">
+                  {/* Role can't change while deactivated — reactivate first. */}
+                  <MemberRoleSelect userId={m.id} current={m.role} disabled={deactivated} />
+                  <MemberLifecycleControls userId={m.id} isSelf={isSelf} deactivated={deactivated} />
+                </div>
               </li>
             );
           })}

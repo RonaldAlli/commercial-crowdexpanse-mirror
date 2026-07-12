@@ -17,7 +17,7 @@ Search + sort + pagination shipped for **all five core lists** (Sellers, Buyers,
 Role model (`ADMIN`/`ACQUISITIONS`/`ANALYST`/`DISPOSITIONS`) with last-admin protection, now fully enforced.
 - **Slice 1:** documented **permission matrix** as a single source of truth (`lib/permissions.ts`), enforced server-side for high-risk operations — deletes, pipeline stage movement (segment-based on current **and** target stage), team/invitation management — with an `authorization.denied` audit trail and a generic user-facing message.
 - **Slice 2:** ordinary create/update enforced across every write action; opportunity-edit stage changes rejected in full when disallowed (the one field-level rule — no `canEditField`); create/edit UI hidden and `/new` + `/[id]/edit` routes guarded (`can()` + `notFound()`, no audit on page loads); ADMIN-only **Access denials** report at `/settings/security`. The five [Authorization Principles](./ENGINEERING_MASTER_PLAN.md#authorization-principles) are documented in the EMP.
-- **Remaining for 1.1 (separate modules):** complete Team Management (member lifecycle) and Invitations (email delivery, resend/expiry UX).
+- **Remaining for 1.1 (separate modules):** Team Management **member lifecycle shipped** (Slice 3a — deactivation + immediate session invalidation, on a new Prisma Migrate baseline); still open are org settings and Invitations (email delivery, resend/expiry UX).
 - See [Permissions](./MODULE_ROADMAPS.md#permissions), [Team Management](./MODULE_ROADMAPS.md#team-management), and [Invitations](./MODULE_ROADMAPS.md#invitations).
 
 ### 3. Testing — 🟢 done (foundation)
@@ -35,7 +35,7 @@ GitHub Actions on the mirror with ephemeral Postgres runs `test:ci` + build on p
 
 ## Release Checklist (1.1)
 - [x] Permission matrix documented and enforced in server actions. (Slices 1 + 2 complete; enforcement + audit across all write actions.)
-- [ ] Team Management Slice 2 + Invitations delivery shipped.
+- [~] Team Management member lifecycle shipped (Slice 3a done); org settings + Invitations delivery still pending.
 - [ ] Relation search decision made (ship or explicitly defer to 1.2).
 - [ ] Unit tests for the four pure `lib/*` modules.
 - [ ] Lint added to CI; CI green on `main`.

@@ -69,6 +69,14 @@ enum UserRole {
   DISPOSITIONS
 }
 
+// Account lifecycle. Only ACTIVE and DEACTIVATED are used in 1.1; SUSPENDED is
+// reserved so a future temporary-suspension feature needs no enum migration.
+enum UserLifecycleState {
+  ACTIVE
+  DEACTIVATED
+  SUSPENDED
+}
+
 enum InvitationStatus {
   PENDING
   ACCEPTED
@@ -83,6 +91,12 @@ model User {
   email          String        @unique
   hashedPassword String
   role           UserRole      @default(ACQUISITIONS)
+  lifecycleState UserLifecycleState @default(ACTIVE)
+  deactivatedAt  DateTime?
+  deactivatedById String? // audit-only plain column (no FK), mirrors Invitation.invitedById
+  // Session epoch: any signed cookie whose issuedAt predates this is rejected.
+  // Set to now() on deactivation to invalidate all existing sessions at once.
+  sessionsValidAfter DateTime?
   // Cursor for the notification bell: org activity newer than this (and not by
   // this user) is "unread". Null means unread-since-account-creation.
   lastNotificationsReadAt DateTime?
@@ -95,6 +109,7 @@ model User {
   activities     ActivityLog[]
 
   @@index([organizationId])
+  @@index([organizationId, lifecycleState])
   @@map("users")
 }
 

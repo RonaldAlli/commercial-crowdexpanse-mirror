@@ -24,7 +24,7 @@
 | Notifications & Activity | ✅ Complete | 1.1 | 100% |
 | Better Lists (cross-cutting) | 🟢 Good | 1.1 | 85% |
 | Permissions (cross-cutting) | 🟢 Good | 1.1 | 90% |
-| Team Management (Roster/Roles) | 🟡 Partial | 1.1 | 50% |
+| Team Management (Roster/Roles/Lifecycle) | 🟡 Partial | 1.1 | 65% |
 | Invitations | 🟡 Partial | 1.1 | 55% |
 | Testing & CI (cross-cutting) | ✅ Complete | 1.1 | 100% |
 | Backups & DR (cross-cutting, D4) | ✅ Complete (code+docs) | 1.1 | 100%¹ |
@@ -41,7 +41,7 @@
 | Version | Theme | Status |
 |---|---|---|
 | 1.0 | Foundation | ✅ Shipped |
-| 1.1 | Operational Excellence | 🟡 ~88% (testing/CI/lists + D4 backups + permissions Slices 1–2 done; team/invite lifecycle + performance remain) |
+| 1.1 | Operational Excellence | 🟡 ~90% (testing/CI/lists + D4 backups + permissions Slices 1–2 + member lifecycle/migrations done; invitation lifecycle + org settings + performance remain) |
 | 1.2 | Commercial Intelligence | 🔴 Planned |
 | 1.3 | Commercial Underwriting | 🟡 Foundation (~35%) |
 | 1.4 | Closing Center | 🔴 Planned |
@@ -55,7 +55,7 @@ Roadmap → Architecture → Specification → Implementation → Testing → Do
 Nothing skips a step. See the [EMP lifecycle](./ENGINEERING_MASTER_PLAN.md#development-lifecycle).
 
 ## Top priorities right now
-1. **1.1 Team Management + Invitations lifecycle (highest-priority engineering task):** member deactivation/removal, org settings, and invitation email delivery/resend/expiry UX. (Permissions Slices 1–2 are complete — enforced + audited across all write actions.)
+1. **1.1 Invitations lifecycle + org settings (highest-priority engineering task):** invitation resend/expiry/revocation UX and organization settings, then email delivery (D6). (Member lifecycle 3a — deactivation + session invalidation — is complete; permissions Slices 1–2 complete.)
 2. **1.1 Testing depth:** unit tests for pure `lib/*`; lint in CI.
 3. **1.1 Performance:** latency budgets for board + search; index review.
 

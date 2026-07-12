@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import type { UserRole } from "@prisma/client";
+import { UserLifecycleState, type UserRole } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { hasRole } from "@/lib/authz";
@@ -108,6 +108,21 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   });
 
   if (!user) {
+    return null;
+  }
+
+  // Only ACTIVE accounts have a live session. A deactivated (or future
+  // suspended) user is rejected on their very next request — the DB is checked
+  // every time, so there is no stateless bypass.
+  if (user.lifecycleState !== UserLifecycleState.ACTIVE) {
+    return null;
+  }
+
+  // Session epoch: reject any cookie issued before sessionsValidAfter. Set on
+  // deactivation, this invalidates all previously-issued cookies at once — and
+  // reactivation deliberately leaves it in place, so only newly-issued sessions
+  // (issuedAt > sessionsValidAfter) are valid; the old cookie stays dead.
+  if (user.sessionsValidAfter && token.issuedAt < user.sessionsValidAfter.getTime()) {
     return null;
   }
 
