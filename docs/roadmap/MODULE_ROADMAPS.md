@@ -131,13 +131,13 @@
 - **Testing:** `e2e-team-roles.mjs` (role-change rules) + `e2e-member-lifecycle.mjs` (deactivation guards, session epoch, active-only pickers, audit, org-scoping) + `e2e-permissions.mjs` (MANAGE enforcement).
 - **Future AI:** None.
 
-## Invitations — 🟡 (~55%) {#invitations}
-- **Current:** Copy-link invitations; token hashing; accept flow; expiry logic; email-conflict handling (`lib/invitations.ts`).
-- **Completed:** Create/accept/revoke; org scoping; audit entry.
-- **Future (1.1):** Email delivery; resend; expiry UX; invite roles clarity.
-- **Dependencies:** Auth, Team Management, (future) email transport.
-- **Known Issues:** No email delivery — link must be shared manually.
-- **Testing:** `e2e-invitations.mjs` (create/accept/revoke/scope/audit). Strong.
+## Invitations — 🟡 (~70%) {#invitations}
+- **Current:** Copy-link invitations; token hashing; hardened accept (atomic single-use, lazy EXPIRED realization, email-conflict); **resend** (Slice 3b); revoke; expiry (`lib/invitations.ts`).
+- **Completed:** Create/accept/revoke; org scoping; audit. Slice 3b — **resend rotates the token in place** (one invitation row per person; the previous link is invalidated immediately, made explicit in the UI); the roster shows every not-yet-accepted invite (pending/expired/revoked) with status + resend, and pending invites also revoke; `invitation.resent` audited (passive expiry realization stays un-audited by design).
+- **Future (1.1):** Email delivery (Slice 3d); configurable expiry + default role via org settings (Slice 3c).
+- **Dependencies:** Auth, Team Management, (future) email transport (3d), org settings (3c).
+- **Known Issues:** No email delivery — link must be shared manually (D6, addressed in 3d).
+- **Testing:** `e2e-invitations.mjs` (create/accept/revoke/**resend**/rotation/scope/audit). Strong.
 - **Future AI:** None.
 
 ## Permissions (cross-cutting) — 🟢 (~90%) {#permissions}

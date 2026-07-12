@@ -25,7 +25,7 @@
 | Better Lists (cross-cutting) | 🟢 Good | 1.1 | 85% |
 | Permissions (cross-cutting) | 🟢 Good | 1.1 | 90% |
 | Team Management (Roster/Roles/Lifecycle) | 🟡 Partial | 1.1 | 65% |
-| Invitations | 🟡 Partial | 1.1 | 55% |
+| Invitations | 🟡 Partial | 1.1 | 70% |
 | Testing & CI (cross-cutting) | ✅ Complete | 1.1 | 100% |
 | Backups & DR (cross-cutting, D4) | ✅ Complete (code+docs) | 1.1 | 100%¹ |
 | Deal Analyzer / Underwriting | 🟡 Partial | 1.3 | 35% |
@@ -55,7 +55,7 @@ Roadmap → Architecture → Specification → Implementation → Testing → Do
 Nothing skips a step. See the [EMP lifecycle](./ENGINEERING_MASTER_PLAN.md#development-lifecycle).
 
 ## Top priorities right now
-1. **1.1 Invitations lifecycle + org settings (highest-priority engineering task):** invitation resend/expiry/revocation UX and organization settings, then email delivery (D6). (Member lifecycle 3a — deactivation + session invalidation — is complete; permissions Slices 1–2 complete.)
+1. **1.1 Organization settings + email delivery (highest-priority engineering task):** org settings (configurable invite expiry + default role, Slice 3c), then email transport (Slice 3d / D6) as reusable infrastructure. (Invitation resend/lifecycle 3b, member lifecycle 3a, and permissions Slices 1–2 are complete.)
 2. **1.1 Testing depth:** unit tests for pure `lib/*`; lint in CI.
 3. **1.1 Performance:** latency budgets for board + search; index review.
 

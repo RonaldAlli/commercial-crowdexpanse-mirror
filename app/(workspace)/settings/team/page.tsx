@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { MemberRoleSelect } from "@/components/member-role-select";
 import { MemberLifecycleControls } from "@/components/member-lifecycle-controls";
-import { InviteForm, RevokeInviteButton } from "@/components/invite-controls";
+import { InviteForm, ResendInviteButton, RevokeInviteButton } from "@/components/invite-controls";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { roleLabel, roleTone } from "@/lib/user-options";
@@ -15,23 +15,36 @@ export default async function TeamPage() {
   const user = await requireRole(UserRole.ADMIN);
 
   const now = new Date();
-  const [members, pendingInvites] = await Promise.all([
+  const [members, openInvites] = await Promise.all([
     prisma.user.findMany({
       where: { organizationId: user.organizationId },
       select: { id: true, name: true, email: true, role: true, createdAt: true, lifecycleState: true },
       orderBy: [{ role: "asc" }, { createdAt: "asc" }],
     }),
-    // Active invites only — PENDING and not past expiry (lazy expiry).
+    // Every not-yet-accepted invite (pending/expired/revoked) so each can be
+    // resent in place — one invitation row per person.
     prisma.invitation.findMany({
       where: {
         organizationId: user.organizationId,
-        status: InvitationStatus.PENDING,
-        expiresAt: { gt: now },
+        status: { not: InvitationStatus.ACCEPTED },
       },
-      select: { id: true, email: true, role: true, createdAt: true, expiresAt: true },
+      select: { id: true, email: true, role: true, createdAt: true, expiresAt: true, status: true },
       orderBy: { createdAt: "desc" },
     }),
   ]);
+
+  // Display status: a PENDING invite past its expiry reads as EXPIRED (the row is
+  // flipped for real on the next accept attempt — see markExpiredIfNeeded).
+  const inviteRows = openInvites.map((inv) => {
+    const effectiveStatus =
+      inv.status === InvitationStatus.PENDING && inv.expiresAt <= now ? InvitationStatus.EXPIRED : inv.status;
+    return { ...inv, effectiveStatus, isPending: effectiveStatus === InvitationStatus.PENDING };
+  });
+  const inviteStatusMeta: Record<string, { label: string; tone: "info" | "neutral" | "danger" }> = {
+    PENDING: { label: "Pending", tone: "info" },
+    EXPIRED: { label: "Expired", tone: "neutral" },
+    REVOKED: { label: "Revoked", tone: "danger" },
+  };
 
   return (
     <div className="space-y-6">
@@ -85,29 +98,40 @@ export default async function TeamPage() {
         <InviteForm />
       </section>
 
-      {pendingInvites.length > 0 ? (
+      {inviteRows.length > 0 ? (
         <section className="card">
           <div className="border-b border-slate-100 px-5 py-4">
-            <h2 className="text-base font-semibold text-slate-900">Pending invitations</h2>
-            <p className="text-xs text-slate-500">{pendingInvites.length} awaiting acceptance.</p>
+            <h2 className="text-base font-semibold text-slate-900">Invitations</h2>
+            <p className="text-xs text-slate-500">{inviteRows.length} not yet accepted. Resend rotates the link and invalidates the previous one.</p>
           </div>
           <ul className="divide-y divide-slate-100">
-            {pendingInvites.map((inv) => (
-              <li key={inv.id} className="flex items-center justify-between gap-4 px-5 py-4">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="truncate text-sm font-medium text-slate-900">{inv.email}</span>
-                    <Badge tone={roleTone(inv.role)}>{roleLabel(inv.role)}</Badge>
+            {inviteRows.map((inv) => {
+              const meta = inviteStatusMeta[inv.effectiveStatus];
+              return (
+                <li key={inv.id} className="flex items-center justify-between gap-4 px-5 py-4">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="truncate text-sm font-medium text-slate-900">{inv.email}</span>
+                      <Badge tone={roleTone(inv.role)}>{roleLabel(inv.role)}</Badge>
+                      <Badge tone={meta.tone}>{meta.label}</Badge>
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      Invited {inv.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      {inv.isPending ? (
+                        <>
+                          {" · expires "}
+                          {inv.expiresAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        </>
+                      ) : null}
+                    </p>
                   </div>
-                  <p className="text-xs text-slate-400">
-                    Invited {inv.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                    {" · expires "}
-                    {inv.expiresAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                  </p>
-                </div>
-                <RevokeInviteButton invitationId={inv.id} />
-              </li>
-            ))}
+                  <div className="flex shrink-0 items-start gap-4">
+                    <ResendInviteButton invitationId={inv.id} />
+                    {inv.isPending ? <RevokeInviteButton invitationId={inv.id} /> : null}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </section>
       ) : null}

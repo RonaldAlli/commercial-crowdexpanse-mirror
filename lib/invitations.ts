@@ -126,6 +126,21 @@ export function inviteCreateError(input: {
   return null;
 }
 
+/**
+ * null = the invitation may be resent (token rotates in place); string = reason
+ * it can't. PENDING, EXPIRED, and REVOKED are all resendable — only an already-
+ * ACCEPTED invite is terminal.
+ */
+export function inviteResendError(input: {
+  found: boolean;
+  status?: InvitationStatus;
+}): string | null {
+  const { found, status } = input;
+  if (!found || !status) return "Invitation not found.";
+  if (status === InvitationStatus.ACCEPTED) return "This invitation has already been accepted.";
+  return null;
+}
+
 /** null = invitation is acceptable; string = reason it isn't. */
 export function inviteAcceptError(input: {
   found: boolean;

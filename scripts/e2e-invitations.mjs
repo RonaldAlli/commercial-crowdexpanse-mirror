@@ -18,6 +18,7 @@ import {
   inviteAcceptError,
   inviteCreateError,
   inviteExpiry,
+  inviteResendError,
   isEmailTaken,
   markExpiredIfNeeded,
   normalizeEmail,
@@ -99,6 +100,30 @@ async function mirrorRevoke(orgId, actorId, invitationId) {
   return {};
 }
 
+// Mirror of resendInvite: rotate the token IN PLACE (same row), reset expiry +
+// PENDING, audit invitation.resent. Pending/expired/revoked are resendable.
+async function mirrorResend(orgId, actorId, invitationId) {
+  const invite = await prisma.invitation.findFirst({
+    where: { id: invitationId, organizationId: orgId },
+    select: { id: true, email: true, status: true, role: true },
+  });
+  const err = inviteResendError({ found: Boolean(invite), status: invite?.status });
+  if (err) return { error: err };
+  const now = new Date();
+  const raw = generateInviteToken();
+  await prisma.invitation.update({
+    where: { id: invite.id },
+    data: {
+      tokenHash: hashInviteToken(raw), status: InvitationStatus.PENDING,
+      expiresAt: inviteExpiry(now.getTime()), acceptedAt: null, acceptedUserId: null,
+    },
+  });
+  await prisma.activityLog.create({
+    data: { organizationId: orgId, actorId, eventType: "invitation.resent", eventLabel: `Resent invite for ${invite.email}` },
+  });
+  return { token: raw };
+}
+
 const orgIds = [];
 try {
   const a = await prisma.organization.create({ data: { name: TAG, slug: `${TAG}-${process.pid}-a` } });
@@ -178,6 +203,43 @@ try {
   assert(revoked === 1, `1 invitation.revoked (got ${revoked})`);
   const orgAUsers = await prisma.user.count({ where: { organizationId: a.id } });
   assert(orgAUsers === 2, "org A has exactly 2 users (admin + accepted invitee)");
+
+  // ── Resend (Slice 3b) — token rotation in place ───────────────────────────
+  console.log("\n[10] Resend rotates the token in place (old link dies, new works):");
+  const resendEmail = `${TAG}-${process.pid}-resend@example.test`;
+  const c10 = await mirrorCreate(a.id, adminA.id, resendEmail, UserRole.ANALYST);
+  const inv10 = await prisma.invitation.findFirst({ where: { organizationId: a.id, email: resendEmail } });
+  const oldExpiry = inv10.expiresAt.getTime();
+  await prisma.invitation.update({ where: { id: inv10.id }, data: { expiresAt: new Date(Date.now() - 1000) } }); // age it
+  const r10 = await mirrorResend(a.id, adminA.id, inv10.id);
+  assert(!r10.error && r10.token && r10.token !== c10.token, "resend returns a new raw token, different from the old one");
+  assert((await findInvitationByRawToken(c10.token)) === null, "the previous link no longer resolves (hash rotated)");
+  const rotated = await findInvitationByRawToken(r10.token);
+  assert(rotated?.id === inv10.id, "the new link resolves to the SAME invitation row (one row per person)");
+  assert(rotated?.status === InvitationStatus.PENDING && rotated.expiresAt.getTime() > oldExpiry, "resend resets status to PENDING and pushes expiry forward");
+
+  console.log("\n[11] Accept works on the rotated link:");
+  const ac11 = await mirrorAccept(r10.token, "Resent Hire", "password123");
+  assert(!ac11.error && ac11.userId, "the fresh link accepts and creates the user");
+  assert((await prisma.invitation.count({ where: { organizationId: a.id, email: resendEmail } })) === 1, "still exactly one invitation row for that email");
+
+  console.log("\n[12] Expired and revoked invites are resendable (reactivated):");
+  const r12a = await mirrorResend(a.id, adminA.id, expInvite.id); // was EXPIRED (from [6])
+  assert(!r12a.error && (await prisma.invitation.findUnique({ where: { id: expInvite.id } }))?.status === InvitationStatus.PENDING, "EXPIRED invite reactivated to PENDING");
+  assert((await findInvitationByRawToken(c6.token)) === null, "the expired invite's old link is invalidated");
+  const r12b = await mirrorResend(a.id, adminA.id, revInvite.id); // was REVOKED (from [7])
+  assert(!r12b.error && (await prisma.invitation.findUnique({ where: { id: revInvite.id } }))?.status === InvitationStatus.PENDING, "REVOKED invite reactivated to PENDING");
+
+  console.log("\n[13] Accepted invite cannot be resent; cross-org resend denied:");
+  const r13 = await mirrorResend(a.id, adminA.id, stored.id); // stored is ACCEPTED (from [4])
+  assert(r13.error === "This invitation has already been accepted.", "resend of an accepted invite rejected");
+  const r13b = await mirrorResend(b.id, adminB.id, scopeInvite.id); // org A invite, org B actor
+  assert(r13b.error === "Invitation not found.", "cross-org resend treated as not found");
+
+  console.log("\n[14] Resend audit trail:");
+  const resent = await prisma.activityLog.count({ where: { organizationId: a.id, eventType: "invitation.resent" } });
+  assert(resent === 3, `3 invitation.resent (got ${resent})`); // [10], [12a], [12b]
+  assert((await prisma.activityLog.count({ where: { organizationId: b.id, eventType: "invitation.resent" } })) === 0, "no resent events leaked to org B");
 } finally {
   console.log("\nCleaning up throwaway orgs (cascade)...");
   for (const id of orgIds) {

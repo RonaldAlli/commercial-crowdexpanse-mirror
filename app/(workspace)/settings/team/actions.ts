@@ -12,6 +12,7 @@ import {
   hasActivePendingInvite,
   inviteCreateError,
   inviteExpiry,
+  inviteResendError,
   isEmailTaken,
   normalizeEmail,
 } from "@/lib/invitations";
@@ -258,4 +259,52 @@ export async function revokeInvite(invitationId: string): Promise<TeamActionStat
 
   revalidatePath("/settings/team");
   return undefined;
+}
+
+/**
+ * Resend an invitation by ROTATING it in place: a fresh token replaces the old
+ * hash (so the previous link stops working immediately), expiry is reset, and
+ * status returns to PENDING. One invitation row per person — pending, expired,
+ * and revoked invites are all resendable; an accepted one is terminal. ADMIN-
+ * only, org-scoped. Returns the new raw token once. Deterministic — no AI.
+ */
+export async function resendInvite(invitationId: string): Promise<{ token?: string; error?: string }> {
+  const actor = await requireUser();
+  if (!(await checkAuthorized(actor, "MANAGE", "INVITATION", { targetId: invitationId }))) {
+    return { error: GENERIC_DENIAL };
+  }
+  if (!hasRole(actor, UserRole.ADMIN)) return { error: "Not authorized." };
+
+  const invite = await prisma.invitation.findFirst({
+    where: { id: invitationId, organizationId: actor.organizationId },
+    select: { id: true, email: true, status: true, role: true },
+  });
+
+  const err = inviteResendError({ found: Boolean(invite), status: invite?.status });
+  if (err) return { error: err };
+
+  const now = new Date();
+  const raw = generateInviteToken();
+  await prisma.invitation.update({
+    where: { id: invite!.id },
+    data: {
+      tokenHash: hashInviteToken(raw), // rotates the token — the previous link is now invalid
+      status: InvitationStatus.PENDING,
+      expiresAt: inviteExpiry(now.getTime()),
+      acceptedAt: null,
+      acceptedUserId: null,
+    },
+  });
+
+  await prisma.activityLog.create({
+    data: {
+      organizationId: actor.organizationId,
+      actorId: actor.id,
+      eventType: "invitation.resent",
+      eventLabel: `Resent invite for ${invite!.email} as ${roleLabel(invite!.role)}`,
+    },
+  });
+
+  revalidatePath("/settings/team");
+  return { token: raw };
 }

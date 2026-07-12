@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 
-import { createInvite, revokeInvite } from "@/app/(workspace)/settings/team/actions";
+import { createInvite, resendInvite, revokeInvite } from "@/app/(workspace)/settings/team/actions";
 import { ROLE_OPTIONS } from "@/lib/user-options";
 
 /** Admin control: invite a teammate and reveal the copy-link exactly once. */
@@ -69,6 +69,69 @@ export function InviteForm() {
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
           <p className="text-xs font-medium text-emerald-800">
             Invite link created — copy it now. It won&apos;t be shown again; revoke and reissue if lost.
+          </p>
+          <div className="mt-2 flex items-center gap-2">
+            <input
+              readOnly
+              value={link}
+              onFocus={(e) => e.currentTarget.select()}
+              className="input h-8 flex-1 py-0 font-mono text-xs"
+            />
+            <button
+              type="button"
+              className="btn-ghost h-8 shrink-0"
+              onClick={() => {
+                navigator.clipboard?.writeText(link).then(
+                  () => setCopied(true),
+                  () => setCopied(false),
+                );
+              }}
+            >
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Resend an invitation. Rotates the token in place and reveals the new copy-link
+ * once, making the rotation explicit so a previously-shared link isn't trusted.
+ */
+export function ResendInviteButton({ invitationId }: { invitationId: string }) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [link, setLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <button
+        type="button"
+        className="text-xs font-medium text-brand-700 hover:underline disabled:opacity-50"
+        disabled={pending}
+        onClick={() =>
+          start(async () => {
+            setError(null);
+            setCopied(false);
+            const res = await resendInvite(invitationId);
+            if (res.error) {
+              setError(res.error);
+              return;
+            }
+            if (res.token) setLink(`${window.location.origin}/invite/${res.token}`);
+          })
+        }
+      >
+        {pending ? "Resending…" : "Resend"}
+      </button>
+      {error ? <span className="text-xs text-rose-600">{error}</span> : null}
+      {link ? (
+        <div className="mt-1 w-72 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-left">
+          <p className="text-xs font-medium text-emerald-800">
+            New link generated. The previous invitation link has been invalidated.
           </p>
           <div className="mt-2 flex items-center gap-2">
             <input
