@@ -19,7 +19,8 @@ export type Resource =
   | "NOTE"
   | "DOCUMENT"
   | "TEAM"
-  | "INVITATION";
+  | "INVITATION"
+  | "ORGANIZATION";
 
 export type Action = "CREATE" | "READ" | "UPDATE" | "DELETE" | "MANAGE";
 
@@ -41,6 +42,7 @@ const MATRIX: Record<Resource, Capability> = {
   DOCUMENT: { write: ALL, read: [] },
   TEAM: { write: [ADMIN], read: [] },
   INVITATION: { write: [ADMIN], read: [] },
+  ORGANIZATION: { write: [ADMIN], read: [] },
 };
 
 /** Can `role` perform `action` on `resource`? Pipeline movement is separate — see canMoveStage. */

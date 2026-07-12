@@ -6,6 +6,7 @@ import { MemberRoleSelect } from "@/components/member-role-select";
 import { MemberLifecycleControls } from "@/components/member-lifecycle-controls";
 import { InviteForm, ResendInviteButton, RevokeInviteButton } from "@/components/invite-controls";
 import { requireRole } from "@/lib/auth";
+import { getOrgSettings } from "@/lib/org-settings";
 import { prisma } from "@/lib/prisma";
 import { roleLabel, roleTone } from "@/lib/user-options";
 
@@ -15,6 +16,7 @@ export default async function TeamPage() {
   const user = await requireRole(UserRole.ADMIN);
 
   const now = new Date();
+  const orgSettings = await getOrgSettings(user.organizationId);
   const [members, openInvites] = await Promise.all([
     prisma.user.findMany({
       where: { organizationId: user.organizationId },
@@ -95,7 +97,7 @@ export default async function TeamPage() {
           Generate a copy-link invitation. Share it directly — the link is shown once and can&apos;t be
           retrieved later.
         </p>
-        <InviteForm />
+        <InviteForm defaultRole={orgSettings.defaultInviteRole} />
       </section>
 
       {inviteRows.length > 0 ? (

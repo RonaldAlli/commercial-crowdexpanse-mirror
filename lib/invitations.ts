@@ -15,7 +15,7 @@ import { prisma } from "@/lib/prisma";
 //      semantics change HERE only — no caller reaches for prisma.user directly.
 // ---------------------------------------------------------------------------
 
-export const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VALID_ROLES = new Set<string>(Object.values(UserRole));
@@ -46,8 +46,9 @@ export function hashInviteToken(raw: string): string {
   return crypto.createHmac("sha256", getSecret()).update(raw).digest("hex");
 }
 
-export function inviteExpiry(nowMs: number): Date {
-  return new Date(nowMs + INVITE_TTL_MS);
+/** Expiry from a moment, using the org's configured number of days. */
+export function inviteExpiry(nowMs: number, days: number): Date {
+  return new Date(nowMs + days * MS_PER_DAY);
 }
 
 // --- centralized account / invite lookups -----------------------------------

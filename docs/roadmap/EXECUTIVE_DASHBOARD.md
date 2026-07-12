@@ -26,6 +26,7 @@
 | Permissions (cross-cutting) | 🟢 Good | 1.1 | 90% |
 | Team Management (Roster/Roles/Lifecycle) | 🟡 Partial | 1.1 | 65% |
 | Invitations | 🟡 Partial | 1.1 | 70% |
+| Organization Settings | 🟢 Good | 1.1 | 80% |
 | Testing & CI (cross-cutting) | ✅ Complete | 1.1 | 100% |
 | Backups & DR (cross-cutting, D4) | ✅ Complete (code+docs) | 1.1 | 100%¹ |
 | Deal Analyzer / Underwriting | 🟡 Partial | 1.3 | 35% |
@@ -41,7 +42,7 @@
 | Version | Theme | Status |
 |---|---|---|
 | 1.0 | Foundation | ✅ Shipped |
-| 1.1 | Operational Excellence | 🟡 ~90% (testing/CI/lists + D4 backups + permissions Slices 1–2 + member lifecycle/migrations done; invitation lifecycle + org settings + performance remain) |
+| 1.1 | Operational Excellence | 🟡 ~92% (testing/CI/lists + D4 backups + permissions Slices 1–2 + member lifecycle/migrations + invitation resend + org settings done; email transport + performance remain) |
 | 1.2 | Commercial Intelligence | 🔴 Planned |
 | 1.3 | Commercial Underwriting | 🟡 Foundation (~35%) |
 | 1.4 | Closing Center | 🔴 Planned |
@@ -55,7 +56,7 @@ Roadmap → Architecture → Specification → Implementation → Testing → Do
 Nothing skips a step. See the [EMP lifecycle](./ENGINEERING_MASTER_PLAN.md#development-lifecycle).
 
 ## Top priorities right now
-1. **1.1 Organization settings + email delivery (highest-priority engineering task):** org settings (configurable invite expiry + default role, Slice 3c), then email transport (Slice 3d / D6) as reusable infrastructure. (Invitation resend/lifecycle 3b, member lifecycle 3a, and permissions Slices 1–2 are complete.)
+1. **1.1 Email transport (highest-priority engineering task):** reusable email infrastructure (Slice 3d / D6) — unblocks invitation delivery, password reset, and notifications. (Organization settings 3c, invitation resend 3b, member lifecycle 3a, and permissions Slices 1–2 are complete.)
 2. **1.1 Testing depth:** unit tests for pure `lib/*`; lint in CI.
 3. **1.1 Performance:** latency budgets for board + search; index review.
 

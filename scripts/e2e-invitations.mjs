@@ -23,6 +23,7 @@ import {
   markExpiredIfNeeded,
   normalizeEmail,
 } from "../lib/invitations.ts";
+import { getOrgSettings } from "../lib/org-settings.ts";
 import { hashPassword, verifyPassword } from "../lib/password.ts";
 
 const TAG = "e2e-invitations";
@@ -39,6 +40,7 @@ function assert(cond, msg) {
 async function mirrorCreate(orgId, actorId, email, role) {
   const normalized = normalizeEmail(email);
   const now = new Date();
+  const settings = await getOrgSettings(orgId);
   const emailAlreadyUser = await isEmailTaken(normalized);
   const hasActivePending = await hasActivePendingInvite(orgId, normalized, now);
   const err = inviteCreateError({ email: normalized, role, emailAlreadyUser, hasActivePending });
@@ -48,7 +50,7 @@ async function mirrorCreate(orgId, actorId, email, role) {
     data: {
       organizationId: orgId, email: normalized, role,
       tokenHash: hashInviteToken(raw), status: InvitationStatus.PENDING,
-      expiresAt: inviteExpiry(now.getTime()), invitedById: actorId,
+      expiresAt: inviteExpiry(now.getTime(), settings.inviteExpiryDays), invitedById: actorId,
     },
   });
   await prisma.activityLog.create({
@@ -110,12 +112,13 @@ async function mirrorResend(orgId, actorId, invitationId) {
   const err = inviteResendError({ found: Boolean(invite), status: invite?.status });
   if (err) return { error: err };
   const now = new Date();
+  const settings = await getOrgSettings(orgId);
   const raw = generateInviteToken();
   await prisma.invitation.update({
     where: { id: invite.id },
     data: {
       tokenHash: hashInviteToken(raw), status: InvitationStatus.PENDING,
-      expiresAt: inviteExpiry(now.getTime()), acceptedAt: null, acceptedUserId: null,
+      expiresAt: inviteExpiry(now.getTime(), settings.inviteExpiryDays), acceptedAt: null, acceptedUserId: null,
     },
   });
   await prisma.activityLog.create({

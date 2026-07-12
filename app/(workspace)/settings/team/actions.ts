@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
 import { deactivationError, hasRole, roleChangeError } from "@/lib/authz";
+import { getOrgSettings } from "@/lib/org-settings";
 import {
   generateInviteToken,
   hashInviteToken,
@@ -194,10 +195,14 @@ export async function createInvite(
   const normalized = normalizeEmail(email);
   const now = new Date();
 
+  // Org settings drive the invite's expiry window and the fallback role.
+  const settings = await getOrgSettings(actor.organizationId);
+  const effectiveRole = role || settings.defaultInviteRole;
+
   const emailAlreadyUser = await isEmailTaken(normalized);
   const hasActivePending = await hasActivePendingInvite(actor.organizationId, normalized, now);
 
-  const err = inviteCreateError({ email: normalized, role, emailAlreadyUser, hasActivePending });
+  const err = inviteCreateError({ email: normalized, role: effectiveRole, emailAlreadyUser, hasActivePending });
   if (err) return { error: err };
 
   const raw = generateInviteToken();
@@ -205,10 +210,10 @@ export async function createInvite(
     data: {
       organizationId: actor.organizationId,
       email: normalized,
-      role: role as UserRole,
+      role: effectiveRole as UserRole,
       tokenHash: hashInviteToken(raw),
       status: InvitationStatus.PENDING,
-      expiresAt: inviteExpiry(now.getTime()),
+      expiresAt: inviteExpiry(now.getTime(), settings.inviteExpiryDays),
       invitedById: actor.id,
     },
   });
@@ -218,7 +223,7 @@ export async function createInvite(
       organizationId: actor.organizationId,
       actorId: actor.id,
       eventType: "invitation.created",
-      eventLabel: `Invited ${normalized} as ${roleLabel(role)}`,
+      eventLabel: `Invited ${normalized} as ${roleLabel(effectiveRole)}`,
     },
   });
 
@@ -284,13 +289,14 @@ export async function resendInvite(invitationId: string): Promise<{ token?: stri
   if (err) return { error: err };
 
   const now = new Date();
+  const settings = await getOrgSettings(actor.organizationId);
   const raw = generateInviteToken();
   await prisma.invitation.update({
     where: { id: invite!.id },
     data: {
       tokenHash: hashInviteToken(raw), // rotates the token — the previous link is now invalid
       status: InvitationStatus.PENDING,
-      expiresAt: inviteExpiry(now.getTime()),
+      expiresAt: inviteExpiry(now.getTime(), settings.inviteExpiryDays),
       acceptedAt: null,
       acceptedUserId: null,
     },

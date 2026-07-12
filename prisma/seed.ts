@@ -22,6 +22,13 @@ async function main() {
     },
   });
 
+  // Every org has a settings row (defaults from the schema).
+  await prisma.organizationSettings.upsert({
+    where: { organizationId: organization.id },
+    update: {},
+    create: { organizationId: organization.id },
+  });
+
   const hashedPassword = hashPassword(adminPassword);
 
   const user = await prisma.user.upsert({

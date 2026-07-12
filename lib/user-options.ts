@@ -10,6 +10,10 @@ export const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: UserRole.DISPOSITIONS, label: "Dispositions" },
 ];
 
+// Roles selectable as an org's DEFAULT invite role — ADMIN is intentionally
+// excluded so admins are only ever granted deliberately via Team Management.
+export const NON_ADMIN_ROLE_OPTIONS = ROLE_OPTIONS.filter((o) => o.value !== UserRole.ADMIN);
+
 const LABELS: Record<string, string> = Object.fromEntries(
   ROLE_OPTIONS.map((o) => [o.value, o.label]),
 );

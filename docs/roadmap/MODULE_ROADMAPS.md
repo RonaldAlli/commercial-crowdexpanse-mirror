@@ -134,10 +134,19 @@
 ## Invitations — 🟡 (~70%) {#invitations}
 - **Current:** Copy-link invitations; token hashing; hardened accept (atomic single-use, lazy EXPIRED realization, email-conflict); **resend** (Slice 3b); revoke; expiry (`lib/invitations.ts`).
 - **Completed:** Create/accept/revoke; org scoping; audit. Slice 3b — **resend rotates the token in place** (one invitation row per person; the previous link is invalidated immediately, made explicit in the UI); the roster shows every not-yet-accepted invite (pending/expired/revoked) with status + resend, and pending invites also revoke; `invitation.resent` audited (passive expiry realization stays un-audited by design).
-- **Future (1.1):** Email delivery (Slice 3d); configurable expiry + default role via org settings (Slice 3c).
-- **Dependencies:** Auth, Team Management, (future) email transport (3d), org settings (3c).
+- **Future (1.1):** Email delivery (Slice 3d). Configurable expiry + default role via [Organization Settings](#organization-settings) — **done (Slice 3c)**.
+- **Dependencies:** Auth, Team Management, [Organization Settings](#organization-settings), (future) email transport (3d).
 - **Known Issues:** No email delivery — link must be shared manually (D6, addressed in 3d).
-- **Testing:** `e2e-invitations.mjs` (create/accept/revoke/**resend**/rotation/scope/audit). Strong.
+- **Testing:** `e2e-invitations.mjs` (create/accept/revoke/**resend**/rotation/scope/audit + settings-driven expiry). Strong.
+- **Future AI:** None.
+
+## Organization Settings — 🟢 (~80%) {#organization-settings}
+- **Current:** Dedicated 1:1 `OrganizationSettings` model behind a single abstraction (`lib/org-settings.ts`, get-or-create + validation). Slice 3c ships **configurable invite-link expiry (1–90 days)** and **default invitation role** (ADMIN excluded — admins are only granted via Team Management), plus editable **organization display name** (slug immutable). ADMIN-only page at `/settings/organization`, gated by the new `ORGANIZATION` permission resource. Wired into `createInvite`/`resendInvite` (expiry + default role) and `InviteForm`. Audited as `organization.settings_updated` / `organization.renamed`.
+- **Completed:** Slice 3c.
+- **Future:** Branding/logo, timezone, locale, business hours, email sender identity, notification defaults — the model + page are built to absorb these without new plumbing.
+- **Dependencies:** Auth, Organization, [Permissions](#permissions); consumed by Invitations.
+- **Known Issues:** None.
+- **Testing:** `e2e-org-settings.mjs` (lazy defaults, validation/bounds, ADMIN-default rejection, rename, invite integration, audit, org-scoping).
 - **Future AI:** None.
 
 ## Permissions (cross-cutting) — 🟢 (~90%) {#permissions}
@@ -146,7 +155,7 @@
 - **Completed (Slice 1 — high-risk ops):** deletes on all record types route through `authorize()` (uniform audit, even where every role is allowed); pipeline stage movement enforced by BOTH current and target stage (ACQUISITIONS own LEAD…UNDER_CONTRACT, DISPOSITIONS own UNDER_CONTRACT…PAID, ADMIN any incl. backward, ANALYST none); team-role and invitation actions gated by `MANAGE`.
 - **Completed (Slice 2 — create/update + surfaces):** ordinary create/update enforced across every write action (sellers, properties, opportunities, buyers, deal analysis, buyer-match generation/status, tasks/notes/documents for uniform audit); an opportunity edit that changes `stage` is rejected in full if the move isn't allowed (stage is the one field-level rule — no `canEditField`); create/edit UI entry points hidden and `/new` + `/[id]/edit` routes guarded with `can()` + `notFound()` (no audit on page loads); ADMIN-only read-only **Access denials** report at `/settings/security` (actor/role/resource/action/target/timestamp + counts by user and resource·action, from existing `ActivityLog`).
 - **Future (1.2+):** field-level financial permissions if a business need appears; RLS (D2) as a backstop; denial thresholds/alerting (deferred, edges into 2.0).
-- **Dependencies:** Auth, Organization; consumed by every write-bearing module.
+- **Dependencies:** Auth, Organization; consumed by every write-bearing module. The matrix now includes SELLER/PROPERTY/OPPORTUNITY/DEAL_ANALYSIS/BUYER/BUYER_MATCH/TASK/NOTE/DOCUMENT/TEAM/INVITATION/**ORGANIZATION** (3c).
 - **Known Issues:** Audit is intentionally best-effort (a logging failure never blocks a denial); no field-level permissions beyond opportunity stage (by decision).
 - **Testing:** `e2e-permissions.mjs` — pure truth table for `can`/`canMoveStage` (incl. the seven required pipeline cases) + DB-backed enforcement/audit/org-scoping (create/update, edit-path stage denial, submit-only audit invariant) against the `_test` DB.
 - **Future AI:** None (keep authorization deterministic).

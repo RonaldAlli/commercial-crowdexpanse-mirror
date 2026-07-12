@@ -6,7 +6,7 @@ import { createInvite, resendInvite, revokeInvite } from "@/app/(workspace)/sett
 import { ROLE_OPTIONS } from "@/lib/user-options";
 
 /** Admin control: invite a teammate and reveal the copy-link exactly once. */
-export function InviteForm() {
+export function InviteForm({ defaultRole = "ACQUISITIONS" }: { defaultRole?: string }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [link, setLink] = useState<string | null>(null);
@@ -50,7 +50,7 @@ export function InviteForm() {
         </label>
         <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
           Role
-          <select name="role" defaultValue="ACQUISITIONS" className="input h-9 w-44 py-0 text-sm">
+          <select name="role" defaultValue={defaultRole} className="input h-9 w-44 py-0 text-sm">
             {ROLE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
