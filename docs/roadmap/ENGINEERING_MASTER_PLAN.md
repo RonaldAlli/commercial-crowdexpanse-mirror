@@ -1,6 +1,6 @@
 # CrowdExpanse Commercial — Engineering Master Plan (EMP)
 
-> **Status:** Living document · **Owner:** Engineering · **Last reviewed:** 2026-07-12
+> **Status:** Living document · **Owner:** Engineering · **Last reviewed:** 2026-07-13
 > This is the constitution of the project. Every feature, release, sprint, and AI session references it.
 > When reality and this document disagree, fix one of them in the same change — never leave them drifted.
 
