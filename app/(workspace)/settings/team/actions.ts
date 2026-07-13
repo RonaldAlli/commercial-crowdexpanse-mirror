@@ -6,11 +6,13 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
 import { deactivationError, hasRole, roleChangeError } from "@/lib/authz";
+import { messageService } from "@/lib/email";
 import { getOrgSettings } from "@/lib/org-settings";
 import {
   generateInviteToken,
   hashInviteToken,
   hasActivePendingInvite,
+  inviteAcceptUrl,
   inviteCreateError,
   inviteExpiry,
   inviteResendError,
@@ -21,6 +23,47 @@ import { prisma } from "@/lib/prisma";
 import { roleLabel } from "@/lib/user-options";
 
 export type TeamActionState = { error?: string } | undefined;
+
+/**
+ * Best-effort invitation email via the messaging platform. Never throws — a
+ * delivery failure must never fail invite create/resend (the copy-link is always
+ * returned as the fallback). "invitation" is an inline-only message kind: one
+ * attempt, no background retry, no automatic token rotation. The raw token is
+ * embedded in the accept URL in memory only and never persisted.
+ */
+async function deliverInvitationEmail(params: {
+  organizationId: string;
+  actorId: string;
+  actorName?: string | null;
+  email: string;
+  role: string;
+  inviteId: string;
+  expiresAt: Date;
+  rawToken: string;
+}): Promise<void> {
+  try {
+    const org = await prisma.organization.findUnique({
+      where: { id: params.organizationId },
+      select: { name: true },
+    });
+    await messageService.send({
+      kind: "invitation",
+      to: params.email,
+      organizationId: params.organizationId,
+      actorId: params.actorId,
+      correlationId: params.inviteId,
+      data: {
+        orgName: org?.name ?? "your organization",
+        inviterName: params.actorName ?? undefined,
+        role: roleLabel(params.role),
+        acceptUrl: inviteAcceptUrl(params.rawToken),
+        expiresAt: params.expiresAt,
+      },
+    });
+  } catch {
+    // Silent by design — the ledger records the outcome; copy-link is the fallback.
+  }
+}
 
 /**
  * Change one org member's role. ADMIN-only, org-scoped, and protected by the
@@ -206,7 +249,7 @@ export async function createInvite(
   if (err) return { error: err };
 
   const raw = generateInviteToken();
-  await prisma.invitation.create({
+  const invite = await prisma.invitation.create({
     data: {
       organizationId: actor.organizationId,
       email: normalized,
@@ -225,6 +268,18 @@ export async function createInvite(
       eventType: "invitation.created",
       eventLabel: `Invited ${normalized} as ${roleLabel(effectiveRole)}`,
     },
+  });
+
+  // Additive email delivery — never blocks; copy-link is always returned below.
+  await deliverInvitationEmail({
+    organizationId: actor.organizationId,
+    actorId: actor.id,
+    actorName: actor.name,
+    email: normalized,
+    role: effectiveRole,
+    inviteId: invite.id,
+    expiresAt: invite.expiresAt,
+    rawToken: raw,
   });
 
   revalidatePath("/settings/team");
@@ -291,7 +346,7 @@ export async function resendInvite(invitationId: string): Promise<{ token?: stri
   const now = new Date();
   const settings = await getOrgSettings(actor.organizationId);
   const raw = generateInviteToken();
-  await prisma.invitation.update({
+  const rotated = await prisma.invitation.update({
     where: { id: invite!.id },
     data: {
       tokenHash: hashInviteToken(raw), // rotates the token — the previous link is now invalid
@@ -309,6 +364,18 @@ export async function resendInvite(invitationId: string): Promise<{ token?: stri
       eventType: "invitation.resent",
       eventLabel: `Resent invite for ${invite!.email} as ${roleLabel(invite!.role)}`,
     },
+  });
+
+  // Deliver the NEW link (the resend rotated the token). Best-effort; copy-link returned.
+  await deliverInvitationEmail({
+    organizationId: actor.organizationId,
+    actorId: actor.id,
+    actorName: actor.name,
+    email: invite!.email,
+    role: invite!.role,
+    inviteId: rotated.id,
+    expiresAt: rotated.expiresAt,
+    rawToken: raw,
   });
 
   revalidatePath("/settings/team");

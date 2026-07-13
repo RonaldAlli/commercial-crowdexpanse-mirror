@@ -45,5 +45,5 @@ Testing & CI  ── underpins everything (a change isn't done without it)
 ## Cross-cutting enablers (needed by many)
 - **Schema migrations** (blocks 1.2+): ✅ resolved in 3a-i — `prisma migrate` with a `0_init` baseline; test/CI run `migrate deploy`.
 - **Object storage** (blocks Documents scale / 1.4): local FS → S3-class.
-- **Email transport** (enables Invitations delivery / password reset / Notifications / 2.0 campaigns): ✅ infrastructure shipped in 3d-i (`MessageService`/`EmailMessage` outbox, Console + SMTP). Consumers pending — invitation delivery (3d-ii), password reset (3e), notification digests (later) — all build on it without further architectural change.
+- **Email transport** (enables Invitations delivery / password reset / Notifications / 2.0 campaigns): ✅ infrastructure shipped in 3d-i (`MessageService`/`EmailMessage` outbox, Console + SMTP, closed typed registry); **first consumer live** — invitation email delivery (3d-ii). Remaining consumers — password reset (3e), notification digests (later) — build on it without further architectural change.
 - **Permission matrix** (blocks safe multi-role operation across 1.1+).

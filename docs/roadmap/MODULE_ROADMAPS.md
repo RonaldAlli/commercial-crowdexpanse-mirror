@@ -131,13 +131,13 @@
 - **Testing:** `e2e-team-roles.mjs` (role-change rules) + `e2e-member-lifecycle.mjs` (deactivation guards, session epoch, active-only pickers, audit, org-scoping) + `e2e-permissions.mjs` (MANAGE enforcement).
 - **Future AI:** None.
 
-## Invitations — 🟢 (~85%) {#invitations}
-- **Current:** Copy-link invitations; token hashing; hardened accept (atomic single-use, lazy EXPIRED realization, email-conflict); **resend** (Slice 3b); revoke; expiry (`lib/invitations.ts`).
-- **Completed:** Create/accept/revoke; org scoping; audit. Slice 3b — **resend rotates the token in place** (one invitation row per person; the previous link is invalidated immediately, made explicit in the UI); the roster shows every not-yet-accepted invite (pending/expired/revoked) with status + resend, and pending invites also revoke; `invitation.resent` audited (passive expiry realization stays un-audited by design).
-- **Future (1.1):** **Email delivery (Slice 3d-ii)** — wire `createInvite`/`resendInvite` to `MessageService` ([Communications](#communications)) so the accept link is emailed; copy-link stays as a fallback. Configurable expiry + default role via [Organization Settings](#organization-settings) — **done (Slice 3c)**.
-- **Dependencies:** Auth, Team Management, [Organization Settings](#organization-settings), [Communications](#communications) (email transport 3d-i — infra ready, wiring is 3d-ii).
-- **Known Issues:** No email delivery yet — link is shared manually until 3d-ii wires the (now-merged) email infrastructure.
-- **Testing:** `e2e-invitations.mjs` (create/accept/revoke/**resend**/rotation/scope/audit + settings-driven expiry). Strong.
+## Invitations — 🟢 (~90%) {#invitations}
+- **Current:** Emailed + copy-link invitations; token hashing; hardened accept (atomic single-use, lazy EXPIRED realization, email-conflict); **resend** (Slice 3b); revoke; expiry (`lib/invitations.ts`).
+- **Completed:** Create/accept/revoke; org scoping; audit. Slice 3b — **resend rotates the token in place** (one invitation row per person; the previous link is invalidated immediately, made explicit in the UI); the roster shows every not-yet-accepted invite (pending/expired/revoked) with status + resend, and pending invites also revoke; `invitation.resent` audited (passive expiry realization stays un-audited by design). Slice 3d-ii — **email delivery**: `createInvite`/`resendInvite` email the absolute accept link via [Communications](#communications) (best-effort, **silent** — the copy-link is always returned, so delivery never blocks onboarding). Invitation is an **`inline-only`** message kind: one send attempt, **no background retry, no automatic token rotation** — only the explicit admin Resend rotates. No raw token is ever persisted.
+- **Future (1.1):** None outstanding. (Configurable expiry + default role via [Organization Settings](#organization-settings) — done Slice 3c.)
+- **Dependencies:** Auth, Team Management, [Organization Settings](#organization-settings), [Communications](#communications).
+- **Known Issues:** No in-UI "emailed to…" confirmation yet (by decision — copy-link is the primary UX); delivery status is inspectable via the `EmailMessage` ledger, and a surfaced view can follow.
+- **Testing:** `e2e-invitations.mjs` (create/accept/revoke/**resend**/rotation/scope/audit + settings-driven expiry) + `e2e-invitation-delivery.mjs` (delivery, inline-only semantics, resend rotation + re-delivery, no-raw-token-persisted, scope). Strong.
 - **Future AI:** None.
 
 ## Organization Settings — 🟢 (~90%) {#organization-settings}
@@ -149,21 +149,23 @@
 - **Testing:** `e2e-org-settings.mjs` (lazy defaults, validation/bounds, ADMIN-default rejection, rename, invite integration, audit, org-scoping).
 - **Future AI:** None.
 
-## Communications / Email (cross-cutting) — 🟡 (~40%) {#communications}
+## Communications / Email (cross-cutting) — 🟡 (~60%) {#communications}
 - **Purpose:** One reusable messaging seam for the whole platform — *not* an invitation feature. Every future sender (invitation delivery, password reset, account-lifecycle notices, notification digests, system alerts, campaigns) builds on the same infrastructure with no further architectural change.
 - **Architecture:** `Feature → MessageService → Template → EmailTransport`. `MessageService` (`lib/email/`) owns template selection, rendering, persistence, retries, and transport selection; features call only `messageService.send({ kind, to, data, … })`.
-- **Completed (Slice 3d-i — infrastructure only, no feature wired):**
+- **Closed, typed registry (Slice 3d-ii):** `MessageKind` is a closed union; each kind must declare a **payload type + template + retry policy** or the code won't compile (`data` is compile-time checked, no runtime shape validation). `RetryPolicy` is one of **`inline-only`** (one attempt, never drained — for kinds carrying an unrecoverable secret, e.g. invitations), **`drainable`** (outbox/drain re-attempt — system alerts, future digests), or **`manual-only`** (reserved — human reissue required, e.g. future compliance-sensitive mail).
+- **Consumed by (Slice 3d-ii):** **Invitation delivery** — `createInvite`/`resendInvite` email the accept link; copy-link retained as fallback. Invitation is **`inline-only`**: one best-effort inline send, no background retry, **no automatic token rotation** — recovery is the explicit admin Resend (which rotates). The raw token is embedded in the accept URL in memory only and never persisted.
+- **Completed (Slice 3d-i — infrastructure):**
   - `EmailTransport` interface with `ConsoleTransport` (default in dev/test/CI — logs, never sends) and `SmtpTransport` (nodemailer, provider-agnostic). API providers (Resend/SES/Postmark) drop in without an interface change.
   - Pure, versioned template registry (`lib/email/templates/`, shared layout + plaintext fallback); reference `system_alert` template.
   - **`EmailMessage` outbox** (persist-then-send). **Metadata only** — recipient, template, `templateVersion`, subject, status, attempts, providerMessageId, correlationId, timestamps. **Never** the rendered body, links, or tokens (same philosophy as invitation token hashes).
   - **Outbox-lite retry:** inline send first; PENDING/FAILED rows are the drain target. Durable re-send reconstructs data from the source of truth via a per-kind **resolver** (keyed by `correlationId`), so no body/token is ever stored; kinds without a resolver are left untouched (never silently dropped). Manual `scripts/email-drain.mjs` runner.
   - Lightweight **org-scoped `ActivityLog` mirror** (`email.sent` / `email.failed`) on terminal transitions only.
   - Fail-fast config in `lib/env.ts` (`EMAIL_PROVIDER`, `EMAIL_FROM`, SMTP_*, `APP_URL`).
-- **Future (1.1):** **Invitation delivery (3d-ii)** — the first consumer. **Password reset (3e).**
-- **Deferred:** Resend/API transport (interface-ready); scheduling the drain (cron) once a resolver is registered; bounce/complaint webhooks + an admin failed-send view; notification digests.
-- **Dependencies:** Organization (org-scoped rows/audit), Auth (secrets), `nodemailer`. Consumed by Invitations (3d-ii), password reset (3e), notifications (later).
-- **Known Issues:** None. No feature is wired yet by design — 3d-i is pure infrastructure with no user-visible behavior change.
-- **Testing:** `e2e-email-transport.mjs` (25 assertions — template rendering, SMTP error classification, transport selection, PENDING→SENT, permanent failure, transient-then-drain recovery, max-attempts exhaustion, metadata-only storage, org-scoped audit mirror, unresolved-drain guard) with an injected fake transport (no network).
+- **Future (1.1):** **Password reset (3e)** — its own stricter flow on this same platform.
+- **Deferred:** Resend/API transport (interface-ready); scheduling the drain (cron) for drainable kinds; bounce/complaint webhooks + an admin failed-send view; notification digests.
+- **Dependencies:** Organization (org-scoped rows/audit), Auth (secrets), `nodemailer`. Consumed by Invitations (3d-ii — done), password reset (3e), notifications (later).
+- **Known Issues:** None.
+- **Testing:** `e2e-email-transport.mjs` (25 assertions — rendering, SMTP error classification, transport selection, PENDING→SENT, permanent failure, transient-then-drain recovery, max-attempts exhaustion, metadata-only storage, org-scoped mirror, unresolved-drain guard) + `e2e-invitation-delivery.mjs` (21 assertions — absolute accept URL, delivery + correlation + audit, inline-only terminal failure, drain-skips-invitations + no auto-rotation, explicit-resend rotation + re-delivery, no-raw-token-persisted, org scoping). Both use an injected fake transport (no network).
 - **Future AI:** AI-generated communications (2.0) reuse this same transport — no new delivery plumbing.
 
 ## Permissions (cross-cutting) — 🟢 (~90%) {#permissions}
@@ -187,7 +189,7 @@
 - **Future AI:** Natural-language list queries (2.0).
 
 ## Testing & CI (cross-cutting) — ✅
-- **Current:** 14 E2E scripts; dedicated `_test` DB + no-override guard; runner; setup/reset/sweep tooling; GitHub Actions CI with ephemeral Postgres.
+- **Current:** 15 E2E scripts; dedicated `_test` DB + no-override guard; runner; setup/reset/sweep tooling; GitHub Actions CI with ephemeral Postgres.
 - **Completed:** Slices 1–3.
 - **Future:** Unit tests for pure `lib/*`; lint in CI; perf/load/security/DR (Testing Roadmap); Gitea Actions decision.
 - **Dependencies:** all modules.

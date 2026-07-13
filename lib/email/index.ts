@@ -10,8 +10,13 @@ export const messageService = createMessageService({ transport: transportFromEnv
 
 export { MessageService, createMessageService } from "./message-service";
 export type { ResendResolver, DrainResult } from "./message-service";
+export { MESSAGE_REGISTRY, retryPolicyFor } from "./templates";
 export type {
   MessageKind,
+  MessagePayloads,
+  RetryPolicy,
+  SystemAlertData,
+  InvitationEmailData,
   SendRequest,
   RenderedEmail,
   EmailTransport,

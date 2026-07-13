@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { InvitationStatus, UserRole } from "@prisma/client";
 
+import { getEnv } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 
 // ---------------------------------------------------------------------------
@@ -49,6 +50,16 @@ export function hashInviteToken(raw: string): string {
 /** Expiry from a moment, using the org's configured number of days. */
 export function inviteExpiry(nowMs: number, days: number): Date {
   return new Date(nowMs + days * MS_PER_DAY);
+}
+
+// The route that consumes a raw invite token. The client copy-link composes the
+// same path from the browser origin; the email path needs an ABSOLUTE URL (no
+// browser context at send time), so it uses the configured APP_URL.
+export const INVITE_ACCEPT_PATH = "/invite";
+
+/** Absolute accept URL for emails, from APP_URL. The raw token is never stored. */
+export function inviteAcceptUrl(rawToken: string): string {
+  return `${getEnv().appUrl}${INVITE_ACCEPT_PATH}/${rawToken}`;
 }
 
 // --- centralized account / invite lookups -----------------------------------

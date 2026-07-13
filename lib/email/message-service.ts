@@ -3,10 +3,11 @@ import { EmailStatus } from "@prisma/client";
 
 import { getEnv } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
-import { renderTemplate } from "@/lib/email/templates";
+import { renderTemplate, retryPolicyFor } from "@/lib/email/templates";
 import type {
   EmailTransport,
   MessageKind,
+  MessagePayloads,
   OutboundPayload,
   RenderedEmail,
   SendRequest,
@@ -72,7 +73,7 @@ export class MessageService {
    * and returns the updated row. Never throws on a delivery failure — the row's
    * status carries the outcome so a caller's primary action is never blocked.
    */
-  async send(req: SendRequest): Promise<EmailMessage> {
+  async send<K extends MessageKind>(req: SendRequest<K>): Promise<EmailMessage> {
     const rendered = renderTemplate(req.kind, req.data);
     const row = await prisma.emailMessage.create({
       data: {
@@ -105,7 +106,12 @@ export class MessageService {
 
     const result: DrainResult = { attempted: 0, sent: 0, failed: 0, unresolved: 0 };
     for (const row of rows) {
-      const resolver = this.resolvers[row.template as MessageKind];
+      const kind = row.template as MessageKind;
+      // Only "drainable" kinds may be auto-retried. inline-only (invitations) and
+      // manual-only kinds are never touched by the drain — this is what guarantees
+      // an invitation token is never rotated by an automatic retry.
+      if (retryPolicyFor(kind) !== "drainable") continue;
+      const resolver = this.resolvers[kind];
       if (!resolver) {
         result.unresolved++;
         continue;
@@ -120,7 +126,7 @@ export class MessageService {
         result.failed++;
         continue;
       }
-      const rendered = renderTemplate(row.template as MessageKind, data);
+      const rendered = renderTemplate(kind, data as MessagePayloads[MessageKind]);
       const updated = await this.attempt(row, rendered);
       result.attempted++;
       if (updated.status === EmailStatus.SENT) result.sent++;
@@ -138,10 +144,19 @@ export class MessageService {
     const attempts = row.attempts + 1;
     const res = await this.transport.send(buildPayload(row.toEmail, rendered));
 
+    // Status by retry policy: a transient failure only waits as PENDING for a
+    // "drainable" kind with attempts left. inline-only / manual-only kinds are
+    // never auto-retried, so any non-success is terminal FAILED (no PENDING that
+    // nothing would ever drain).
     let status: EmailStatus;
-    if (res.ok) status = EmailStatus.SENT;
-    else if (res.permanent || attempts >= row.maxAttempts) status = EmailStatus.FAILED;
-    else status = EmailStatus.PENDING;
+    if (res.ok) {
+      status = EmailStatus.SENT;
+    } else if (res.permanent || attempts >= row.maxAttempts) {
+      status = EmailStatus.FAILED;
+    } else {
+      const drainable = retryPolicyFor(row.template as MessageKind) === "drainable";
+      status = drainable ? EmailStatus.PENDING : EmailStatus.FAILED;
+    }
 
     const updated = await prisma.emailMessage.update({
       where: { id: row.id },
