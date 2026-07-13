@@ -21,7 +21,7 @@
 | **Unit** | Pure logic correctness | 🟢 established (PQ-1) | Critical five + email/env/guards covered (branch-gated ≥90/≥80). Extend to more pure helpers as they appear |
 | **Integration (E2E)** | Module behavior + org scope vs. real DB | ✅ strong | Add Documents, Analyzer-flow, Auth |
 | **Regression** | Prevent re-breakage | 🟡 implicit | Written regression checklist per release; keep each fixed bug's test |
-| **Performance** | Latency budgets | 🔴 missing | p95 budgets for board + search; query timing in dev |
+| **Performance** | Latency budgets | 🟢 baseline (PQ-3) | Instrumentation + seeded harness (`npm run perf:measure`) + recorded [baseline](./PERFORMANCE.md); PQ-4 optimizes against it |
 | **Security** | Authz + isolation + inputs | 🟡 partial | Cross-org access tests; upload path-guard tests; authz-matrix tests |
 | **Load** | Behavior at volume | 🔴 missing | Seeded large-org dataset; list/search under N rows |
 | **Disaster Recovery** | Restore works | 🔴 missing | Backup + restore drill (see [Operations](./OPERATIONS_ROADMAP.md)) |

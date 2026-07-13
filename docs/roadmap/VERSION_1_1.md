@@ -1,7 +1,7 @@
 # Version 1.1 — Operational Excellence
 
 > **Theme:** Make the existing workflow trustworthy before adding surface area.
-> **Status:** 🟡 In progress (~97%). Testing/CI, Better Lists, permissions (Slices 1 + 2), member lifecycle, invitation resend, organization settings (3c), email **infrastructure** (3d-i), **invitation email delivery** (3d-ii), the **unit-test foundation** (PQ-1), and **lint-in-CI** (PQ-2 — blocking gate, baseline clean) done; **performance (PQ-3/PQ-4)** is the main remaining work. Password reset (3e) is an optional 1.1/1.2 follow-on on the same platform.
+> **Status:** 🟡 In progress (~98%). Testing/CI, Better Lists, permissions (Slices 1 + 2), member lifecycle, invitation resend, organization settings (3c), email 3d-i/3d-ii, unit-test foundation (PQ-1), lint-in-CI (PQ-2), and **performance instrumentation + baseline** (PQ-3 — observational) done; only **PQ-4 optimization** (evidence-driven, and all paths already within budget) remains. Password reset (3e) is an optional 1.1/1.2 follow-on on the same platform.
 
 ## Goal
 Everything the team already does daily should be fast, safe, tested, and permission-aware. No new domain surface — depth over breadth.
@@ -29,9 +29,8 @@ GitHub Actions on the mirror with ephemeral Postgres runs distinct blocking step
 - **Remaining:** decide on Gitea Actions (runner unconfirmed); build artifact/size guard.
 
 ### 5. Performance
-- Add DB indexes for the new list search/sort paths as data grows; verify org-scoped queries use `@@index([organizationId])`.
-- Measure p95 for the heaviest pages (Opportunities board, Global Search); set budgets.
-- Introduce Prisma query timing in dev; eliminate N+1 in list includes.
+- **PQ-3 (done — instrumentation, observational only):** `lib/telemetry.ts` (zero-dep timing), `/api/health` DB-latency probe, and a seeded `_test` measurement harness (`npm run perf:measure`). **Baseline recorded** — board p95 ~110 ms, search ~12 ms, lists ≤ 8 ms at 1k opps / 2k props / 5k tasks; all within the proposed budgets. See [Performance Baseline](./PERFORMANCE.md).
+- **PQ-4 (next — optimization, evidence-driven):** board pagination/lighter payload if it grows; `EXPLAIN`-verified indexes only where a path regresses; targeted N+1 review. Re-measure after each change vs the baseline.
 
 ## Release Checklist (1.1)
 - [x] Permission matrix documented and enforced in server actions. (Slices 1 + 2 complete; enforcement + audit across all write actions.)

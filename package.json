@@ -12,6 +12,8 @@
     "test": "node --env-file-if-exists=.env.test scripts/e2e-all.mjs",
     "test:unit": "node scripts/run-unit-tests.mjs",
     "test:ci": "npm run typecheck && npm run test:unit && npm run test",
+    "perf:seed": "node --env-file-if-exists=.env.test --import tsx scripts/seed-perf.mjs",
+    "perf:measure": "node --env-file-if-exists=.env.test --import tsx scripts/perf-measure.mjs",
     "test:db:setup": "node scripts/test-db.mjs setup",
     "test:db:reset": "node scripts/test-db.mjs reset",
     "test:db:sweep": "node scripts/test-db.mjs sweep",
