@@ -1,7 +1,7 @@
 # Version 1.1 — Operational Excellence
 
 > **Theme:** Make the existing workflow trustworthy before adding surface area.
-> **Status:** 🟡 In progress (~96%). Testing/CI, Better Lists, permissions (Slices 1 + 2), member lifecycle, invitation resend, organization settings (3c), email **infrastructure** (3d-i), **invitation email delivery** (3d-ii), and the **unit-test foundation** (PQ-1 — branch-gated pure-lib coverage in CI) done; lint-in-CI (PQ-2) and performance remain. Password reset (3e) is an optional 1.1/1.2 follow-on on the same platform.
+> **Status:** 🟡 In progress (~97%). Testing/CI, Better Lists, permissions (Slices 1 + 2), member lifecycle, invitation resend, organization settings (3c), email **infrastructure** (3d-i), **invitation email delivery** (3d-ii), the **unit-test foundation** (PQ-1), and **lint-in-CI** (PQ-2 — blocking gate, baseline clean) done; **performance (PQ-3/PQ-4)** is the main remaining work. Password reset (3e) is an optional 1.1/1.2 follow-on on the same platform.
 
 ## Goal
 Everything the team already does daily should be fast, safe, tested, and permission-aware. No new domain surface — depth over breadth.
@@ -25,8 +25,8 @@ Slices 1–3 complete: `npm test` runs 15 E2E scripts against a dedicated `_test
 - **Remaining (tracked in Testing Roadmap):** a written regression checklist; broader pure-helper coverage as modules grow.
 
 ### 4. CI — 🟢 done
-GitHub Actions on the mirror with ephemeral Postgres runs `test:ci` + build on push-to-`main`/PR.
-- **Remaining:** decide on Gitea Actions (runner unconfirmed); add lint to CI; build artifact/size guard.
+GitHub Actions on the mirror with ephemeral Postgres runs distinct blocking steps — **Typecheck → Lint → Unit → E2E → Build** — on push-to-`main`/PR (lint added in PQ-2).
+- **Remaining:** decide on Gitea Actions (runner unconfirmed); build artifact/size guard.
 
 ### 5. Performance
 - Add DB indexes for the new list search/sort paths as data grows; verify org-scoped queries use `@@index([organizationId])`.
@@ -38,7 +38,7 @@ GitHub Actions on the mirror with ephemeral Postgres runs `test:ci` + build on p
 - [x] Team Management member lifecycle (3a), invitation resend (3b), organization settings (3c), email infrastructure (3d-i), and invitation email delivery (3d-ii) shipped. (Password reset split to 3e.)
 - [ ] Relation search decision made (ship or explicitly defer to 1.2).
 - [x] Unit tests for the pure `lib/*` modules (PQ-1 — branch-gated, in `test:ci` + CI).
-- [ ] Lint added to CI; CI green on `main` (PQ-2, next).
+- [x] Lint added to CI as a blocking step; baseline already clean, `next lint` green on `main` (PQ-2).
 - [ ] Performance budgets set for board + search; indexes reviewed.
 - [ ] Dashboard + Module Roadmaps updated; Tech Debt reviewed.
 

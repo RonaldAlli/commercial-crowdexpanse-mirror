@@ -43,7 +43,7 @@
 | Version | Theme | Status |
 |---|---|---|
 | 1.0 | Foundation | ✅ Shipped |
-| 1.1 | Operational Excellence | 🟡 ~96% (testing/CI/lists + D4 backups + permissions Slices 1–2 + member lifecycle + invitation resend + org settings + email 3d-i/3d-ii + **unit-test foundation PQ-1** all shipped; lint-in-CI PQ-2 + performance remain; password reset 3e is optional 1.1/1.2) |
+| 1.1 | Operational Excellence | 🟡 ~97% (testing/CI/lists + D4 backups + permissions Slices 1–2 + member lifecycle + invitation resend + org settings + email 3d-i/3d-ii + unit-test foundation PQ-1 + **lint-in-CI PQ-2** all shipped; **performance PQ-3/PQ-4** remains; password reset 3e is optional 1.1/1.2) |
 | 1.2 | Commercial Intelligence | 🔴 Planned |
 | 1.3 | Commercial Underwriting | 🟡 Foundation (~35%) |
 | 1.4 | Closing Center | 🔴 Planned |
@@ -57,11 +57,11 @@ Roadmap → Architecture → Specification → Implementation → Testing → Do
 Nothing skips a step. See the [EMP lifecycle](./ENGINEERING_MASTER_PLAN.md#development-lifecycle).
 
 ## Top priorities right now
-1. **1.1 Lint in CI (PQ-2):** add `lint` (+ `tsc`) as blocking CI gates; keep CI green on `main`.
-2. **1.1 Performance (PQ-3/PQ-4):** query/search/board timing instrumentation, then indexes + N+1 fixes to meet p95 budgets.
+1. **1.1 Performance instrumentation (PQ-3):** query/search/board timing + `/health`; baseline measurements before any optimization (evidence-first).
+2. **1.1 Performance optimization (PQ-4):** targeted indexes + N+1 fixes to meet p95 budgets, driven by PQ-3 data.
 3. **1.1/1.2 Password reset (Slice 3e, optional):** the next consumer of the messaging platform — its own stricter flow.
 
-*(Unit-test foundation PQ-1 — branch-gated pure-lib coverage in `test:ci`/CI — is complete.)*
+*(Unit-test foundation PQ-1 and lint-in-CI PQ-2 are complete; CI runs Typecheck → Lint → Unit → E2E → Build as distinct blocking steps.)*
 
 *(Invitation email delivery 3d-ii, email infrastructure 3d-i, org settings 3c, invitation resend 3b, member lifecycle 3a, and permissions Slices 1–2 are complete.)*
 

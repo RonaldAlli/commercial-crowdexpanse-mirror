@@ -26,8 +26,22 @@
 | **Load** | Behavior at volume | 🔴 missing | Seeded large-org dataset; list/search under N rows |
 | **Disaster Recovery** | Restore works | 🔴 missing | Backup + restore drill (see [Operations](./OPERATIONS_ROADMAP.md)) |
 
+## Lint enforcement (PQ-2)
+`npm run lint` (`next lint`, `eslint-config-next` defaults) is a **blocking CI gate** — a distinct "Lint" step between Typecheck and Unit Tests, so a failure names its own stage. Scope is the default Next surface (`app/`, `components/`, `lib/`); `tests/unit/**` and `scripts/*.mjs` are deliberately out of scope for now. Local `test:ci` is unchanged — developers run `npm run lint` explicitly. No rule promotions beyond Next defaults.
+
+**Baseline cleanup (PQ-2):**
+
+| Metric | Count |
+|---|---|
+| Initial violations | 0 |
+| Autofixed (`next lint --fix`) | 0 |
+| Manual fixes | 0 |
+| Final (enforced) | **0** |
+
+The codebase was already lint-clean under Next defaults — PQ-2 adds *enforcement*, not cleanup. (Verified the linter is live by planting and catching a throwaway `no-unused-vars` violation.)
+
 ## Priorities by release
-- **1.1:** Unit tests for the pure `lib/*` modules — **done (PQ-1)**; add lint to CI (**PQ-2, next**); Documents + Auth E2E; performance budgets.
+- **1.1:** Unit tests for the pure `lib/*` modules — **done (PQ-1)**; lint in CI — **done (PQ-2)**; Documents + Auth E2E; performance budgets.
 - **1.2:** Tests for enrichment provenance + refresh; migration tests once schema history exists.
 - **1.3:** Worked-example unit tests for every underwriting formula (NOI, cap, DSCR, debt yield, cash flow, sensitivity); scenario-versioning tests.
 - **1.4:** Closing-gate tests (cannot reach `PAID` without checklist); date-reminder tests.
@@ -37,7 +51,7 @@
 - Every E2E creates throwaway `e2e-*` orgs and cascade-cleans them; the guard blocks non-`_test` DBs.
 - Every fixed bug gets a test that would have caught it (regression).
 - Pure logic lives in `lib/*` with no Prisma, so it's unit-testable in isolation.
-- CI is the gate: `test:ci` (typecheck + **unit** + full E2E) + build must pass before merge.
+- CI is the gate: distinct blocking steps — **Typecheck → Lint → Unit → E2E → Build** — must all pass before merge. Locally, `test:ci` (typecheck + unit + E2E) plus an explicit `npm run lint`.
 - Unit tests live under `tests/unit/**` (never co-located), organized by module, imported with extensionless relative paths (`bundler` resolution) so `tsc --noEmit` type-checks them too.
 
 ## Tooling decisions

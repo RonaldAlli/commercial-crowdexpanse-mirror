@@ -189,9 +189,9 @@
 - **Future AI:** Natural-language list queries (2.0).
 
 ## Testing & CI (cross-cutting) — ✅
-- **Current:** 15 E2E scripts + a **`node:test`+`tsx` unit layer** (`tests/unit/**`, PQ-1) with a branch-coverage gate (≥90% critical / ≥80% overall) via `npm run test:unit`; dedicated `_test` DB + no-override guard; runner; setup/reset/sweep tooling; GitHub Actions CI (`test:ci` = typecheck + unit + E2E) with ephemeral Postgres.
-- **Completed:** Slices 1–3; PQ-1 unit foundation.
-- **Future:** **lint in CI (PQ-2)**; perf/load/security/DR (Testing Roadmap); Gitea Actions decision; retire the custom coverage gate for native thresholds on a Node 22+ upgrade.
+- **Current:** 15 E2E scripts + a **`node:test`+`tsx` unit layer** (`tests/unit/**`, PQ-1) with a branch-coverage gate (≥90% critical / ≥80% overall) via `npm run test:unit`; dedicated `_test` DB + no-override guard; runner; setup/reset/sweep tooling. GitHub Actions CI runs distinct blocking steps — **Typecheck → Lint → Unit → E2E → Build** (lint added PQ-2) — on ephemeral Postgres.
+- **Completed:** Slices 1–3; PQ-1 unit foundation; PQ-2 lint enforcement (baseline already clean).
+- **Future:** perf/load/security/DR (Testing Roadmap); Gitea Actions decision; retire the custom coverage gate for native thresholds on a Node 22+ upgrade.
 - **Dependencies:** all modules.
 - **Known Issues:** CI on mirror only; unit line-coverage under `tsx` is unreliable so the gate uses branch% (see [Testing Roadmap](./TESTING_ROADMAP.md)).
 - **Testing:** self-covering (`npm test`, `npm run test:unit`, `test:ci`).

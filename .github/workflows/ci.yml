@@ -7,7 +7,7 @@ on:
 
 jobs:
   test:
-    name: Typecheck, unit tests, E2E, build
+    name: Typecheck, lint, unit tests, E2E, build
     runs-on: ubuntu-latest
 
     # Ephemeral PostgreSQL for this job only. Major version matches production
@@ -55,8 +55,18 @@ jobs:
       - name: Apply migrations to ephemeral database
         run: npx prisma migrate deploy
 
-      - name: Typecheck, unit tests, and E2E
-        run: npm run test:ci
+      # Distinct blocking gates, in order, so a failure names its own stage.
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: E2E
+        run: npm test
 
       - name: Build
         run: npm run build
