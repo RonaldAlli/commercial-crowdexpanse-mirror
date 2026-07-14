@@ -1,7 +1,7 @@
 # Volume 10 — Executive Dashboard
 
 > The single source of truth for "what state is each module in." Update this table whenever a module's status changes (part of the [Definition of Done](./ENGINEERING_MASTER_PLAN.md#definition-of-done)).
-> **Last reviewed:** 2026-07-13. Percentages are engineering-judgment estimates of scope-complete against that module's roadmap.
+> **Last reviewed:** 2026-07-14. Percentages are engineering-judgment estimates of scope-complete against that module's roadmap.
 
 ## Legend
 ✅ Complete · 🟢 Good (usable, minor gaps) · 🟡 Partial · 🔴 Planned

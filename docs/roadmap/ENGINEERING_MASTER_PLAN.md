@@ -1,6 +1,6 @@
 # CrowdExpanse Commercial — Engineering Master Plan (EMP)
 
-> **Status:** Living document · **Owner:** Engineering · **Last reviewed:** 2026-07-13
+> **Status:** Living document · **Owner:** Engineering · **Last reviewed:** 2026-07-14
 > This is the constitution of the project. Every feature, release, sprint, and AI session references it.
 > When reality and this document disagree, fix one of them in the same change — never leave them drifted.
 
@@ -86,6 +86,7 @@ From an internal deal-flow tool → to an intelligence-augmented CRE origination
 - **Communications:** One seam — `MessageService` (`lib/email/`) owns template selection, rendering, transport selection, and an `EmailMessage` outbox (persist-then-send). Features call only `messageService.send(...)`. `MessageKind` is a **closed, typed registry** — each kind declares a payload type + template + **retry policy** (`inline-only` | `drainable` | `manual-only`), enforced at compile time. Transports are pluggable (`console` default, `smtp` via nodemailer; API providers drop in without interface change). The outbox stores **metadata only** — never the rendered body, links, or tokens (`templateVersion` gives reproducibility instead). **Invitation delivery** is the first consumer: `inline-only` (one best-effort send, no background retry, no automatic token rotation — only the explicit admin Resend rotates); drainable kinds reconstruct data from the source of truth via a per-kind resolver. Config is fail-fast in `lib/env.ts`.
 - **Domain modules:** Sellers, Buyers, Properties, Opportunities (13-stage pipeline), Deal Analyzer (`DealAnalysis`), Buyer Matching (`lib/matching.ts`), Tasks, Notes, Documents, Notifications/Activity, Team (member lifecycle), Invitations (resend/token rotation), Organization Settings (`OrganizationSettings`, `lib/org-settings.ts` — configurable invite expiry + default role; drives invitation creation), Communications (`lib/email/*`, `EmailMessage` outbox — MessageService → Template → EmailTransport; closed typed message registry with per-kind retry policy; consumed by invitation delivery), Global Search.
 - **Deployment:** Node build served by pm2 (`crowdexpanse-commercial`, port 3030) behind Caddy; single VPS. See [Operations](./OPERATIONS_ROADMAP.md).
+- **Observability/Performance:** unauthenticated `/api/health` liveness probe (`{status, dbMs, uptime, commit}`), a zero-dep dev-gated timing helper (`lib/telemetry.ts`), and a seeded measurement harness (`npm run perf:measure`) with a recorded [performance baseline](./PERFORMANCE.md) (PQ-3, observational). Optimization is evidence-driven against that baseline (PQ-4).
 - **Testing/CI:** 15 E2E scripts (`scripts/e2e-*.mjs`) → dedicated `_test` DB with a no-override guard, plus a **`node:test`+`tsx` unit layer** (`tests/unit/**`, branch-coverage gate ≥90% critical / ≥80% overall). GitHub Actions CI (mirror, ephemeral Postgres) runs distinct blocking gates — **Typecheck → Lint → Unit → E2E → Build** (lint is `next lint`, blocking, PQ-2). Local: `test:ci` (typecheck + unit + E2E) + explicit `npm run lint`. See [Testing](./TESTING_ROADMAP.md).
 
 ### Data Flow
