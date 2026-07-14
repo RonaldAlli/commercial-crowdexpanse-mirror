@@ -1,12 +1,16 @@
 # Version 1.2 — Commercial Intelligence
 
 > **Theme:** Enrich the data so underwriting and matching get better inputs.
-> **Status:** 🔴 Planned. Depends on 1.1 operational foundation.
+> **Status:** 🔵 Planning (architecture only, no code). Builds on the released [1.1](./VERSION_1_1.md) operational foundation (`v1.1.0`).
 
 ## Goal
 Turn thin records into decision-grade data. Each intelligence layer attaches structured signal to the entities the team already works, without changing the core workflow. This release is the data half of the [Intelligence Roadmap (Volume 5)](./AI_ROADMAP.md#volume-5--intelligence-roadmap) — deterministic enrichment, **no AI yet**.
 
 ## Scope
+
+> The four intelligence layers below are the core of 1.2. Two operational carry-overs from 1.1 also land here (they reuse 1.1 platforms and don't affect the intelligence data model):
+> - **Password Reset (Slice 3e, carried from 1.1):** self-serve reset on the 3d-i email platform (`MessageService`) — single-use, short-TTL, hashed reset tokens, its own stricter flow than invitations. Closes Tech-Debt **D10**. Independent of the intelligence work; can slice at any point in 1.2.
+> - **Relation search (carried from 1.1 Better Lists):** seller-name on properties; property/seller/owner on opportunities & tasks — generalizing `lib/list-params.ts` for relation filters. Naturally complements the enrichment data.
 
 ### 1. Market Intelligence
 Attach market context to `Property`/`Opportunity`: submarket, comps, rent/vacancy trends, cap-rate benchmarks by asset type and geography.

@@ -43,8 +43,8 @@
 | Version | Theme | Status |
 |---|---|---|
 | 1.0 | Foundation | ✅ Shipped |
-| 1.1 | Operational Excellence | 🟢 ~99% (testing/CI/lists + D4 backups + permissions Slices 1–2 + member lifecycle + invitation resend + org settings + email 3d-i/3d-ii + unit-test PQ-1 + lint-CI PQ-2 + perf instrumentation/baseline PQ-3 + **perf optimization PQ-4** all shipped — board p95 ~109→~43 ms; every path within budget. Only optional **password reset 3e** remains) |
-| 1.2 | Commercial Intelligence | 🔴 Planned |
+| 1.1 | Operational Excellence | ✅ **Released — `v1.1.0`** (frozen on `release/1.1`). Testing/CI/lists + D4 backups + permissions Slices 1–2 + member lifecycle + invitation resend + org settings + email 3d-i/3d-ii + unit-test PQ-1 + lint-CI PQ-2 + perf PQ-3/PQ-4 all shipped — board p95 ~109→~43 ms; every path within budget. Password reset (3e) + relation search moved to 1.2. |
+| 1.2 | Commercial Intelligence | 🔵 Planning (architecture only) — four intelligence layers + carried-over password reset (3e) & relation search |
 | 1.3 | Commercial Underwriting | 🟡 Foundation (~35%) |
 | 1.4 | Closing Center | 🔴 Planned |
 | 2.0 | Automation & AI | 🔴 Planned |
@@ -57,10 +57,10 @@ Roadmap → Architecture → Specification → Implementation → Testing → Do
 Nothing skips a step. See the [EMP lifecycle](./ENGINEERING_MASTER_PLAN.md#development-lifecycle).
 
 ## Top priorities right now
-1. **Version 1.1 close-out:** all core + quality work is shipped through **PQ-4 (performance optimization, complete)** — the [board narrowing](./PERFORMANCE.md#pq-4a--board-payload-narrowing-2026-07-14--shipped) took board p95 from ~109 → ~43 ms, and every measured path is now well within budget, so no further optimization is warranted. Remaining is the relation-search ship/defer decision and the doc/tech-debt sweep.
-2. **1.1/1.2 Password reset (Slice 3e, optional):** the only remaining feature work in 1.1 — the next consumer of the messaging platform, with its own stricter flow. Can ship in 1.1 or slip to 1.2 without blocking either.
+1. **Version 1.2 — Commercial Intelligence (planning only, no code):** define the data model before building — Owner / Property / Market / Portfolio Intelligence, plus data provenance, licensing strategy, refresh architecture, entity relationships, scoring models, testing strategy, and release slices. The intelligence data model is higher-leverage than another engineering sprint.
+2. **Carried into 1.2:** **password reset (Slice 3e)** on the messaging platform (closes D10), and **relation search** (Better Lists enrichment). Both reuse 1.1 platforms and are independent of the intelligence work.
 
-*(PQ-1 unit foundation, PQ-2 lint-in-CI, PQ-3 perf instrumentation/baseline, and PQ-4 perf optimization are complete; CI runs Typecheck → Lint → Unit → E2E → Build as distinct blocking steps.)*
+*(Version 1.1 is released — `v1.1.0`, frozen on `release/1.1`. PQ-1/PQ-2/PQ-3/PQ-4 complete; CI runs Typecheck → Lint → Unit → E2E → Build as distinct blocking steps.)*
 
 *(Invitation email delivery 3d-ii, email infrastructure 3d-i, org settings 3c, invitation resend 3b, member lifecycle 3a, and permissions Slices 1–2 are complete.)*
 

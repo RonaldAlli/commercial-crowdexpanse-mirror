@@ -161,7 +161,7 @@
   - **Outbox-lite retry:** inline send first; PENDING/FAILED rows are the drain target. Durable re-send reconstructs data from the source of truth via a per-kind **resolver** (keyed by `correlationId`), so no body/token is ever stored; kinds without a resolver are left untouched (never silently dropped). Manual `scripts/email-drain.mjs` runner.
   - Lightweight **org-scoped `ActivityLog` mirror** (`email.sent` / `email.failed`) on terminal transitions only.
   - Fail-fast config in `lib/env.ts` (`EMAIL_PROVIDER`, `EMAIL_FROM`, SMTP_*, `APP_URL`).
-- **Future (1.1):** **Password reset (3e)** — its own stricter flow on this same platform.
+- **Future (1.2):** **Password reset (3e)** — its own stricter flow on this same platform (moved from 1.1 → 1.2).
 - **Deferred:** Resend/API transport (interface-ready); scheduling the drain (cron) for drainable kinds; bounce/complaint webhooks + an admin failed-send view; notification digests.
 - **Dependencies:** Organization (org-scoped rows/audit), Auth (secrets), `nodemailer`. Consumed by Invitations (3d-ii — done), password reset (3e), notifications (later).
 - **Known Issues:** None.

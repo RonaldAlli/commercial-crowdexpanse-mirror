@@ -1,7 +1,7 @@
 # Version 1.1 — Operational Excellence
 
 > **Theme:** Make the existing workflow trustworthy before adding surface area.
-> **Status:** 🟢 Substantially complete (~99%). Testing/CI, Better Lists, permissions (Slices 1 + 2), member lifecycle, invitation resend, organization settings (3c), email 3d-i/3d-ii, unit-test foundation (PQ-1), lint-in-CI (PQ-2), performance instrumentation + baseline (PQ-3), and **performance optimization (PQ-4 — board payload narrowing, board p95 ~109 → ~43 ms)** are all done; every measured path is within budget. Remaining is the relation-search ship/defer call and the doc/tech-debt sweep. Password reset (3e) is an optional 1.1/1.2 follow-on on the same platform.
+> **Status:** ✅ **Released — `v1.1.0` (2026-07-14), frozen on `release/1.1`.** Testing/CI, Better Lists, permissions (Slices 1 + 2), member lifecycle, invitation resend, organization settings (3c), email 3d-i/3d-ii, unit-test foundation (PQ-1), lint-in-CI (PQ-2), performance instrumentation + baseline (PQ-3), and performance optimization (PQ-4 — board payload narrowing, board p95 ~109 → ~43 ms) all shipped; every measured path is within budget. **Password reset (3e) was moved to [Version 1.2](./VERSION_1_2.md)** — it is not required for Operational Excellence and does not unblock 1.2. **Relation search** was explicitly deferred to 1.2 (Better Lists enrichment).
 
 ## Goal
 Everything the team already does daily should be fast, safe, tested, and permission-aware. No new domain surface — depth over breadth.
@@ -17,7 +17,7 @@ Search + sort + pagination shipped for **all five core lists** (Sellers, Buyers,
 Role model (`ADMIN`/`ACQUISITIONS`/`ANALYST`/`DISPOSITIONS`) with last-admin protection, now fully enforced.
 - **Slice 1:** documented **permission matrix** as a single source of truth (`lib/permissions.ts`), enforced server-side for high-risk operations — deletes, pipeline stage movement (segment-based on current **and** target stage), team/invitation management — with an `authorization.denied` audit trail and a generic user-facing message.
 - **Slice 2:** ordinary create/update enforced across every write action; opportunity-edit stage changes rejected in full when disallowed (the one field-level rule — no `canEditField`); create/edit UI hidden and `/new` + `/[id]/edit` routes guarded (`can()` + `notFound()`, no audit on page loads); ADMIN-only **Access denials** report at `/settings/security`. The five [Authorization Principles](./ENGINEERING_MASTER_PLAN.md#authorization-principles) are documented in the EMP.
-- **Remaining for 1.1 (separate modules):** Team Management **member lifecycle** (Slice 3a — deactivation + immediate session invalidation, on a new Prisma Migrate baseline), **invitation resend/lifecycle** (Slice 3b — token rotation in place), and **organization settings** (Slice 3c — configurable invite expiry + default role + org rename, dedicated `OrganizationSettings` model) are shipped. Email **infrastructure** (Slice 3d-i — `MessageService`/`EmailMessage` outbox) is a reusable platform seam, and **invitation delivery** (Slice 3d-ii) wires it into `createInvite`/`resendInvite` (emailed accept link, copy-link fallback, `inline-only` retry). Password reset is **Slice 3e**.
+- **Remaining for 1.1 (separate modules):** Team Management **member lifecycle** (Slice 3a — deactivation + immediate session invalidation, on a new Prisma Migrate baseline), **invitation resend/lifecycle** (Slice 3b — token rotation in place), and **organization settings** (Slice 3c — configurable invite expiry + default role + org rename, dedicated `OrganizationSettings` model) are shipped. Email **infrastructure** (Slice 3d-i — `MessageService`/`EmailMessage` outbox) is a reusable platform seam, and **invitation delivery** (Slice 3d-ii) wires it into `createInvite`/`resendInvite` (emailed accept link, copy-link fallback, `inline-only` retry). **Password reset (Slice 3e) was moved to [Version 1.2](./VERSION_1_2.md)** — it reuses this same email platform but is not required for 1.1's Operational Excellence theme.
 - See [Permissions](./MODULE_ROADMAPS.md#permissions), [Team Management](./MODULE_ROADMAPS.md#team-management), [Invitations](./MODULE_ROADMAPS.md#invitations), and [Communications](./MODULE_ROADMAPS.md#communications).
 
 ### 3. Testing — 🟢 done (foundation + unit layer)
@@ -34,15 +34,15 @@ GitHub Actions on the mirror with ephemeral Postgres runs distinct blocking step
 
 ## Release Checklist (1.1)
 - [x] Permission matrix documented and enforced in server actions. (Slices 1 + 2 complete; enforcement + audit across all write actions.)
-- [x] Team Management member lifecycle (3a), invitation resend (3b), organization settings (3c), email infrastructure (3d-i), and invitation email delivery (3d-ii) shipped. (Password reset split to 3e.)
-- [ ] Relation search decision made (ship or explicitly defer to 1.2).
+- [x] Team Management member lifecycle (3a), invitation resend (3b), organization settings (3c), email infrastructure (3d-i), and invitation email delivery (3d-ii) shipped. (Password reset 3e moved to 1.2.)
+- [x] Relation search decision made — **explicitly deferred to 1.2** (Better Lists enrichment).
 - [x] Unit tests for the pure `lib/*` modules (PQ-1 — branch-gated, in `test:ci` + CI).
 - [x] Lint added to CI as a blocking step; baseline already clean, `next lint` green on `main` (PQ-2).
 - [x] Performance budgets set for board + search; board optimized (PQ-4a, ~57% p95) and `EXPLAIN`-reviewed — no indexes needed at current scale (PQ-3 baseline + PQ-4).
-- [ ] Dashboard + Module Roadmaps updated; Tech Debt reviewed.
+- [x] Dashboard + Module Roadmaps + Tech Debt reviewed and synced at release.
 
 ## Definition of Done (1.1)
 Global DoD ([EMP](./ENGINEERING_MASTER_PLAN.md#definition-of-done)) **plus**: every list is permission-aware, every pure module has unit coverage, and no critical path exceeds its latency budget.
 
 ## Out of scope (defer)
-Market/owner/property intelligence (1.2), full financial modeling (1.3), closing workflow (1.4), any AI (2.0).
+Password reset (Slice 3e → 1.2), relation search (→ 1.2), market/owner/property intelligence (1.2), full financial modeling (1.3), closing workflow (1.4), any AI (2.0).
