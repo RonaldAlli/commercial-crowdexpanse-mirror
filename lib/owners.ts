@@ -96,6 +96,24 @@ export async function linkPropertyToOwner(organizationId: string, propertyId: st
 }
 
 /**
+ * Remove a seller's owner link (set ownerId = null). Org-scoped; idempotent (a
+ * no-op when already unlinked). Operational-graph only — never touches identity
+ * (Volume 12: "linking never changes identity").
+ */
+export async function unlinkSellerFromOwner(organizationId: string, sellerId: string) {
+  const seller = await prisma.seller.findFirst({ where: { id: sellerId, organizationId }, select: { id: true } });
+  if (!seller) throw new Error("Seller not found in organization");
+  return prisma.seller.update({ where: { id: sellerId }, data: { ownerId: null } });
+}
+
+/** Remove a property's owner link (set ownerId = null). Org-scoped; idempotent. */
+export async function unlinkPropertyFromOwner(organizationId: string, propertyId: string) {
+  const property = await prisma.property.findFirst({ where: { id: propertyId, organizationId }, select: { id: true } });
+  if (!property) throw new Error("Property not found in organization");
+  return prisma.property.update({ where: { id: propertyId }, data: { ownerId: null } });
+}
+
+/**
  * Record a provider→owner mapping. IMMUTABLE (Volume 12 §7): this only ever
  * INSERTS — there is deliberately no update or delete of a crosswalk row. A
  * changed mapping is a new row. Unused until a provider adapter exists (1c+).

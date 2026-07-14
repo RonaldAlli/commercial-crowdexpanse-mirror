@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { titleCase } from "@/lib/property-options";
 
 import { deleteProperty } from "../actions";
+import { unlinkPropertyAction } from "../../owners/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
     where: { id: params.id, organizationId: user.organizationId },
     include: {
       seller: { select: { id: true, name: true } },
+      owner: { select: { id: true, displayName: true } },
       opportunities: { orderBy: { updatedAt: "desc" } },
       activities: { orderBy: { createdAt: "desc" }, take: 10 },
     },
@@ -96,6 +98,32 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
                 </div>
               ))}
             </dl>
+            <div className="mt-6 border-t border-slate-100 pt-5">
+              <div className="flex items-center justify-between">
+                <p className="eyebrow">Owner</p>
+                {can(user.role, "UPDATE", "OWNER") ? (
+                  <Link className="text-xs font-medium text-brand-700 hover:underline" href={`/properties/${property.id}/link-owner`}>
+                    {property.owner ? "Change" : "Link owner"}
+                  </Link>
+                ) : null}
+              </div>
+              {property.owner ? (
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <Link href={`/owners/${property.owner.id}`} className="text-sm font-medium text-slate-900 hover:text-brand-700">
+                    {property.owner.displayName}
+                  </Link>
+                  {can(user.role, "UPDATE", "OWNER") ? (
+                    <form action={unlinkPropertyAction}>
+                      <input type="hidden" name="propertyId" value={property.id} />
+                      <input type="hidden" name="redirectTo" value={`/properties/${property.id}`} />
+                      <button type="submit" className="text-xs text-slate-400 hover:text-rose-600">Unlink</button>
+                    </form>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-slate-400">No owner linked.</p>
+              )}
+            </div>
           </article>
 
           <article className="card p-6">

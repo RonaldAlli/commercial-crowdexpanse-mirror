@@ -7,8 +7,9 @@ import { OwnerEntityType } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
-import { createOwner as createOwnerService, findCandidatesForInput, getOwner, updateOwnerField } from "@/lib/owners";
+import { createOwner as createOwnerService, findCandidatesForInput, getOwner, linkSellerToOwner, linkPropertyToOwner, unlinkSellerFromOwner, unlinkPropertyFromOwner, updateOwnerField } from "@/lib/owners";
 import { clearOwnerOverride as clearOwnerOverrideService } from "@/lib/intelligence/projection";
+import { safeInternalPath } from "@/lib/safe-redirect";
 
 // Owner UI server actions (v1.2, Commit 1d-1). THIN wrappers: authorize → call the
 // domain service (which owns the Observation → Signal → Projection write path) →
@@ -116,4 +117,106 @@ export async function clearOverrideAction(id: string, fieldKey: "displayName" | 
     data: { organizationId: user.organizationId, actorId: user.id, eventType: "owner.override_cleared", eventLabel: `Owner override cleared: ${fieldKey}`, eventBody: JSON.stringify({ ownerId: id, fieldKey }) },
   });
   revalidatePath(`/owners/${id}`);
+}
+
+// ── Linking / unlinking (Commit 1d-2a) ───────────────────────────────────────
+// Operational-graph edits only: they change Seller.ownerId / Property.ownerId and
+// NOTHING else — never identity, ledger, or projection (Volume 12: "linking never
+// changes identity"). A move (re-link A→B) is a single atomic ownerId update via
+// the domain service — there is never an intermediate null. Audit distinguishes
+// owner.linked (was null) / owner.moved (A→B) / owner.unlinked (cleared).
+
+async function logLink(
+  user: { id: string; organizationId: string },
+  kind: "seller" | "property",
+  recordId: string,
+  previousOwnerId: string | null,
+  newOwnerId: string | null,
+) {
+  const eventType = newOwnerId === null ? "owner.unlinked" : previousOwnerId === null ? "owner.linked" : "owner.moved";
+  await prisma.activityLog.create({
+    data: {
+      organizationId: user.organizationId,
+      actorId: user.id,
+      sellerId: kind === "seller" ? recordId : null,
+      propertyId: kind === "property" ? recordId : null,
+      eventType,
+      eventLabel: `${kind[0].toUpperCase()}${kind.slice(1)} ${eventType.split(".")[1]}`,
+      eventBody: JSON.stringify({ [`${kind}Id`]: recordId, previousOwnerId, newOwnerId, actorUserId: user.id }),
+    },
+  });
+}
+
+export async function linkSellerAction(formData: FormData) {
+  const user = await requireUser();
+  if (!(await checkAuthorized(user, "UPDATE", "OWNER"))) throw new Error(GENERIC_DENIAL);
+  const sellerId = String(formData.get("sellerId") ?? "");
+  const ownerId = String(formData.get("ownerId") ?? "");
+  const redirectTo = safeInternalPath(formData.get("redirectTo"), `/owners/${ownerId}`);
+
+  const seller = await prisma.seller.findFirst({ where: { id: sellerId, organizationId: user.organizationId }, select: { id: true, ownerId: true } });
+  if (!seller) throw new Error("Seller not found.");
+  const previousOwnerId = seller.ownerId;
+  await linkSellerToOwner(user.organizationId, sellerId, ownerId); // atomic single update A→B
+  await logLink(user, "seller", sellerId, previousOwnerId, ownerId);
+
+  revalidatePath(`/owners/${ownerId}`);
+  if (previousOwnerId && previousOwnerId !== ownerId) revalidatePath(`/owners/${previousOwnerId}`);
+  revalidatePath(`/sellers/${sellerId}`);
+  redirect(redirectTo);
+}
+
+export async function linkPropertyAction(formData: FormData) {
+  const user = await requireUser();
+  if (!(await checkAuthorized(user, "UPDATE", "OWNER"))) throw new Error(GENERIC_DENIAL);
+  const propertyId = String(formData.get("propertyId") ?? "");
+  const ownerId = String(formData.get("ownerId") ?? "");
+  const redirectTo = safeInternalPath(formData.get("redirectTo"), `/owners/${ownerId}`);
+
+  const property = await prisma.property.findFirst({ where: { id: propertyId, organizationId: user.organizationId }, select: { id: true, ownerId: true } });
+  if (!property) throw new Error("Property not found.");
+  const previousOwnerId = property.ownerId;
+  await linkPropertyToOwner(user.organizationId, propertyId, ownerId); // atomic single update A→B
+  await logLink(user, "property", propertyId, previousOwnerId, ownerId);
+
+  revalidatePath(`/owners/${ownerId}`);
+  if (previousOwnerId && previousOwnerId !== ownerId) revalidatePath(`/owners/${previousOwnerId}`);
+  revalidatePath(`/properties/${propertyId}`);
+  redirect(redirectTo);
+}
+
+export async function unlinkSellerAction(formData: FormData) {
+  const user = await requireUser();
+  if (!(await checkAuthorized(user, "UPDATE", "OWNER"))) throw new Error(GENERIC_DENIAL);
+  const sellerId = String(formData.get("sellerId") ?? "");
+  const redirectTo = safeInternalPath(formData.get("redirectTo"), `/sellers/${sellerId}`);
+
+  const seller = await prisma.seller.findFirst({ where: { id: sellerId, organizationId: user.organizationId }, select: { id: true, ownerId: true } });
+  if (!seller) throw new Error("Seller not found.");
+  const previousOwnerId = seller.ownerId;
+  await unlinkSellerFromOwner(user.organizationId, sellerId);
+  if (previousOwnerId) {
+    await logLink(user, "seller", sellerId, previousOwnerId, null);
+    revalidatePath(`/owners/${previousOwnerId}`);
+  }
+  revalidatePath(`/sellers/${sellerId}`);
+  redirect(redirectTo);
+}
+
+export async function unlinkPropertyAction(formData: FormData) {
+  const user = await requireUser();
+  if (!(await checkAuthorized(user, "UPDATE", "OWNER"))) throw new Error(GENERIC_DENIAL);
+  const propertyId = String(formData.get("propertyId") ?? "");
+  const redirectTo = safeInternalPath(formData.get("redirectTo"), `/properties/${propertyId}`);
+
+  const property = await prisma.property.findFirst({ where: { id: propertyId, organizationId: user.organizationId }, select: { id: true, ownerId: true } });
+  if (!property) throw new Error("Property not found.");
+  const previousOwnerId = property.ownerId;
+  await unlinkPropertyFromOwner(user.organizationId, propertyId);
+  if (previousOwnerId) {
+    await logLink(user, "property", propertyId, previousOwnerId, null);
+    revalidatePath(`/owners/${previousOwnerId}`);
+  }
+  revalidatePath(`/properties/${propertyId}`);
+  redirect(redirectTo);
 }

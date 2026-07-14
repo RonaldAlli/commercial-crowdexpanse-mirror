@@ -36,6 +36,7 @@ const TRACKED = [
   ...CRITICAL,
   "lib/env.ts",
   "lib/note-links.ts",
+  "lib/safe-redirect.ts",
   "lib/password.ts",
   "lib/email/templates/index.ts",
   "lib/email/templates/layout.ts",

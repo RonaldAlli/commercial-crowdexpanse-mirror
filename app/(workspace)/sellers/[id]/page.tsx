@@ -11,6 +11,7 @@ import { can } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 import { deleteSeller } from "../actions";
+import { unlinkSellerAction } from "../../owners/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,7 @@ export default async function SellerDetailPage({ params }: { params: { id: strin
   const seller = await prisma.seller.findFirst({
     where: { id: params.id, organizationId: user.organizationId },
     include: {
+      owner: { select: { id: true, displayName: true } },
       properties: { orderBy: { createdAt: "desc" } },
       opportunities: { orderBy: { updatedAt: "desc" } },
       activities: { orderBy: { createdAt: "desc" }, take: 10 },
@@ -94,6 +96,32 @@ export default async function SellerDetailPage({ params }: { params: { id: strin
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">{seller.motivation}</p>
               </div>
             ) : null}
+            <div className="mt-6 border-t border-slate-100 pt-5">
+              <div className="flex items-center justify-between">
+                <p className="eyebrow">Owner</p>
+                {can(user.role, "UPDATE", "OWNER") ? (
+                  <Link className="text-xs font-medium text-brand-700 hover:underline" href={`/sellers/${seller.id}/link-owner`}>
+                    {seller.owner ? "Change" : "Link owner"}
+                  </Link>
+                ) : null}
+              </div>
+              {seller.owner ? (
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <Link href={`/owners/${seller.owner.id}`} className="text-sm font-medium text-slate-900 hover:text-brand-700">
+                    {seller.owner.displayName}
+                  </Link>
+                  {can(user.role, "UPDATE", "OWNER") ? (
+                    <form action={unlinkSellerAction}>
+                      <input type="hidden" name="sellerId" value={seller.id} />
+                      <input type="hidden" name="redirectTo" value={`/sellers/${seller.id}`} />
+                      <button type="submit" className="text-xs text-slate-400 hover:text-rose-600">Unlink</button>
+                    </form>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-slate-400">No owner linked.</p>
+              )}
+            </div>
           </article>
 
           {/* Properties */}

@@ -10,7 +10,7 @@ import { can } from "@/lib/permissions";
 import { getFieldProvenance } from "@/lib/intelligence/provenance";
 import { prisma } from "@/lib/prisma";
 
-import { clearOverrideAction } from "../actions";
+import { clearOverrideAction, unlinkPropertyAction, unlinkSellerAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -75,37 +75,65 @@ export default async function OwnerDetailPage({ params }: { params: { id: string
         />
       </div>
 
-      {/* Linked operational records (read-only in 1d-1; linking arrives in 1d-2). */}
+      {/* Linked operational records. Linking edits only the operational graph — never identity. */}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="card p-5">
-          <p className="mb-2 text-sm font-semibold text-slate-700">Sellers ({owner.sellers.length})</p>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-700">Sellers ({owner.sellers.length})</p>
+            {canWrite ? (
+              <Link href={`/owners/${owner.id}/link?type=seller`} className="text-xs font-medium text-brand-700 hover:underline">
+                + Link seller
+              </Link>
+            ) : null}
+          </div>
           {owner.sellers.length === 0 ? (
             <p className="text-sm text-slate-400">No linked sellers.</p>
           ) : (
             <ul className="space-y-1.5">
               {owner.sellers.map((s) => (
-                <li key={s.id}>
-                  <Link href={`/sellers/${s.id}`} className="text-sm text-slate-700 hover:text-brand-700">
+                <li key={s.id} className="flex items-center justify-between gap-2">
+                  <Link href={`/sellers/${s.id}`} className="truncate text-sm text-slate-700 hover:text-brand-700">
                     {s.name}
                     {s.company ? <span className="text-slate-400"> · {s.company}</span> : null}
                   </Link>
+                  {canWrite ? (
+                    <form action={unlinkSellerAction}>
+                      <input type="hidden" name="sellerId" value={s.id} />
+                      <input type="hidden" name="redirectTo" value={`/owners/${owner.id}`} />
+                      <button type="submit" className="shrink-0 text-xs text-slate-400 hover:text-rose-600">Unlink</button>
+                    </form>
+                  ) : null}
                 </li>
               ))}
             </ul>
           )}
         </div>
         <div className="card p-5">
-          <p className="mb-2 text-sm font-semibold text-slate-700">Properties ({owner.properties.length})</p>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-700">Properties ({owner.properties.length})</p>
+            {canWrite ? (
+              <Link href={`/owners/${owner.id}/link?type=property`} className="text-xs font-medium text-brand-700 hover:underline">
+                + Link property
+              </Link>
+            ) : null}
+          </div>
           {owner.properties.length === 0 ? (
             <p className="text-sm text-slate-400">No linked properties.</p>
           ) : (
             <ul className="space-y-1.5">
               {owner.properties.map((p) => (
-                <li key={p.id}>
-                  <Link href={`/properties/${p.id}`} className="text-sm text-slate-700 hover:text-brand-700">
+                <li key={p.id} className="flex items-center justify-between gap-2">
+                  <Link href={`/properties/${p.id}`} className="truncate text-sm text-slate-700 hover:text-brand-700">
                     {p.name}
                     <span className="text-slate-400"> · {[p.addressLine1, p.city, p.state].filter(Boolean).join(", ")}</span>
                   </Link>
+                  {canWrite ? (
+                    <form action={unlinkPropertyAction}>
+                      <input type="hidden" name="propertyId" value={p.id} />
+                      <input type="hidden" name="redirectTo" value={`/owners/${owner.id}`} />
+                      <button type="submit" className="shrink-0 text-xs text-slate-400 hover:text-rose-600">Unlink</button>
+                    </form>
+                  ) : null}
                 </li>
               ))}
             </ul>
