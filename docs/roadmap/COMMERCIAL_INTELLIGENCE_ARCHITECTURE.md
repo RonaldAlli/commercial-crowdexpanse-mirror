@@ -204,6 +204,16 @@ Three layers per entity:
 
 Cross-cutting rules: canonical keys **never** use a provider's internal id as the primary basis; identity resolution is **revisable and auditable** (merges/splits recorded via provenance); crosswalk rows are **immutable**; all identity operations are org-scoped.
 
+### The six identity invariants *(non-negotiable — stable across all providers)*
+These define the behavior of the identity subsystem and **do not change** regardless of future provider integrations, scoring, or AI. Every identity slice (1a, 1a-2, and beyond) upholds all six:
+
+1. **ExternalIdentifier is authoritative.** Only an `ExternalIdentifier` match — or explicit manual confirmation — establishes or links a canonical identity.
+2. **Normalized names produce candidate matches only.** A name/alias match is a *proposal*, never an identity.
+3. **No automatic canonical identity creation.** The system never promotes a candidate to a canonical link on its own.
+4. **No automatic merges.** Merges happen only by explicit human action (mandatory review); never inferred.
+5. **ExternalIdentifier rows are immutable.** Never edited, reassigned, or deleted — a changed mapping is a new row; old rows are permanent history.
+6. **Identity operations are fully auditable and reversible.** Every link/accept/reject/merge/unmerge is recorded (actor, time, cause) and can be undone with no data loss.
+
 ### 7.1 PropertyIdentity
 - **Canonical match key:** `(jurisdiction FIPS + APN/parcel number)` when available — the most stable real-world anchor — else `(normalized address + geocode lat/long)`.
 - **Anchors:** APN/parcel, county FIPS, normalized USPS address, geocode. All provider-independent.
