@@ -31,7 +31,7 @@
 | Testing & CI (cross-cutting) | ✅ Complete | 1.1 | 100% |
 | Backups & DR (cross-cutting, D4) | ✅ Complete (code+docs) | 1.1 | 100%¹ |
 | Deal Analyzer / Underwriting | 🟡 Partial | 1.3 | 35% |
-| Commercial Intelligence (Owner/Property/Market/Portfolio) | 🟡 In progress | 1.2 | 24% (identity spine + `Observation → Signal → Projection` pipeline + ingestion adapter/refresh shipped — Commit 1c complete; headless foundation done) |
+| Commercial Intelligence (Owner/Property/Market/Portfolio) | 🟡 In progress | 1.2 | 28% (headless foundation + first Owner UI shipped — Commit 1d-1 complete; pipeline now visible/usable, OWNER permissions enforced) |
 | Closing Center | 🔴 Planned | 1.4 | 0% |
 | Automation & Campaigns | 🔴 Planned | 2.0 | 0% |
 | AI Layer | 🔴 Planned | 2.0 | 0% |
@@ -44,7 +44,7 @@
 |---|---|---|
 | 1.0 | Foundation | ✅ Shipped |
 | 1.1 | Operational Excellence | ✅ **Released — `v1.1.0`** (frozen on `release/1.1`). Testing/CI/lists + D4 backups + permissions Slices 1–2 + member lifecycle + invitation resend + org settings + email 3d-i/3d-ii + unit-test PQ-1 + lint-CI PQ-2 + perf PQ-3/PQ-4 all shipped — board p95 ~109→~43 ms; every path within budget. Password reset (3e) + relation search moved to 1.2. |
-| 1.2 | Commercial Intelligence | 🟡 In progress — architecture locked ([Volume 12](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md)); **Commit 1c complete — the headless intelligence foundation is done** (1a/1a-2: Owner + reversible merge; 1b: `Observation → Signal → Projection` pipeline; 1c: `SourceAdapter` contract + on-demand `RefreshJob` ingestion, observational/replayable/atomic — deployed to prod). Next: 1d minimal Owner UI + linking |
+| 1.2 | Commercial Intelligence | 🟡 In progress — architecture locked ([Volume 12](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md)); **Commit 1d-1 complete — the pipeline is now visible/usable through the Owner UI** (1a/1a-2: Owner + reversible merge; 1b: `Observation → Signal → Projection`; 1c: `SourceAdapter` + `RefreshJob` ingestion — all deployed; 1d-1: core Owner UI + OWNER enforcement, UI-only). Next: 1d-2 linking + standalone candidate review |
 | 1.3 | Commercial Underwriting | 🟡 Foundation (~35%) |
 | 1.4 | Closing Center | 🔴 Planned |
 | 2.0 | Automation & AI | 🔴 Planned |
@@ -57,7 +57,7 @@ Roadmap → Architecture → Specification → Implementation → Testing → Do
 Nothing skips a step. See the [EMP lifecycle](./ENGINEERING_MASTER_PLAN.md#development-lifecycle).
 
 ## Top priorities right now
-1. **Version 1.2 — Commercial Intelligence (building the data pipeline):** architecture is locked ([Volume 12](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md)); **Commit 1c is complete — the headless intelligence foundation is fully shipped and deployed to production.** The identity spine (1a/1a-2), the `Observation → Signal → Projection` pipeline (1b), and now the **ingestion path** (1c — a pure `SourceAdapter` contract, the `manualAdapter`, and the `runRefresh` orchestrator writing to the ledger with a durable `RefreshJob` audit/idempotency anchor) are all in place. Refresh is observational, replayable, and atomic; adapters are pure — so every future source plugs in as just another adapter. Next: **1d** — the minimal Owner UI + linking that *consumes* this foundation (navigation, list/detail, create/edit, provenance, refresh trigger + history) without adding new intelligence rules.
+1. **Version 1.2 — Commercial Intelligence (building the data pipeline):** architecture is locked ([Volume 12](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md)); the headless foundation (identity 1a/1a-2 → `Observation → Signal → Projection` 1b → ingestion 1c) is shipped and deployed, and **Commit 1d-1 now makes it visible and usable**: the core Owner UI (nav, list with search, detail with per-field provenance shown Projected Value → Winning Signal → Signal History, create with duplicate warning, edit + override pins) built as a thin *consumer* — every mutation flows through the domain services, and the `OWNER` permission policy is enforced at its first call-sites. Next: **1d-2** — Seller/Property linking + a standalone candidate-review queue; then **1d-3** — refresh trigger/history + merge/unmerge controls.
 2. **Carried into 1.2:** **password reset (Slice 3e)** on the messaging platform (closes D10), and **relation search** (Better Lists enrichment). Both reuse 1.1 platforms and are independent of the intelligence work.
 
 *(Version 1.1 is released — `v1.1.0`, frozen on `release/1.1`. PQ-1/PQ-2/PQ-3/PQ-4 complete; CI runs Typecheck → Lint → Unit → E2E → Build as distinct blocking steps.)*
