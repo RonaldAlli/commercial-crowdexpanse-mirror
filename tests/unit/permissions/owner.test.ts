@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { UserRole } from "@prisma/client";
 
-import { can, canMergeOwners } from "../../../lib/permissions";
+import { can, canMergeOwners, canReopenMatchDecision } from "../../../lib/permissions";
 
 const { ADMIN, ACQUISITIONS, ANALYST, DISPOSITIONS } = UserRole;
 
@@ -10,6 +10,13 @@ test("canMergeOwners is ADMIN-only (stricter than OWNER_IDENTITY manage)", () =>
   assert.equal(canMergeOwners(ADMIN), true);
   for (const role of [ACQUISITIONS, ANALYST, DISPOSITIONS]) {
     assert.equal(canMergeOwners(role), false);
+  }
+});
+
+test("canReopenMatchDecision is ADMIN-only (confirm/dismiss is the lower OWNER_IDENTITY bar)", () => {
+  assert.equal(canReopenMatchDecision(ADMIN), true);
+  for (const role of [ACQUISITIONS, ANALYST, DISPOSITIONS]) {
+    assert.equal(canReopenMatchDecision(role), false);
   }
 });
 

@@ -90,6 +90,13 @@ export function canMergeOwners(role: UserRole): boolean {
   return role === ADMIN;
 }
 
+// Reopening a DISMISSED candidate decision is an ADMIN-only identity action (a
+// distinct check, like canMergeOwners). Confirm/dismiss are the lower bar
+// OWNER_IDENTITY MANAGE (ADMIN + ACQUISITIONS); explicit reopen is ADMIN only.
+export function canReopenMatchDecision(role: UserRole): boolean {
+  return role === ADMIN;
+}
+
 export function canMoveStage(role: UserRole, current: OpportunityStage, target: OpportunityStage): boolean {
   const c = idx(current);
   const t = idx(target);

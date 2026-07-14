@@ -139,6 +139,13 @@ enum SignalState {
   SUPERSEDED
 }
 
+// A human decision about whether two owners are the same identity (Commit 1d-2b).
+// Decision-support only — CONFIRMED feeds the 1d-3 merge queue; it never merges.
+enum OwnerMatchStatus {
+  CONFIRMED
+  DISMISSED
+}
+
 // Lifecycle of a single refresh run (v1.2, Commit 1c). A refresh is created
 // RUNNING, then reaches exactly one terminal state: SUCCEEDED (new signals),
 // NOOP (ran cleanly, every value already current), or FAILED (an exception
@@ -211,6 +218,7 @@ model Organization {
   observations  Observation[]
   signals       IntelligenceSignal[]
   refreshJobs   RefreshJob[]
+  matchDecisions OwnerMatchDecision[]
 
   @@map("organizations")
 }
@@ -319,6 +327,34 @@ model RefreshJob {
   @@unique([organizationId, sourceKey, requestKey])
   @@index([organizationId, status])
   @@map("refresh_jobs")
+}
+
+// ── Candidate Review (v1.2, Commit 1d-2b) ────────────────────────────────────
+// A human's decision about a *possible* owner-duplicate pair. Decision-support
+// ONLY: it records judgement, never structural identity change. The pair is
+// stored in a canonical unordered form (ownerIdA < ownerIdB) so a decision is
+// order-independent; owner ids are scalars, not FKs, so a later merge/tombstone
+// of one side never cascade-deletes decision history. `signalFingerprint` snap-
+// shots the pair's identity state (matchKey + normalized aliases) so a DISMISSED
+// pair re-surfaces only on a material identity change (or explicit ADMIN reopen).
+model OwnerMatchDecision {
+  id                String           @id @default(cuid())
+  organizationId    String
+  ownerIdA          String // canonical: lexicographically smaller owner id
+  ownerIdB          String // larger owner id
+  status            OwnerMatchStatus
+  reason            String? // match reason at decision time (audit): exact-match-key | alias-match
+  signalFingerprint String // identity-state fingerprint → material-change detection
+  note              String?
+  decidedByUserId   String?
+  decidedAt         DateTime         @default(now())
+  reopenedByUserId  String? // set on explicit ADMIN reopen
+  reopenedAt        DateTime? // when set, the decision is inactive (pair pending again)
+  organization      Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, ownerIdA, ownerIdB])
+  @@index([organizationId, status])
+  @@map("owner_match_decisions")
 }
 
 // ── Commercial Intelligence (v1.2, Slice 1 / Commit 1a) ──────────────────────

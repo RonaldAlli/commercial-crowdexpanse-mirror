@@ -61,6 +61,7 @@ export default async function OwnersPage({
 
   const pages = totalPages(total);
   const canCreate = can(user.role, "CREATE", "OWNER");
+  const canReviewDuplicates = can(user.role, "READ", "OWNER_IDENTITY");
   const baseQuery = { q: params.hasQuery ? params.q : undefined, sort: params.sort, merged: showMerged ? "1" : undefined };
 
   return (
@@ -70,12 +71,19 @@ export default async function OwnersPage({
         title="Owners"
         description="Canonical title-holding parties. Values are projected from the provenance ledger."
         actions={
-          canCreate ? (
-            <Link className="btn-primary" href="/owners/new">
-              <Icon name="buyers" className="h-4 w-4" />
-              New owner
-            </Link>
-          ) : undefined
+          <>
+            {canReviewDuplicates ? (
+              <Link className="btn-ghost" href="/owners/candidates">
+                Review duplicates
+              </Link>
+            ) : null}
+            {canCreate ? (
+              <Link className="btn-primary" href="/owners/new">
+                <Icon name="buyers" className="h-4 w-4" />
+                New owner
+              </Link>
+            ) : null}
+          </>
         }
       />
 
