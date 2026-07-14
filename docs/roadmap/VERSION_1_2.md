@@ -1,7 +1,7 @@
 # Version 1.2 — Commercial Intelligence
 
 > **Theme:** Enrich the data so underwriting and matching get better inputs.
-> **Status:** 🟡 In progress. Architecture locked (2026-07-14); **Slice 1 Commit 1d-2a complete** (2026-07-14) — the Owner UI now supports **Seller↔Owner and Property↔Owner linking** (link / atomic move / unlink), kept strictly separate from canonical identity. Deployed 1a–1c to production; 1d-1/1d-2a are UI-only (no schema change). Builds on the released [1.1](./VERSION_1_1.md) operational foundation (`v1.1.0`). Next: **Commit 1d-2b** — standalone candidate-review queue.
+> **Status:** 🟡 In progress. Architecture locked (2026-07-14); **Slice 1 Commit 1d-2b complete** (2026-07-14) — the **standalone candidate-review queue** (confirm/dismiss owner duplicates, ADMIN reopen; **candidate ≠ merge**) is merged and its `OwnerMatchDecision` migration is deployed to production (schema at 9 migrations, restore-verified backup taken first). Builds on the released [1.1](./VERSION_1_1.md) operational foundation (`v1.1.0`). Next: **Commit 1d-3** — merge/unmerge controls (final Slice 1 UI). ⚠️ **Frontend deploy pending**: the 1.2 Owner UI is merged/built but the running PM2 instance still serves the pre-1.2 build (root-owned `.next` — see [Tech Debt](./TECHNICAL_DEBT.md)).
 > **Design authority:** **[Volume 12 — Commercial Intelligence Architecture](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md)** is the canonical design for this release. This file is the release-scope summary; Volume 12 governs the model, provenance, identity, scoring, and refresh design. Where they differ, Volume 12 wins.
 
 ## Goal
@@ -45,7 +45,9 @@ Seven intelligence slices, spine-first ([Volume 12 §9](./COMMERCIAL_INTELLIGENC
 - **Commit 1d-1 is complete — `Observation → Signal → Projection` is now fully exposed through the UI.**
 - ✅ **1d-2a — Linking / unlinking** (shipped 2026-07-14): Seller↔Owner and Property↔Owner linking from both the Owner page (primary) and the Seller/Property pages, with **atomic move** (re-link A→B in one `ownerId` update, audited as `owner.linked`/`owner.moved`/`owner.unlinked`), one-click unlink, and link-to-existing-only pickers. **Linking never changes identity** — it edits only the operational FK, writing no Observation/Signal (E2E-proven). Added the pure `safe-redirect` open-redirect guard. UI-only (migration-free).
 - **Commit 1d-2a is complete — operational-graph linking is separate from canonical identity.**
-- ⏳ Next: **1d-2b** — standalone candidate-review queue (decision-support: confirm/dismiss owner duplicates; `OwnerMatchDecision`; **candidate ≠ merge**). · **1d-3** — manual-refresh trigger + refresh-job history + merge/unmerge controls.
+- ✅ **1d-2b — Standalone candidate review** (shipped 2026-07-14, prod migration 8→9): a duplicate-owner review queue (Pending / Dismissed / Awaiting-merge) with Confirm / Dismiss (`OWNER_IDENTITY`) and ADMIN Reopen. Generation is **exact `matchKey` + alias overlap only** (no fuzzy); pairs use a canonical unordered identity; a dismissed pair re-surfaces only on a **material identity-fingerprint change** or explicit ADMIN reopen. **Records human decisions only — never merges, links, creates/deletes owners, or writes Observations/Signals** (`OwnerMatchDecision`). Confirmed pairs feed the 1d-3 merge queue.
+- **Commit 1d-2b is complete — candidate review (decision-support) is separate from merge.**
+- ⏳ Next: **1d-3** — manual-refresh trigger + refresh-job history + **merge/unmerge controls** (the final Slice 1 UI, consuming the confirmed-pair queue).
 
 ## Architecture notes
 - New data lands as **structured columns + a provenance ledger**, org-scoped, additive (no breaking changes to core records).

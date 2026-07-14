@@ -31,7 +31,7 @@
 | Testing & CI (cross-cutting) | ✅ Complete | 1.1 | 100% |
 | Backups & DR (cross-cutting, D4) | ✅ Complete (code+docs) | 1.1 | 100%¹ |
 | Deal Analyzer / Underwriting | 🟡 Partial | 1.3 | 35% |
-| Commercial Intelligence (Owner/Property/Market/Portfolio) | 🟡 In progress | 1.2 | 31% (foundation + Owner UI + Seller/Property linking shipped — Commit 1d-2a complete; operational linking separate from identity) |
+| Commercial Intelligence (Owner/Property/Market/Portfolio) | 🟡 In progress | 1.2 | 34% (foundation + Owner UI + linking + candidate review shipped — Commit 1d-2b complete, prod migration 8→9; decision-support separate from merge) |
 | Closing Center | 🔴 Planned | 1.4 | 0% |
 | Automation & Campaigns | 🔴 Planned | 2.0 | 0% |
 | AI Layer | 🔴 Planned | 2.0 | 0% |
@@ -44,7 +44,7 @@
 |---|---|---|
 | 1.0 | Foundation | ✅ Shipped |
 | 1.1 | Operational Excellence | ✅ **Released — `v1.1.0`** (frozen on `release/1.1`). Testing/CI/lists + D4 backups + permissions Slices 1–2 + member lifecycle + invitation resend + org settings + email 3d-i/3d-ii + unit-test PQ-1 + lint-CI PQ-2 + perf PQ-3/PQ-4 all shipped — board p95 ~109→~43 ms; every path within budget. Password reset (3e) + relation search moved to 1.2. |
-| 1.2 | Commercial Intelligence | 🟡 In progress — architecture locked ([Volume 12](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md)); **Commit 1d-2a complete — Seller/Property↔Owner linking (link/move/unlink), separate from identity** (1a/1a-2: Owner + reversible merge; 1b: `Observation → Signal → Projection`; 1c: ingestion; 1d-1: core Owner UI; 1d-2a: linking, UI-only). Next: 1d-2b standalone candidate review |
+| 1.2 | Commercial Intelligence | 🟡 In progress — architecture locked ([Volume 12](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md)); **Commit 1d-2b complete — standalone candidate review (decision-support, separate from merge)** (1a/1a-2: Owner + reversible merge; 1b: pipeline; 1c: ingestion; 1d-1: Owner UI; 1d-2a: linking; 1d-2b: candidate review + `OwnerMatchDecision`, prod migration 8→9). Next: 1d-3 merge/unmerge controls. ⚠️ 1.2 UI awaits frontend redeploy (root-owned `.next`). |
 | 1.3 | Commercial Underwriting | 🟡 Foundation (~35%) |
 | 1.4 | Closing Center | 🔴 Planned |
 | 2.0 | Automation & AI | 🔴 Planned |
