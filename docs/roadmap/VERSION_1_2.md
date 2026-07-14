@@ -1,7 +1,7 @@
 # Version 1.2 — Commercial Intelligence
 
 > **Theme:** Enrich the data so underwriting and matching get better inputs.
-> **Status:** 🟡 In progress. Architecture locked (2026-07-14); **Slice 1 Commit 1d-1 complete** (2026-07-14) — the headless intelligence foundation (identity → ledger → projection → ingestion) is now **visible and usable** through the Owner UI, with `OWNER` permission enforcement live. Deployed 1a–1c to production; 1d-1 is UI-only (no schema change). Builds on the released [1.1](./VERSION_1_1.md) operational foundation (`v1.1.0`). Next: **Commit 1d-2** — Seller/Property linking + standalone candidate review.
+> **Status:** 🟡 In progress. Architecture locked (2026-07-14); **Slice 1 Commit 1d-2a complete** (2026-07-14) — the Owner UI now supports **Seller↔Owner and Property↔Owner linking** (link / atomic move / unlink), kept strictly separate from canonical identity. Deployed 1a–1c to production; 1d-1/1d-2a are UI-only (no schema change). Builds on the released [1.1](./VERSION_1_1.md) operational foundation (`v1.1.0`). Next: **Commit 1d-2b** — standalone candidate-review queue.
 > **Design authority:** **[Volume 12 — Commercial Intelligence Architecture](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md)** is the canonical design for this release. This file is the release-scope summary; Volume 12 governs the model, provenance, identity, scoring, and refresh design. Where they differ, Volume 12 wins.
 
 ## Goal
@@ -43,7 +43,9 @@ Seven intelligence slices, spine-first ([Volume 12 §9](./COMMERCIAL_INTELLIGENC
 - **Commit 1c is complete — the ingestion path is established and the intelligence foundation is fully headless.**
 - ✅ **1d-1 — Core Owner UI** (shipped 2026-07-14): the first UI surface, built as a thin *consumer* of the pipeline. Owner nav + list (name search, sort, pagination, empty states, hide-merged default) + detail (projected header + per-field provenance laid out **Projected Value → Winning Signal → Signal History**) + create (with create-time duplicate warning) + edit via `updateOwnerField` (with override pins) + clear override. **The `OWNER` permission policy is now enforced** at its first call-sites (write ADMIN/ACQUISITIONS, read all). The UI never writes projections directly — every edit flows through the domain services. UI-only (migration-free). *Known future refinement: disable "Clear pin" when no alternate signal exists to fall back to.*
 - **Commit 1d-1 is complete — `Observation → Signal → Projection` is now fully exposed through the UI.**
-- ⏳ Next: **1d-2** — Seller↔Owner + Property↔Owner linking (primary workflow) + unlink + **standalone candidate review queue** (decision-support: confirm/dismiss). · **1d-3** — manual-refresh trigger + refresh-job history + merge/unmerge controls.
+- ✅ **1d-2a — Linking / unlinking** (shipped 2026-07-14): Seller↔Owner and Property↔Owner linking from both the Owner page (primary) and the Seller/Property pages, with **atomic move** (re-link A→B in one `ownerId` update, audited as `owner.linked`/`owner.moved`/`owner.unlinked`), one-click unlink, and link-to-existing-only pickers. **Linking never changes identity** — it edits only the operational FK, writing no Observation/Signal (E2E-proven). Added the pure `safe-redirect` open-redirect guard. UI-only (migration-free).
+- **Commit 1d-2a is complete — operational-graph linking is separate from canonical identity.**
+- ⏳ Next: **1d-2b** — standalone candidate-review queue (decision-support: confirm/dismiss owner duplicates; `OwnerMatchDecision`; **candidate ≠ merge**). · **1d-3** — manual-refresh trigger + refresh-job history + merge/unmerge controls.
 
 ## Architecture notes
 - New data lands as **structured columns + a provenance ledger**, org-scoped, additive (no breaking changes to core records).
