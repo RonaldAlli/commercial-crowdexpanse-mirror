@@ -3,14 +3,17 @@ import { notFound } from "next/navigation";
 
 import { Icon } from "@/components/icons";
 import { OwnerProvenance } from "@/components/owner-provenance";
+import { OwnerRefreshForm } from "@/components/owner-refresh-form";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { getFieldProvenance } from "@/lib/intelligence/provenance";
+import { listRefreshJobsForEntity } from "@/lib/refresh-jobs";
 import { prisma } from "@/lib/prisma";
 
 import { clearOverrideAction, unlinkPropertyAction, unlinkSellerAction } from "../actions";
+import { triggerRefreshAction } from "../refresh-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -32,8 +35,14 @@ export default async function OwnerDetailPage({ params }: { params: { id: string
   if (!owner) notFound();
 
   const canWrite = can(user.role, "UPDATE", "OWNER");
+  const canRefresh = can(user.role, "MANAGE", "REFRESH");
+  const canViewRefresh = can(user.role, "READ", "REFRESH");
   const ref = (fieldKey: string) => ({ entityType: "OWNER" as const, entityId: owner.id, fieldKey });
-  const [nameProv, typeProv] = await Promise.all([getFieldProvenance(org, ref("displayName")), getFieldProvenance(org, ref("entityType"))]);
+  const [nameProv, typeProv, refreshJobs] = await Promise.all([
+    getFieldProvenance(org, ref("displayName")),
+    getFieldProvenance(org, ref("entityType")),
+    canViewRefresh ? listRefreshJobsForEntity(org, "OWNER", owner.id) : Promise.resolve([]),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -140,6 +149,38 @@ export default async function OwnerDetailPage({ params }: { params: { id: string
           )}
         </div>
       </div>
+
+      {/* Manual source refresh (1d-3a): ingestion pipeline over the manual adapter — distinct from Edit. */}
+      {canViewRefresh ? (
+        <div className="card p-5">
+          <p className="mb-1 text-sm font-semibold text-slate-700">Manual source refresh</p>
+          {canRefresh ? (
+            <OwnerRefreshForm action={triggerRefreshAction.bind(null, owner.id)} />
+          ) : (
+            <p className="text-xs text-slate-400">You can view refresh history but not run a refresh.</p>
+          )}
+
+          <div className="mt-5 border-t border-slate-100 pt-4">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">Recent refresh jobs</p>
+            {refreshJobs.length === 0 ? (
+              <p className="text-sm text-slate-400">No refresh jobs yet.</p>
+            ) : (
+              <ul className="space-y-1.5">
+                {refreshJobs.map((j) => (
+                  <li key={j.id} className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                    <span className="flex items-center gap-2">
+                      <Badge tone={j.status === "SUCCEEDED" ? "success" : j.status === "FAILED" ? "danger" : "neutral"}>{j.status}</Badge>
+                      <span>via {j.sourceKey}</span>
+                      <span>· {j.signalsAccepted} accepted{j.signalsSuperseded ? `, ${j.signalsSuperseded} superseded` : ""}</span>
+                    </span>
+                    <span className="text-slate-400">{(j.finishedAt ?? j.createdAt).toISOString().slice(0, 16).replace("T", " ")}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
