@@ -27,22 +27,32 @@
 
 The canonical meaning of every core concept. This is the **shared language for all Version 1.2 work** — every slice, plan, test, and UI label uses these terms as defined here. If usage and this glossary disagree, fix one in the same change; never let terminology drift.
 
+**The canonical intelligence pipeline** (each stage feeds the next; each is a distinct concept):
+
+```
+Observation  →  Signal  →  Projection  →  Score
+ raw fact       accepted     operational   decision
+               intelligence     model       support
+```
+
 | Term | Canonical definition |
 |---|---|
+| **Observation** | The **raw fact exactly as a source asserted it** — "source X reported value V for field F, as-of T, retrieved at R." The immutable, append-only capture layer and the **conceptual parent of a Signal.** Every inbound datum enters as an Observation *before* any acceptance or normalization; observations that are rejected still exist as historical record. Observations are never edited or deleted. |
 | **Owner** | The **durable, canonical title-holding party** — an individual or legal entity (LLC / trust / REIT) — that owns properties and **accumulates intelligence over time**. Bears a portfolio; carries ownership signals and owner-level scores. The *primary* Commercial-Intelligence entity (Decision A). **Not** the same as a Seller. |
 | **Seller** | The **transaction-specific counterparty/contact** the firm negotiates with in a deal. May *map to* an Owner (`Seller.ownerId?`) but is not the canonical title-holder and is **not enriched in place**. Unchanged from 1.0/1.1. |
 | **Property** | The **physical real-estate asset**. Existing entity, enriched with structured facts (unit mix, condition, tax/assessment, prior sales). Identity-anchored by parcel/APN + jurisdiction (§7.1). |
 | **Market** | The **geographic-and-asset-type context** a property sits in — a **reference entity** keyed by **county × asset type** (Decision E), carrying benchmark time-series (rent/vacancy/cap-rate) as append-only snapshots. |
 | **Portfolio** | A **derived aggregation, not a primary entity.** Two senses: **Owner Portfolio** (an owner's holdings — `Owner → Property[]`, feeding distress detection) and **Firm Book** (our org's pipeline/exposure — an `Opportunity` rollup). |
-| **Signal** | A **single sourced fact with a full provenance envelope** — the atom of the intelligence layer. Lives in the provenance ledger (`IntelligenceSignal`, source of truth) and is projected to typed columns for fast reads (Decision B). No signal exists without provenance. |
+| **Signal** | **Accepted intelligence** — an Observation promoted (after acceptance/normalization) into the canonical ledger (`IntelligenceSignal`, source of truth) with a full provenance envelope, then projected to typed columns for fast reads (Decision B). No signal exists without provenance. **Signals are immutable** — never edited, overwritten, or deleted; a correction is a *new* signal that marks the prior one `SUPERSEDED` (see §3). |
 | **Score** | A **deterministic, versioned calculation over signals** (provenance category `CALCULATION`). Emits a **numeric value + graded band + explicit confidence** (Decision D); recomputed when inputs change; returns "insufficient data" rather than a falsely-precise number. |
 | **Confidence** | A measure of **how much to trust a signal or score.** For a signal: driven by source + freshness, subject to decay. For a score: driven by input **coverage × freshness**. Always explicit, never implied. |
 | **Refresh** | The **process of updating sourced information** — detecting staleness (`now − asOf > TTL`) and re-acquiring or recomputing. **Manual/on-demand in Slice 1; scheduled (with decay + snapshots) in Slice 6** (Decision C). |
 | **Provenance** | The **mandatory metadata describing a signal's origin, freshness, and trust**: `sourceCategory`, `sourceId`, `asOf`, `retrievedAt`, `confidence`, `method`, `licenseRef?`. The spine of the whole subsystem — a fact without provenance cannot exist. |
 
-**Two distinctions worth stating explicitly:**
+**Three distinctions worth stating explicitly:**
 - **Owner ≠ Seller.** Owner is the durable title-holder that bears a portfolio; Seller is the deal-context contact. This separation is what makes Portfolio Intelligence possible.
-- **Signal ≠ Score.** A Signal is a *sourced fact* (from a provider, user, or public record); a Score is a *deterministic derivation* over signals. Signals have source provenance; Scores have `CALCULATION` provenance and a version.
+- **Observation ≠ Signal.** An Observation is the *raw fact as reported* (every inbound datum, accepted or not); a Signal is *accepted intelligence* in the canonical ledger. The acceptance step between them is where mandatory manual review (Decision 5/6) lives.
+- **Signal ≠ Score.** A Signal is a *sourced fact*; a Score is a *deterministic derivation* over signals. Signals carry source provenance; Scores carry `CALCULATION` provenance and a version.
 
 ---
 
@@ -102,12 +112,15 @@ This separation is what makes **Portfolio Intelligence possible at all**: an own
 
 **Envelope** (per field or coherent field-group): `sourceCategory`, `sourceId`, `asOf`, `retrievedAt`, `confidence`, `method`, `licenseRef?`.
 
-### Storage — hybrid model *(Decision B, locked)*
-- **Typed projections** — high-value, stable fields live as typed columns on the entity for fast operational reads (protects the board/record perf budgets).
-- **Provenance ledger** (`IntelligenceSignal`) — the **source of truth**: one row per fact = entity ref + field key + value + full envelope, append-friendly.
-- The typed column is a **denormalized projection of the latest accepted ledger row** — the same source-of-truth → projection pattern as the 1.1 EmailMessage outbox.
+### The immutability invariant *(locked — canonical)*
+**The ledger is immutable. It records history the way Git does.** Once written, an **Observation and a Signal are never edited, overwritten, or deleted** — the only permitted state transition is **`SUPERSEDED`**. A correction, a re-fetch, or a user override is always a **new** ledger row that supersedes the prior one; the prior row stays, forever, as the record of what was believed and when. **The projection changes; the ledger never does.** This makes provenance total: every value the system ever showed is reconstructable and explicable, which is the foundation for licensed-data defensibility and (later) AI auditability.
 
-**Grain:** per-field for user edits and calculations; per-field-group for licensed/public bulk imports. Every value is explainable; every value is refreshable.
+### Storage — hybrid model *(Decision B, locked)*
+- **Two-layer append-only ledger.** **Observations** capture every raw inbound assertion (the parent layer); **Signals** are the accepted intelligence promoted from observations. Both are append-only and immutable (above). Acceptance — including mandatory manual review (Decisions 5/6) — is the gate between them.
+- **Typed projections** — high-value, stable fields live as typed columns on the entity for fast operational reads (protects the board/record perf budgets).
+- The typed column is a **denormalized projection of the latest accepted, non-superseded signal** — the same source-of-truth → projection pattern as the 1.1 EmailMessage outbox, and always **rebuildable from the ledger** (a tested invariant).
+
+**Grain:** per-field for user edits and calculations; per-field-group for coherent bundles (e.g. a contact record) and licensed/public bulk imports. Every value is explainable; every value is refreshable.
 
 **Surfacing:** every enriched value in the UI shows source badge, as-of date, confidence, and (for licensed) attribution. No naked numbers.
 
@@ -197,7 +210,7 @@ Cross-cutting rules: canonical keys **never** use a provider's internal id as th
 ### 7.2 OwnerIdentity *(the hard case — entity resolution, not a single key)*
 Owners are messy: legal entities (LLCs/trusts) and individuals, with aliases, name changes, and layered ownership. There is **no single natural key**, so OwnerIdentity is designed as a **resolvable, mergeable identity**:
 - **Match signals** (not one key): normalized entity/individual name, registered agent, mailing address, jurisdiction of registration, linked entity registrations, and tax id **only where a licensed lane + legal sign-off permit** (PII boundary — §8).
-- **Resolution:** a deterministic entity-resolution step proposes matches from the signals; the surrogate is authoritative. **Owners can be merged** when discovered to be the same, and merges are **reversible and provenance-audited** (which signals drove the merge, when, by which source).
+- **Resolution *(authority rule, locked — S1-4)*:** an **`ExternalIdentifier` match — or explicit manual confirmation — is the only thing that establishes or links a canonical identity.** Normalized-name/alias matches are **candidate records only**; they never auto-link and never auto-merge. A deterministic step proposes candidates with a confidence; a human accepts or rejects (mandatory review, S1-5). The surrogate is authoritative. **Owners may be merged only by explicit action**, and every merge is **reversible and provenance-audited** (what drove it, when, by whom).
 - **Design consequence:** Slice 1 must include a minimal, deterministic owner-resolution + merge capability — not just an `Owner` table. This is the single most complex identity, and it is the North-Star entity, so it is built first and carefully.
 
 ### 7.3 MarketIdentity *(the clean case)*
@@ -301,4 +314,20 @@ Locked 2026-07-14. These are binding for all 1.2 work; changing one requires an 
 | **F** | Source sequence | **Owner → Property → Market**; founder legal sign-off precedes each slice. |
 | **+** | Canonical identity | Surrogate id (backbone) + canonical match key (durable anchors) + `ExternalIdentifier` crosswalk, for **Owner / Property / Market** (§7); provider-stable, resolution auditable. |
 
-**Next step:** Slice 1 planning (Intelligence Spine + Owner foundation) — **planning only, on approval.** No implementation until Slice 1 is planned and approved under the standard lifecycle.
+### Canonical invariants (locked 2026-07-14)
+- **Ledger immutability.** Observations and Signals are never edited, overwritten, or deleted — only `SUPERSEDED`. The projection changes; the ledger never does (§3). Git-like history.
+- **Intelligence pipeline.** `Observation → Signal → Projection → Score` (raw fact → accepted intelligence → operational model → decision support). Observation is the immutable raw-capture parent of Signal (Vocabulary).
+- **Identity authority.** An `ExternalIdentifier` match (or explicit manual confirmation) is the **only** thing that establishes/links a canonical identity. Normalized-name matches produce **candidate records only — never a canonical identity, never an automatic merge** (§7.2).
+
+### Slice 1 founder decisions (locked 2026-07-14)
+| # | Decision | Resolution |
+|---|---|---|
+| **S1-1** | First enrichment lane | **`USER_ENTERED` only.** No public, no licensed, no provider integration in Slice 1 — the objective is proving the spine, not acquiring data. |
+| **S1-2** | Licensed retention/redistribution policy | **Deferred** until the first licensed provider exists. |
+| **S1-3** | Owner entity types | `INDIVIDUAL, LLC, TRUST, CORPORATION, PARTNERSHIP, REIT, GOVERNMENT, OTHER, UNKNOWN`. |
+| **S1-4** | Identity threshold | **`ExternalIdentifier` is authoritative.** Normalized names create candidate matches only, never canonical identities. |
+| **S1-5** | Ambiguous matches | **Mandatory manual review. No automatic merges anywhere in 1.2.** |
+| **S1-6** | User overrides | **Sticky pins** — a user override is never silently overwritten by provider updates; only explicit user action removes the pin. |
+| **S1-7** | CSV import | **Deferred** — do not let ingestion distract from proving the architecture. |
+
+**Next step:** Commit 1a planning (Owner + identity schema foundation) — **planning only.** No implementation until 1a is planned, approved, and run under the standard lifecycle.
