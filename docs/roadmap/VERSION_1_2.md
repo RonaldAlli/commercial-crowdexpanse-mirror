@@ -32,9 +32,11 @@ Full rationale in [Volume 12 §13](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md#13-
 ## Release slices
 Seven intelligence slices, spine-first ([Volume 12 §9](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md#9-release-roadmap)): (1) Intelligence Spine + Owner foundation, (2) Property Intelligence, (3) Market Intelligence, (4) Portfolio Intelligence, (5) Cross-entity scoring, (6) Refresh engine, (7) UI integration — plus the two carried-over 1.1 items sequenced flexibly.
 
-**Slice 1 progress:**
-- ✅ **1a — Owner + identity foundation** (shipped 2026-07-14): `Owner`/`OwnerAlias`/`OwnerExternalIdentifier`, nullable `Seller`/`Property` links, deterministic identity library (proposal-only), permissions, tests; the [six identity invariants](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md#the-six-identity-invariants-non-negotiable--stable-across-all-providers) hold. Additive migration deployed to production.
-- ⏳ **1a-2 — Owner merge/unmerge** (reversible) · **1b** — provenance ledger + typed projections · **1c** — manual source adapter + refresh · **1d** — minimal Owner UI + linking.
+**Slice 1 progress — identity foundation complete:**
+- ✅ **1a — Owner + identity foundation** (shipped 2026-07-14): `Owner`/`OwnerAlias`/`OwnerExternalIdentifier`, nullable `Seller`/`Property` links, deterministic identity library (proposal-only), permissions, tests; the [six identity invariants](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md#the-six-identity-invariants-non-negotiable--stable-across-all-providers) hold.
+- ✅ **1a-2 — Owner merge/unmerge** (shipped 2026-07-14): reversible, structural-only, ADMIN-only, LIFO; `OwnerMergeRecord` with typed `mergeReason`; the reversibility golden invariant (snapshot → merge → unmerge → identical graph) is E2E-verified; merged owners are never physically deleted.
+- **The identity spine is now complete.** Both migrations deployed to production.
+- ⏳ Next: **1b** — provenance ledger (Observation → Signal) + typed projections · **1c** — manual source adapter + refresh · **1d** — minimal Owner UI + linking.
 
 ## Architecture notes
 - New data lands as **structured columns + a provenance ledger**, org-scoped, additive (no breaking changes to core records).

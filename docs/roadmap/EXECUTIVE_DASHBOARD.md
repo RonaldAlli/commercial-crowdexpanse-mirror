@@ -31,7 +31,7 @@
 | Testing & CI (cross-cutting) | ✅ Complete | 1.1 | 100% |
 | Backups & DR (cross-cutting, D4) | ✅ Complete (code+docs) | 1.1 | 100%¹ |
 | Deal Analyzer / Underwriting | 🟡 Partial | 1.3 | 35% |
-| Commercial Intelligence (Owner/Property/Market/Portfolio) | 🟡 In progress | 1.2 | 8% (Slice 1a — Owner + identity spine shipped) |
+| Commercial Intelligence (Owner/Property/Market/Portfolio) | 🟡 In progress | 1.2 | 12% (Slice 1 identity spine complete — 1a + 1a-2 shipped) |
 | Closing Center | 🔴 Planned | 1.4 | 0% |
 | Automation & Campaigns | 🔴 Planned | 2.0 | 0% |
 | AI Layer | 🔴 Planned | 2.0 | 0% |
@@ -44,7 +44,7 @@
 |---|---|---|
 | 1.0 | Foundation | ✅ Shipped |
 | 1.1 | Operational Excellence | ✅ **Released — `v1.1.0`** (frozen on `release/1.1`). Testing/CI/lists + D4 backups + permissions Slices 1–2 + member lifecycle + invitation resend + org settings + email 3d-i/3d-ii + unit-test PQ-1 + lint-CI PQ-2 + perf PQ-3/PQ-4 all shipped — board p95 ~109→~43 ms; every path within budget. Password reset (3e) + relation search moved to 1.2. |
-| 1.2 | Commercial Intelligence | 🟡 In progress — architecture locked ([Volume 12](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md)); **Slice 1 Commit 1a shipped** (Owner entity + identity spine, deployed to prod). Next: 1a-2 merge/unmerge, then 1b ledger/projections |
+| 1.2 | Commercial Intelligence | 🟡 In progress — architecture locked ([Volume 12](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md)); **identity spine complete** (1a + 1a-2: Owner entity, immutable crosswalk, reversible merge/unmerge — deployed to prod). Next: 1b ledger + typed projections |
 | 1.3 | Commercial Underwriting | 🟡 Foundation (~35%) |
 | 1.4 | Closing Center | 🔴 Planned |
 | 2.0 | Automation & AI | 🔴 Planned |
@@ -57,7 +57,7 @@ Roadmap → Architecture → Specification → Implementation → Testing → Do
 Nothing skips a step. See the [EMP lifecycle](./ENGINEERING_MASTER_PLAN.md#development-lifecycle).
 
 ## Top priorities right now
-1. **Version 1.2 — Commercial Intelligence (building the identity spine first):** architecture is locked ([Volume 12](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md)) and **Slice 1 Commit 1a shipped** — the `Owner` entity, the authoritative/immutable `ExternalIdentifier` crosswalk, proposal-only identity resolution, and nullable Seller/Property links, deployed to production. Next: **1a-2** (reversible merge/unmerge), then **1b** (provenance ledger + typed projections).
+1. **Version 1.2 — Commercial Intelligence (identity spine complete):** architecture is locked ([Volume 12](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md)) and **Slice 1's identity foundation is shipped** — `Owner`, the authoritative/immutable `ExternalIdentifier` crosswalk, proposal-only resolution (1a), and reversible/structural-only/ADMIN-only merge/unmerge (1a-2), all deployed to production. Next: **1b** — the provenance ledger (Observation → Signal) + typed projections.
 2. **Carried into 1.2:** **password reset (Slice 3e)** on the messaging platform (closes D10), and **relation search** (Better Lists enrichment). Both reuse 1.1 platforms and are independent of the intelligence work.
 
 *(Version 1.1 is released — `v1.1.0`, frozen on `release/1.1`. PQ-1/PQ-2/PQ-3/PQ-4 complete; CI runs Typecheck → Lint → Unit → E2E → Build as distinct blocking steps.)*
