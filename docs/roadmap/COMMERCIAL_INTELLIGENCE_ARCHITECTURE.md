@@ -6,6 +6,7 @@
 > **Boundary:** 1.2 is **deterministic enrichment only. No AI** (AI is reserved for 2.0 and appears here only as a defined-but-unused provenance category).
 
 ## Contents
+- [Intelligence Vocabulary](#intelligence-vocabulary) — canonical shared language
 1. [Vision](#1-vision)
 2. [Canonical Intelligence Model](#2-canonical-intelligence-model)
 3. [Data Provenance](#3-data-provenance)
@@ -19,6 +20,29 @@
 11. [Success Metrics](#11-success-metrics)
 12. [Risks & Mitigations](#12-risks--mitigations)
 13. [Locked Decisions](#13-locked-decisions)
+
+---
+
+## Intelligence Vocabulary
+
+The canonical meaning of every core concept. This is the **shared language for all Version 1.2 work** — every slice, plan, test, and UI label uses these terms as defined here. If usage and this glossary disagree, fix one in the same change; never let terminology drift.
+
+| Term | Canonical definition |
+|---|---|
+| **Owner** | The **durable, canonical title-holding party** — an individual or legal entity (LLC / trust / REIT) — that owns properties and **accumulates intelligence over time**. Bears a portfolio; carries ownership signals and owner-level scores. The *primary* Commercial-Intelligence entity (Decision A). **Not** the same as a Seller. |
+| **Seller** | The **transaction-specific counterparty/contact** the firm negotiates with in a deal. May *map to* an Owner (`Seller.ownerId?`) but is not the canonical title-holder and is **not enriched in place**. Unchanged from 1.0/1.1. |
+| **Property** | The **physical real-estate asset**. Existing entity, enriched with structured facts (unit mix, condition, tax/assessment, prior sales). Identity-anchored by parcel/APN + jurisdiction (§7.1). |
+| **Market** | The **geographic-and-asset-type context** a property sits in — a **reference entity** keyed by **county × asset type** (Decision E), carrying benchmark time-series (rent/vacancy/cap-rate) as append-only snapshots. |
+| **Portfolio** | A **derived aggregation, not a primary entity.** Two senses: **Owner Portfolio** (an owner's holdings — `Owner → Property[]`, feeding distress detection) and **Firm Book** (our org's pipeline/exposure — an `Opportunity` rollup). |
+| **Signal** | A **single sourced fact with a full provenance envelope** — the atom of the intelligence layer. Lives in the provenance ledger (`IntelligenceSignal`, source of truth) and is projected to typed columns for fast reads (Decision B). No signal exists without provenance. |
+| **Score** | A **deterministic, versioned calculation over signals** (provenance category `CALCULATION`). Emits a **numeric value + graded band + explicit confidence** (Decision D); recomputed when inputs change; returns "insufficient data" rather than a falsely-precise number. |
+| **Confidence** | A measure of **how much to trust a signal or score.** For a signal: driven by source + freshness, subject to decay. For a score: driven by input **coverage × freshness**. Always explicit, never implied. |
+| **Refresh** | The **process of updating sourced information** — detecting staleness (`now − asOf > TTL`) and re-acquiring or recomputing. **Manual/on-demand in Slice 1; scheduled (with decay + snapshots) in Slice 6** (Decision C). |
+| **Provenance** | The **mandatory metadata describing a signal's origin, freshness, and trust**: `sourceCategory`, `sourceId`, `asOf`, `retrievedAt`, `confidence`, `method`, `licenseRef?`. The spine of the whole subsystem — a fact without provenance cannot exist. |
+
+**Two distinctions worth stating explicitly:**
+- **Owner ≠ Seller.** Owner is the durable title-holder that bears a portfolio; Seller is the deal-context contact. This separation is what makes Portfolio Intelligence possible.
+- **Signal ≠ Score.** A Signal is a *sourced fact* (from a provider, user, or public record); a Score is a *deterministic derivation* over signals. Signals have source provenance; Scores have `CALCULATION` provenance and a version.
 
 ---
 
