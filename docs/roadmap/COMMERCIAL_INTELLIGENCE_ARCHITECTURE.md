@@ -45,7 +45,7 @@ Observation  →  Signal  →  Projection  →  Score
 | **Portfolio** | A **derived aggregation, not a primary entity.** Two senses: **Owner Portfolio** (an owner's holdings — `Owner → Property[]`, feeding distress detection) and **Firm Book** (our org's pipeline/exposure — an `Opportunity` rollup). |
 | **Signal** | **Accepted intelligence** — an Observation promoted (after acceptance/normalization) into the canonical ledger (`IntelligenceSignal`, source of truth) with a full provenance envelope, then projected to typed columns for fast reads (Decision B). No signal exists without provenance. **Signals are immutable** — never edited, overwritten, or deleted; a correction is a *new* signal that marks the prior one `SUPERSEDED` (see §3). |
 | **Score** | A **deterministic, versioned calculation over signals** (provenance category `CALCULATION`). Emits a **numeric value + graded band + explicit confidence** (Decision D); recomputed when inputs change; returns "insufficient data" rather than a falsely-precise number. |
-| **Confidence** | A measure of **how much to trust a signal or score.** For a signal: driven by source + freshness, subject to decay. For a score: driven by input **coverage × freshness**. Always explicit, never implied. |
+| **Confidence** | A measure of trust. Always explicit, never implied — and **three independent dimensions that must not be conflated:** **Identity Confidence** (how sure we are that records represent the *same owner* — an entity-resolution property), **Owner Confidence** (how *trustworthy the owner's data* is — provenance agreement + completeness), and **Motivation Score** confidence (how sure we are of a *derived score*). Signal confidence = source + freshness (decay); score confidence = input coverage × freshness. See the separation rule in §5/§13. |
 | **Refresh** | The **process of updating sourced information** — detecting staleness (`now − asOf > TTL`) and re-acquiring or recomputing. **Manual/on-demand in Slice 1; scheduled (with decay + snapshots) in Slice 6** (Decision C). |
 | **Provenance** | The **mandatory metadata describing a signal's origin, freshness, and trust**: `sourceCategory`, `sourceId`, `asOf`, `retrievedAt`, `confidence`, `method`, `licenseRef?`. The spine of the whole subsystem — a fact without provenance cannot exist. |
 
@@ -198,9 +198,11 @@ Firm Book (derived) ──aggregates──> Opportunity / DealAnalysis
 Three layers per entity:
 1. **Surrogate id** — internal, opaque, stable primary key (`cuid`, as today). **Never changes, never provider-derived.** Every FK in the graph points here. This is the backbone.
 2. **Canonical match key** — a normalized natural key derived from **durable, provider-independent anchors** (government codes, physical anchors), used for **deduplication** and to decide when two inbound records are the same real-world thing.
-3. **External identifier crosswalk** (`ExternalIdentifier`: entity ref + `provider` + provider's native id + `asOf`) — so the same real-world entity from provider X and provider Y **resolves to one surrogate**. Adding/removing a provider never disturbs the surrogate or the graph.
+3. **External identifier crosswalk** (`ExternalIdentifier`: entity ref + `provider` + provider's native id + `asOf`) — so the same real-world entity from provider X and provider Y **resolves to one surrogate**. Adding a provider never disturbs the surrogate or the graph.
 
-Cross-cutting rules: canonical keys **never** use a provider's internal id as the primary basis; identity resolution is **revisable and auditable** (merges/splits recorded via provenance); all identity operations are org-scoped.
+**ExternalIdentifier immutability *(invariant, locked)*.** A crosswalk row, once written, is **never edited, reassigned, or deleted.** If a mapping changes, a **new row** is created; the old one remains as permanent history. This gives a total audit trail of provider→owner mappings over time and forecloses a class of subtle identity bugs (a silently-repointed id). Like the signal ledger (§3), the crosswalk is append-only.
+
+Cross-cutting rules: canonical keys **never** use a provider's internal id as the primary basis; identity resolution is **revisable and auditable** (merges/splits recorded via provenance); crosswalk rows are **immutable**; all identity operations are org-scoped.
 
 ### 7.1 PropertyIdentity
 - **Canonical match key:** `(jurisdiction FIPS + APN/parcel number)` when available — the most stable real-world anchor — else `(normalized address + geocode lat/long)`.
@@ -316,8 +318,10 @@ Locked 2026-07-14. These are binding for all 1.2 work; changing one requires an 
 
 ### Canonical invariants (locked 2026-07-14)
 - **Ledger immutability.** Observations and Signals are never edited, overwritten, or deleted — only `SUPERSEDED`. The projection changes; the ledger never does (§3). Git-like history.
+- **ExternalIdentifier immutability.** Crosswalk rows are never edited, reassigned, or deleted — a changed mapping is a **new** row; old rows are permanent history (§7). Append-only, like the ledger.
 - **Intelligence pipeline.** `Observation → Signal → Projection → Score` (raw fact → accepted intelligence → operational model → decision support). Observation is the immutable raw-capture parent of Signal (Vocabulary).
 - **Identity authority.** An `ExternalIdentifier` match (or explicit manual confirmation) is the **only** thing that establishes/links a canonical identity. Normalized-name matches produce **candidate records only — never a canonical identity, never an automatic merge** (§7.2).
+- **Confidence separation.** **Identity Confidence** (same-owner?), **Owner Confidence** (data trustworthiness), and **Motivation Score** (likelihood to transact) are **independent dimensions** — never collapsed into one number. Identity resolution, data quality, and behavioral prediction are distinct concerns.
 
 ### Slice 1 founder decisions (locked 2026-07-14)
 | # | Decision | Resolution |
