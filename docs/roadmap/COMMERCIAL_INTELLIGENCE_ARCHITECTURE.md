@@ -112,6 +112,8 @@ This separation is what makes **Portfolio Intelligence possible at all**: an own
 
 **Envelope** (per field or coherent field-group): `sourceCategory`, `sourceId`, `asOf`, `retrievedAt`, `confidence`, `method`, `licenseRef?`.
 
+**Version stamping.** Every observation and signal also records a **`schemaVersion` / `normalizationVersion` / `projectionVersion`** triple, so a later change to record format, normalization logic, or projection rules is **reproducible and migratable without ambiguity** — you can tell exactly which rules produced any historical value.
+
 ### The immutability invariant *(locked — canonical)*
 **The ledger is immutable. It records history the way Git does.** Once written, an **Observation and a Signal are never edited, overwritten, or deleted** — the only permitted state transition is **`SUPERSEDED`**. A correction, a re-fetch, or a user override is always a **new** ledger row that supersedes the prior one; the prior row stays, forever, as the record of what was believed and when. **The projection changes; the ledger never does.** This makes provenance total: every value the system ever showed is reconstructable and explicable, which is the foundation for licensed-data defensibility and (later) AI auditability.
 
@@ -328,6 +330,7 @@ Locked 2026-07-14. These are binding for all 1.2 work; changing one requires an 
 
 ### Canonical invariants (locked 2026-07-14)
 - **Ledger immutability.** Observations and Signals are never edited, overwritten, or deleted — only `SUPERSEDED`. The projection changes; the ledger never does (§3). Git-like history.
+- **Projections are disposable.** The ledger is the sole source of truth; a projection (typed column) is a **cache that must be fully rebuildable from the ledger** and is never authoritative. If a projection and the ledger disagree, the ledger wins and the projection is rebuilt. This is what makes the operational read model safe to drop, recompute, or re-shape at any time.
 - **ExternalIdentifier immutability.** Crosswalk rows are never edited, reassigned, or deleted — a changed mapping is a **new** row; old rows are permanent history (§7). Append-only, like the ledger.
 - **Intelligence pipeline.** `Observation → Signal → Projection → Score` (raw fact → accepted intelligence → operational model → decision support). Observation is the immutable raw-capture parent of Signal (Vocabulary).
 - **Identity authority.** An `ExternalIdentifier` match (or explicit manual confirmation) is the **only** thing that establishes/links a canonical identity. Normalized-name matches produce **candidate records only — never a canonical identity, never an automatic merge** (§7.2).
