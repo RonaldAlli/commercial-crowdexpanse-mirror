@@ -43,7 +43,7 @@
 | Version | Theme | Status |
 |---|---|---|
 | 1.0 | Foundation | ✅ Shipped |
-| 1.1 | Operational Excellence | 🟡 ~98% (testing/CI/lists + D4 backups + permissions Slices 1–2 + member lifecycle + invitation resend + org settings + email 3d-i/3d-ii + unit-test PQ-1 + lint-CI PQ-2 + **perf instrumentation/baseline PQ-3** all shipped; only **PQ-4 optimization** remains — baseline already within budget; password reset 3e optional) |
+| 1.1 | Operational Excellence | 🟢 ~99% (testing/CI/lists + D4 backups + permissions Slices 1–2 + member lifecycle + invitation resend + org settings + email 3d-i/3d-ii + unit-test PQ-1 + lint-CI PQ-2 + perf instrumentation/baseline PQ-3 + **perf optimization PQ-4** all shipped — board p95 ~109→~43 ms; every path within budget. Only optional **password reset 3e** remains) |
 | 1.2 | Commercial Intelligence | 🔴 Planned |
 | 1.3 | Commercial Underwriting | 🟡 Foundation (~35%) |
 | 1.4 | Closing Center | 🔴 Planned |
@@ -57,10 +57,10 @@ Roadmap → Architecture → Specification → Implementation → Testing → Do
 Nothing skips a step. See the [EMP lifecycle](./ENGINEERING_MASTER_PLAN.md#development-lifecycle).
 
 ## Top priorities right now
-1. **1.1 Performance optimization (PQ-4):** evidence-driven — the [baseline](./PERFORMANCE.md) shows the **board** (p95 ~110 ms, loads all opps) as the one path to watch as volume grows; everything else is well within budget. Board pagination/lighter payload + `EXPLAIN`-verified indexes only where justified.
-2. **1.1/1.2 Password reset (Slice 3e, optional):** the next consumer of the messaging platform — its own stricter flow.
+1. **Version 1.1 close-out:** all core + quality work is shipped through **PQ-4 (performance optimization, complete)** — the [board narrowing](./PERFORMANCE.md#pq-4a--board-payload-narrowing-2026-07-14--shipped) took board p95 from ~109 → ~43 ms, and every measured path is now well within budget, so no further optimization is warranted. Remaining is the relation-search ship/defer decision and the doc/tech-debt sweep.
+2. **1.1/1.2 Password reset (Slice 3e, optional):** the only remaining feature work in 1.1 — the next consumer of the messaging platform, with its own stricter flow. Can ship in 1.1 or slip to 1.2 without blocking either.
 
-*(PQ-1 unit foundation, PQ-2 lint-in-CI, and PQ-3 perf instrumentation/baseline are complete; CI runs Typecheck → Lint → Unit → E2E → Build as distinct blocking steps.)*
+*(PQ-1 unit foundation, PQ-2 lint-in-CI, PQ-3 perf instrumentation/baseline, and PQ-4 perf optimization are complete; CI runs Typecheck → Lint → Unit → E2E → Build as distinct blocking steps.)*
 
 *(Invitation email delivery 3d-ii, email infrastructure 3d-i, org settings 3c, invitation resend 3b, member lifecycle 3a, and permissions Slices 1–2 are complete.)*
 

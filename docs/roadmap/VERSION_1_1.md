@@ -1,7 +1,7 @@
 # Version 1.1 — Operational Excellence
 
 > **Theme:** Make the existing workflow trustworthy before adding surface area.
-> **Status:** 🟡 In progress (~98%). Testing/CI, Better Lists, permissions (Slices 1 + 2), member lifecycle, invitation resend, organization settings (3c), email 3d-i/3d-ii, unit-test foundation (PQ-1), lint-in-CI (PQ-2), and **performance instrumentation + baseline** (PQ-3 — observational) done; only **PQ-4 optimization** (evidence-driven, and all paths already within budget) remains. Password reset (3e) is an optional 1.1/1.2 follow-on on the same platform.
+> **Status:** 🟢 Substantially complete (~99%). Testing/CI, Better Lists, permissions (Slices 1 + 2), member lifecycle, invitation resend, organization settings (3c), email 3d-i/3d-ii, unit-test foundation (PQ-1), lint-in-CI (PQ-2), performance instrumentation + baseline (PQ-3), and **performance optimization (PQ-4 — board payload narrowing, board p95 ~109 → ~43 ms)** are all done; every measured path is within budget. Remaining is the relation-search ship/defer call and the doc/tech-debt sweep. Password reset (3e) is an optional 1.1/1.2 follow-on on the same platform.
 
 ## Goal
 Everything the team already does daily should be fast, safe, tested, and permission-aware. No new domain surface — depth over breadth.
@@ -28,9 +28,9 @@ Slices 1–3 complete: `npm test` runs 15 E2E scripts against a dedicated `_test
 GitHub Actions on the mirror with ephemeral Postgres runs distinct blocking steps — **Typecheck → Lint → Unit → E2E → Build** — on push-to-`main`/PR (lint added in PQ-2).
 - **Remaining:** decide on Gitea Actions (runner unconfirmed); build artifact/size guard.
 
-### 5. Performance
+### 5. Performance — 🟢 done (PQ-3 baseline + PQ-4 optimization)
 - **PQ-3 (done — instrumentation, observational only):** `lib/telemetry.ts` (zero-dep timing), `/api/health` DB-latency probe, and a seeded `_test` measurement harness (`npm run perf:measure`). **Baseline recorded** — board p95 ~110 ms, search ~12 ms, lists ≤ 8 ms at 1k opps / 2k props / 5k tasks; all within the proposed budgets. See [Performance Baseline](./PERFORMANCE.md).
-- **PQ-4 (next — optimization, evidence-driven):** board pagination/lighter payload if it grows; `EXPLAIN`-verified indexes only where a path regresses; targeted N+1 review. Re-measure after each change vs the baseline.
+- **PQ-4 (done — optimization, evidence-driven):** **PQ-4a** narrowed the Opportunities-board query to a dedicated `select` (six card columns + property `{name, assetType}`; seller relation dropped) — `EXPLAIN`-verified (row width 197 → 97 B, seller query eliminated), **board p95 ~109 → ~43 ms (≈57%)**, no schema/index/cache/pagination change and no regression elsewhere. A standardized `EXPLAIN` helper (`npm run perf:explain`) was added. With every path then well within budget, **PQ-4 is complete** — pagination/virtualization/indexes/caching are recorded as future scalability options, revisited only if a future baseline breaches a budget. See the [optimization records](./PERFORMANCE.md#pq-4-optimization-records-evidence-driven).
 
 ## Release Checklist (1.1)
 - [x] Permission matrix documented and enforced in server actions. (Slices 1 + 2 complete; enforcement + audit across all write actions.)
@@ -38,7 +38,7 @@ GitHub Actions on the mirror with ephemeral Postgres runs distinct blocking step
 - [ ] Relation search decision made (ship or explicitly defer to 1.2).
 - [x] Unit tests for the pure `lib/*` modules (PQ-1 — branch-gated, in `test:ci` + CI).
 - [x] Lint added to CI as a blocking step; baseline already clean, `next lint` green on `main` (PQ-2).
-- [ ] Performance budgets set for board + search; indexes reviewed.
+- [x] Performance budgets set for board + search; board optimized (PQ-4a, ~57% p95) and `EXPLAIN`-reviewed — no indexes needed at current scale (PQ-3 baseline + PQ-4).
 - [ ] Dashboard + Module Roadmaps updated; Tech Debt reviewed.
 
 ## Definition of Done (1.1)

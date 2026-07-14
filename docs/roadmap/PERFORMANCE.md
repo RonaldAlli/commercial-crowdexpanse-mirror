@@ -1,6 +1,6 @@
 # Volume 11 — Performance Baseline & Budgets
 
-> **Status:** PQ-3 (instrumentation) complete — the baseline below is what PQ-4 optimizes against. **PQ-4a (board payload narrowing) shipped** — see the [optimization records](#pq-4-optimization-records-evidence-driven).
+> **Status:** PQ-3 (instrumentation) + **PQ-4 (optimization) complete.** PQ-4a (board payload narrowing) shipped — board p95 ~109 → ~43 ms — and, with every path now well within budget, [PQ-4 is declared complete](#pq-4--complete) with no further optimization warranted. See the [optimization records](#pq-4-optimization-records-evidence-driven).
 > **Last measured:** 2026-07-14.
 
 ## How this is measured
@@ -60,5 +60,22 @@ Every optimization is recorded here with its target, baseline, change, new measu
 |---|---|---|---|---|
 | Board | < 300 ms | 109.5 ms | **43.2 ms** | ✅ within (−57%) |
 
-## PQ-4 — remaining (conditional, only if a new measurement justifies)
-Board **pagination/virtualization** and any **`EXPLAIN`-verified index** are deferred: at the current dataset the narrowed board is comfortably within budget, so neither is justified by a number yet. Re-measure before adding either. Caching remains out of Version 1.1.
+## PQ-4 — complete
+**PQ-4 is complete with PQ-4a alone.** After the board narrowing, **every measured path meets its p95 budget with large headroom** at the 1k-opp / 2k-prop / 5k-task dataset:
+
+| Path | Budget (p95) | Post-PQ-4a p95 | Headroom |
+|---|---|---|---|
+| Board | < 300 ms | ~43 ms | ~7× |
+| Global Search | < 250 ms | ~13 ms | ~19× |
+| Lists (each) | < 200 ms | ≤ ~9 ms | ≥ ~21× |
+
+No further optimization is justified by a measurement, so — per the PQ-4 discipline (*optimize only where a number demands it*) — nothing more is done.
+
+### Future scalability options (documented, NOT implemented)
+These are **deferred by design**, to be revisited **only if a future baseline exceeds a budget** (e.g. as opportunity volume grows well past 1k, or on slower production hardware). None is warranted today:
+- **Board pagination / lazy per-stage loading** — cap the full-pipeline fetch once a single org's opportunity count makes the unbounded `findMany` the bottleneck again.
+- **Board virtualization** — render only visible cards if a stage column grows very long (a client-side concern, independent of query cost).
+- **`EXPLAIN`-verified indexes** — every hot path already seq-scans a small org-scoped set or uses the `organizationId` index; add a composite/covering index only when an `EXPLAIN` shows a path regressing at higher volume.
+- **Caching** — out of Version 1.1 by decision; reconsider (e.g. request-scoped or short-TTL) only if repeated identical reads dominate a future profile.
+
+The rule stands: **re-measure first; add a lever only when a number demands it.**
