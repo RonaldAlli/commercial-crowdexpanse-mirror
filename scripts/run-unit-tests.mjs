@@ -30,6 +30,7 @@ const CRITICAL = [
   "lib/task-sort.ts",
   "lib/permissions.ts",
   "lib/intelligence/owner-identity.ts",
+  "lib/intelligence/projection-precedence.ts",
 ];
 const TRACKED = [
   ...CRITICAL,

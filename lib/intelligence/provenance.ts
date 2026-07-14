@@ -66,7 +66,22 @@ export async function acceptObservationAsSignal(
   observationId: string,
   opts: { isOverride?: boolean } = {},
 ) {
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction((tx) => acceptObservationAsSignalTx(tx, organizationId, observationId, opts));
+}
+
+/**
+ * Transaction-composable core of accept (so callers like updateOwnerField can
+ * append a signal AND recompute the projection in ONE transaction — the
+ * "projection writes are transactional" invariant). Same behavior as
+ * acceptObservationAsSignal, but runs on a caller-supplied tx.
+ */
+export async function acceptObservationAsSignalTx(
+  tx: Prisma.TransactionClient,
+  organizationId: string,
+  observationId: string,
+  opts: { isOverride?: boolean } = {},
+) {
+  {
     const obs = await tx.observation.findFirst({ where: { id: observationId, organizationId } });
     if (!obs) throw new Error("Observation not found in organization");
     if (await tx.intelligenceSignal.findUnique({ where: { observationId } })) {
@@ -113,13 +128,15 @@ export async function acceptObservationAsSignal(
       await tx.intelligenceSignal.update({ where: { id: prior.id }, data: { state: "SUPERSEDED", supersededById: signal.id } });
     }
     return signal;
-  });
+  }
 }
 
-/** Convenience: record an observation and immediately accept it (the 1b USER_ENTERED path). */
+/** Convenience: record an observation and immediately accept it, atomically (the 1b USER_ENTERED path). */
 export async function appendSignal(organizationId: string, input: ObservationInput, opts: { isOverride?: boolean } = {}) {
-  const obs = await recordObservation(organizationId, input);
-  return acceptObservationAsSignal(organizationId, obs.id, opts);
+  return prisma.$transaction(async (tx) => {
+    const obs = await recordObservation(organizationId, input, tx);
+    return acceptObservationAsSignalTx(tx, organizationId, obs.id, opts);
+  });
 }
 
 /** All signals for a field (full history, oldest first) — for provenance display. */

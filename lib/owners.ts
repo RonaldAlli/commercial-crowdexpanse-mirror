@@ -14,20 +14,57 @@ import type { OwnerEntityType, OwnerMergeReason } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { computeMatchKey, findOwnerCandidates, normalizeOwnerName, type OwnerCandidate, type OwnerIdentityInput } from "@/lib/intelligence/owner-identity";
+import { acceptObservationAsSignalTx, recordObservation } from "@/lib/intelligence/provenance";
+import { recomputeOwner, recomputeOwnerField } from "@/lib/intelligence/projection";
 
-/** Create an owner. Computes the identity match key from the display name. */
+type OwnerProjectedField = "displayName" | "entityType";
+
+/**
+ * Create a **ledger-native** owner (1b-2): the row's displayName/entityType are
+ * seeded as USER_ENTERED signals and then projected, so the columns are backed
+ * by the ledger from creation. The whole chain (row → signals → projection) is
+ * one transaction — projection writes are transactional.
+ */
 export async function createOwner(
   organizationId: string,
-  input: { displayName: string; entityType?: OwnerEntityType },
+  input: { displayName: string; entityType?: OwnerEntityType; actorUserId?: string },
 ) {
-  const matchKey = computeMatchKey({ displayName: input.displayName });
-  return prisma.owner.create({
-    data: {
-      organizationId,
-      displayName: input.displayName,
-      entityType: input.entityType ?? "UNKNOWN",
-      matchKey,
-    },
+  const displayName = input.displayName;
+  const entityType = input.entityType ?? "UNKNOWN";
+  const matchKey = computeMatchKey({ displayName });
+  const sourceId = input.actorUserId ?? "user";
+  return prisma.$transaction(async (tx) => {
+    const owner = await tx.owner.create({ data: { organizationId, displayName, entityType, matchKey } });
+    const now = new Date();
+    const nameObs = await recordObservation(organizationId, { entityType: "OWNER", entityId: owner.id, fieldKey: "displayName", valueRaw: displayName, valueNormalized: matchKey, sourceCategory: "USER_ENTERED", sourceId, asOf: now, method: "create" }, tx);
+    await acceptObservationAsSignalTx(tx, organizationId, nameObs.id);
+    const typeObs = await recordObservation(organizationId, { entityType: "OWNER", entityId: owner.id, fieldKey: "entityType", valueRaw: entityType, sourceCategory: "USER_ENTERED", sourceId, asOf: now, method: "create" }, tx);
+    await acceptObservationAsSignalTx(tx, organizationId, typeObs.id);
+    await recomputeOwner(organizationId, owner.id, tx);
+    return tx.owner.findUniqueOrThrow({ where: { id: owner.id } });
+  });
+}
+
+/**
+ * Update a projected Owner field by appending a signal and reprojecting — the
+ * write path the UI (1d) calls. Atomic: observation → signal → projection commit
+ * together. `isOverride` writes a sticky user pin (Volume 12 S1-6).
+ */
+export async function updateOwnerField(
+  organizationId: string,
+  ownerId: string,
+  fieldKey: OwnerProjectedField,
+  value: string,
+  opts: { isOverride?: boolean; actorUserId?: string } = {},
+) {
+  return prisma.$transaction(async (tx) => {
+    const owner = await tx.owner.findFirst({ where: { id: ownerId, organizationId }, select: { id: true } });
+    if (!owner) throw new Error("Owner not found in organization");
+    const valueNormalized = fieldKey === "displayName" ? normalizeOwnerName(value) : value;
+    const obs = await recordObservation(organizationId, { entityType: "OWNER", entityId: ownerId, fieldKey, valueRaw: value, valueNormalized, sourceCategory: "USER_ENTERED", sourceId: opts.actorUserId ?? "user", asOf: new Date(), method: "manual" }, tx);
+    await acceptObservationAsSignalTx(tx, organizationId, obs.id, { isOverride: opts.isOverride });
+    await recomputeOwnerField(organizationId, ownerId, fieldKey, tx);
+    return tx.owner.findUniqueOrThrow({ where: { id: ownerId } });
   });
 }
 

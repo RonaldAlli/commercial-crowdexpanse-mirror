@@ -7,7 +7,7 @@
 import { assertTestDatabase } from "./e2e-guard.mjs";
 
 import { prisma } from "../lib/prisma.ts";
-import { createOwner } from "../lib/owners.ts";
+import { computeMatchKey } from "../lib/intelligence/owner-identity.ts";
 import {
   acceptObservationAsSignal,
   appendSignal,
@@ -29,6 +29,10 @@ async function throws(fn, msg) {
   try { await fn(); assert(false, msg); } catch { assert(true, msg); }
 }
 const D = (s) => new Date(`2026-0${s}`);
+// Raw owner insert (no ledger signals) — this test exercises the ledger
+// primitives in isolation, independent of the ledger-native createOwner (1b-2).
+const rawOwner = (orgId, displayName, entityType) =>
+  prisma.owner.create({ data: { organizationId: orgId, displayName, entityType, matchKey: computeMatchKey({ displayName }) } });
 
 const orgIds = [];
 try {
@@ -36,7 +40,7 @@ try {
   orgIds.push(a.id);
   const b = await prisma.organization.create({ data: { name: TAG, slug: `${TAG}-${process.pid}-b` } });
   orgIds.push(b.id);
-  const owner = await createOwner(a.id, { displayName: "Ledger Test LLC", entityType: "LLC" });
+  const owner = await rawOwner(a.id, "Ledger Test LLC", "LLC");
   const ref = { entityType: "OWNER", entityId: owner.id, fieldKey: "displayName" };
 
   console.log("\n[1] Append a signal (observation → accepted signal):");
@@ -71,7 +75,7 @@ try {
 
   console.log("\n[6] Genesis backfill is idempotent and org-scoped:");
   // owner2 has no signals yet (created directly). Backfill should seed 2 fields.
-  const owner2 = await createOwner(a.id, { displayName: "Backfill Me LLC", entityType: "TRUST" });
+  const owner2 = await rawOwner(a.id, "Backfill Me LLC", "TRUST");
   const r1 = await backfillOwnerGenesisSignals(a.id);
   assert((await prisma.intelligenceSignal.count({ where: { entityId: owner2.id } })) === 2, "backfill seeded displayName + entityType for the unsignalled owner");
   const r2 = await backfillOwnerGenesisSignals(a.id);
