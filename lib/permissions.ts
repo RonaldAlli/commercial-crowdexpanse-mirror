@@ -25,7 +25,10 @@ export type Resource =
   // OWNER_IDENTITY = high-risk identity resolution (candidate accept/reject);
   // merge/unmerge is a distinct ADMIN-only check added in Commit 1a-2.
   | "OWNER"
-  | "OWNER_IDENTITY";
+  | "OWNER_IDENTITY"
+  // Ingestion (v1.2, Commit 1c). REFRESH = triggering a source refresh / viewing
+  // the refresh audit trail. Write = run a refresh; read = view job history.
+  | "REFRESH";
 
 export type Action = "CREATE" | "READ" | "UPDATE" | "DELETE" | "MANAGE";
 
@@ -52,6 +55,8 @@ const MATRIX: Record<Resource, Capability> = {
   OWNER: { write: [ADMIN, ACQUISITIONS], read: [ANALYST, DISPOSITIONS] },
   // Identity resolution is a high-risk MANAGE operation — no read-only tier.
   OWNER_IDENTITY: { write: [ADMIN, ACQUISITIONS], read: [] },
+  // Refresh mirrors OWNER: acquisitions run ingestion; everyone can read the trail.
+  REFRESH: { write: [ADMIN, ACQUISITIONS], read: [ANALYST, DISPOSITIONS] },
 };
 
 /** Can `role` perform `action` on `resource`? Pipeline movement is separate — see canMoveStage. */

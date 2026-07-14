@@ -139,6 +139,19 @@ enum SignalState {
   SUPERSEDED
 }
 
+// Lifecycle of a single refresh run (v1.2, Commit 1c). A refresh is created
+// RUNNING, then reaches exactly one terminal state: SUCCEEDED (new signals),
+// NOOP (ran cleanly, every value already current), or FAILED (an exception
+// during the ledger transaction — rolled back). PENDING is reserved for the
+// scheduled engine (Slice 6), where a job may be queued before it starts.
+enum RefreshJobStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  NOOP
+}
+
 // Which canonical entity a signal is about (extensible: PROPERTY, MARKET later).
 enum IntelligenceEntityType {
   OWNER
@@ -197,6 +210,7 @@ model Organization {
   ownerMerges   OwnerMergeRecord[]
   observations  Observation[]
   signals       IntelligenceSignal[]
+  refreshJobs   RefreshJob[]
 
   @@map("organizations")
 }
@@ -221,6 +235,10 @@ model Observation {
   retrievedAt          DateTime               @default(now())
   confidence           Float                  @default(1)
   method               String
+  // Which adapter (and its logic version) produced this observation, when it came
+  // from a SourceAdapter (Commit 1c). Null for direct user writes, which have no
+  // adapter. Lets us trace a datum to the exact adapter logic that emitted it.
+  adapterVersion       Int?
   schemaVersion        Int                    @default(1)
   normalizationVersion Int                    @default(1)
   createdAt            DateTime               @default(now())
@@ -256,6 +274,8 @@ model IntelligenceSignal {
   isOverride           Boolean                @default(false)
   observationId        String                 @unique
   supersededById       String?
+  // Carried from the originating observation (Commit 1c) — null for direct writes.
+  adapterVersion       Int?
   schemaVersion        Int                    @default(1)
   normalizationVersion Int                    @default(1)
   projectionVersion    Int                    @default(1)
@@ -267,6 +287,38 @@ model IntelligenceSignal {
   @@index([entityType, entityId, fieldKey, state])
   @@index([supersededById])
   @@map("intelligence_signals")
+}
+
+// ── Refresh (v1.2, Commit 1c) ────────────────────────────────────────────────
+// One durable record per refresh run — the SOLE audit surface for ingestion (no
+// separate event stream). A RefreshJob captures who ran it, which adapter, the
+// target, the counts, timing, and the outcome. It is also the idempotency
+// anchor: (organizationId, sourceKey, requestKey) is unique, so re-submitting an
+// identical run returns the existing job instead of applying it twice. Refresh is
+// OBSERVATIONAL — it only creates Observations/Signals and triggers Projection;
+// it never creates/merges/splits Owners and never deletes (Volume 12).
+model RefreshJob {
+  id                   String                 @id @default(cuid())
+  organizationId       String
+  sourceKey            String
+  status               RefreshJobStatus       @default(RUNNING)
+  requestKey           String // client-supplied or server content-hash (idempotency)
+  targetEntityType     IntelligenceEntityType
+  targetEntityId       String
+  observationsRecorded Int                    @default(0)
+  signalsAccepted      Int                    @default(0)
+  signalsSuperseded    Int                    @default(0)
+  affectedEntityIds    String[] // entities whose projection was recomputed
+  actorUserId          String?
+  error                String?
+  startedAt            DateTime?
+  finishedAt           DateTime?
+  createdAt            DateTime               @default(now())
+  organization         Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, sourceKey, requestKey])
+  @@index([organizationId, status])
+  @@map("refresh_jobs")
 }
 
 // ── Commercial Intelligence (v1.2, Slice 1 / Commit 1a) ──────────────────────

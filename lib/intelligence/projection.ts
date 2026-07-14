@@ -10,11 +10,12 @@ import type { OwnerEntityType, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { computeMatchKey } from "@/lib/intelligence/owner-identity";
+import { OWNER_PROJECTED_FIELDS, type OwnerProjectedField } from "@/lib/intelligence/owner-fields";
 import { selectWinner } from "@/lib/intelligence/projection-precedence";
 
-/** The Owner fields projected from the ledger in 1.2 (Decision: displayName + entityType only). */
-export const OWNER_PROJECTED_FIELDS = ["displayName", "entityType"] as const;
-type OwnerProjectedField = (typeof OWNER_PROJECTED_FIELDS)[number];
+// The projected-field list lives in the pure owner-fields module; re-exported
+// here so existing importers (owners.ts, tests) keep their import path.
+export { OWNER_PROJECTED_FIELDS };
 
 async function winningValue(
   db: Prisma.TransactionClient | typeof prisma,

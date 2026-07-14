@@ -29,6 +29,9 @@ export interface ObservationInput extends FieldRef {
   asOf: Date;
   confidence?: number;
   method: string;
+  // Set when a SourceAdapter produced this observation (Commit 1c); null for
+  // direct user writes, which have no adapter. Recorded on every observation.
+  adapterVersion?: number | null;
 }
 
 /** Record a raw observation (append-only). Returns the created row. */
@@ -49,6 +52,7 @@ export async function recordObservation(organizationId: string, input: Observati
       asOf: input.asOf,
       confidence: input.confidence ?? 1,
       method: input.method,
+      adapterVersion: input.adapterVersion ?? null,
       schemaVersion: LEDGER_SCHEMA_VERSION,
       normalizationVersion: NORMALIZATION_VERSION,
     },
@@ -105,6 +109,7 @@ export async function acceptObservationAsSignalTx(
         method: obs.method,
         isOverride: opts.isOverride ?? false,
         observationId: obs.id,
+        adapterVersion: obs.adapterVersion,
         schemaVersion: LEDGER_SCHEMA_VERSION,
         normalizationVersion: NORMALIZATION_VERSION,
         projectionVersion: PROJECTION_VERSION,
