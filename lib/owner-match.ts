@@ -48,14 +48,22 @@ export async function generateCandidateQueue(organizationId: string, { skip = 0,
   return { pending: pending.slice(skip, skip + take), total: pending.length };
 }
 
-/** Count active CONFIRMED decisions — the 1d-3 merge-queue size. */
+/**
+ * Count decisions AWAITING MERGE — CONFIRMED, not reopened, not yet resolved by a
+ * merge (Commit 1d-3b adds the `resolvedAt: null` clause). This is the merge-queue
+ * size; a merged pair leaves the queue, an unmerged pair returns to it.
+ */
 export function countConfirmed(organizationId: string) {
-  return prisma.ownerMatchDecision.count({ where: { organizationId, status: "CONFIRMED", reopenedAt: null } });
+  return prisma.ownerMatchDecision.count({ where: { organizationId, status: "CONFIRMED", reopenedAt: null, resolvedAt: null } });
 }
 
-/** List active decisions of a status (DISMISSED / CONFIRMED views), with owner display. */
+/**
+ * List active decisions of a status (DISMISSED / CONFIRMED views), with owner display.
+ * CONFIRMED here means "awaiting merge": resolved (merged) decisions are excluded via
+ * `resolvedAt: null` (Commit 1d-3b). Harmless for DISMISSED (never resolved).
+ */
 export async function listDecisions(organizationId: string, status: OwnerMatchStatus, { skip = 0, take = 20 }: { skip?: number; take?: number } = {}) {
-  const where = { organizationId, status, reopenedAt: null };
+  const where = { organizationId, status, reopenedAt: null, resolvedAt: null };
   const [total, decisions] = await Promise.all([
     prisma.ownerMatchDecision.count({ where }),
     prisma.ownerMatchDecision.findMany({ where, orderBy: { decidedAt: "desc" }, skip, take }),

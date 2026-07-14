@@ -10,7 +10,7 @@
 // DIRECTLY here. In 1b the ProjectionService becomes their authoritative writer
 // (Observation → Signal → Projection), and createOwner is refactored to route
 // through it. Merge/unmerge is Commit 1a-2 — not here.
-import type { OwnerEntityType, OwnerMergeReason } from "@prisma/client";
+import type { OwnerEntityType, OwnerMergeReason, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { computeMatchKey, findOwnerCandidates, normalizeOwnerName, type OwnerCandidate, type OwnerIdentityInput } from "@/lib/intelligence/owner-identity";
@@ -156,69 +156,93 @@ export async function findCandidatesForInput(
 // reconciles business data (contacts/notes/intelligence/provenance/scores). The
 // exact reversal payload is recorded so unmerge restores the graph precisely.
 
-/** Merge `loserId` into `winnerId`. Both must be ACTIVE + same org. Transactional. */
-export async function mergeOwners(
+/**
+ * Merge tx-BODY (Commit 1d-3b). The identical engine logic as before, but taking
+ * an existing transaction client so an orchestrator can run it in the SAME atomic
+ * transaction as a decision-resolution write (Volume 12: merge + resolve commit or
+ * roll back together). Not exported publicly — callers use `mergeOwners` (own tx)
+ * or the orchestration in lib/owner-match. The engine is UNCHANGED, only parameterized.
+ */
+export async function mergeOwnersTx(
+  tx: Prisma.TransactionClient,
   organizationId: string,
   input: { winnerId: string; loserId: string; reason: OwnerMergeReason; note?: string; actorUserId?: string },
 ) {
   const { winnerId, loserId, reason, note, actorUserId } = input;
   if (winnerId === loserId) throw new Error("Cannot merge an owner into itself");
 
-  return prisma.$transaction(async (tx) => {
-    const winner = await tx.owner.findFirst({ where: { id: winnerId, organizationId } });
-    const loser = await tx.owner.findFirst({ where: { id: loserId, organizationId } });
-    if (!winner || winner.status !== "ACTIVE") throw new Error("Winner not found or not ACTIVE");
-    if (!loser || loser.status !== "ACTIVE") throw new Error("Loser not found or not ACTIVE");
+  const winner = await tx.owner.findFirst({ where: { id: winnerId, organizationId } });
+  const loser = await tx.owner.findFirst({ where: { id: loserId, organizationId } });
+  if (!winner || winner.status !== "ACTIVE") throw new Error("Winner not found or not ACTIVE");
+  if (!loser || loser.status !== "ACTIVE") throw new Error("Loser not found or not ACTIVE");
 
-    // Repoint the mutable operational graph loser → winner (record for reversal).
-    const sellers = await tx.seller.findMany({ where: { organizationId, ownerId: loserId }, select: { id: true } });
-    const properties = await tx.property.findMany({ where: { organizationId, ownerId: loserId }, select: { id: true } });
-    const movedSellerIds = sellers.map((s) => s.id);
-    const movedPropertyIds = properties.map((p) => p.id);
-    if (movedSellerIds.length) await tx.seller.updateMany({ where: { id: { in: movedSellerIds } }, data: { ownerId: winnerId } });
-    if (movedPropertyIds.length) await tx.property.updateMany({ where: { id: { in: movedPropertyIds } }, data: { ownerId: winnerId } });
+  // Repoint the mutable operational graph loser → winner (record for reversal).
+  const sellers = await tx.seller.findMany({ where: { organizationId, ownerId: loserId }, select: { id: true } });
+  const properties = await tx.property.findMany({ where: { organizationId, ownerId: loserId }, select: { id: true } });
+  const movedSellerIds = sellers.map((s) => s.id);
+  const movedPropertyIds = properties.map((p) => p.id);
+  if (movedSellerIds.length) await tx.seller.updateMany({ where: { id: { in: movedSellerIds } }, data: { ownerId: winnerId } });
+  if (movedPropertyIds.length) await tx.property.updateMany({ where: { id: { in: movedPropertyIds } }, data: { ownerId: winnerId } });
 
-    // Preserve the loser's names as merge-derived aliases on the winner (so the
-    // winner stays findable). These are additive and tracked for exact removal.
-    const loserAliases = await tx.ownerAlias.findMany({ where: { ownerId: loserId }, select: { value: true } });
-    const aliasValues = [loser.displayName, ...loserAliases.map((a) => a.value)];
-    const addedAliasIds: string[] = [];
-    for (const value of aliasValues) {
-      const alias = await tx.ownerAlias.create({
-        data: { ownerId: winnerId, value, normalizedValue: normalizeOwnerName(value), sourceCategory: "CALCULATION" },
-      });
-      addedAliasIds.push(alias.id);
-    }
-
-    // Tombstone the loser (external-id rows stay on it, immutable).
-    await tx.owner.update({ where: { id: loserId }, data: { status: "MERGED", mergedIntoId: winnerId } });
-
-    return tx.ownerMergeRecord.create({
-      data: { organizationId, winnerId, loserId, reason, note, movedSellerIds, movedPropertyIds, addedAliasIds, mergedByUserId: actorUserId },
+  // Preserve the loser's names as merge-derived aliases on the winner (so the
+  // winner stays findable). These are additive and tracked for exact removal.
+  const loserAliases = await tx.ownerAlias.findMany({ where: { ownerId: loserId }, select: { value: true } });
+  const aliasValues = [loser.displayName, ...loserAliases.map((a) => a.value)];
+  const addedAliasIds: string[] = [];
+  for (const value of aliasValues) {
+    const alias = await tx.ownerAlias.create({
+      data: { ownerId: winnerId, value, normalizedValue: normalizeOwnerName(value), sourceCategory: "CALCULATION" },
     });
+    addedAliasIds.push(alias.id);
+  }
+
+  // Tombstone the loser (external-id rows stay on it, immutable).
+  await tx.owner.update({ where: { id: loserId }, data: { status: "MERGED", mergedIntoId: winnerId } });
+
+  return tx.ownerMergeRecord.create({
+    data: { organizationId, winnerId, loserId, reason, note, movedSellerIds, movedPropertyIds, addedAliasIds, mergedByUserId: actorUserId },
+  });
+}
+
+/** Merge `loserId` into `winnerId`. Both must be ACTIVE + same org. Transactional. */
+export async function mergeOwners(
+  organizationId: string,
+  input: { winnerId: string; loserId: string; reason: OwnerMergeReason; note?: string; actorUserId?: string },
+) {
+  return prisma.$transaction((tx) => mergeOwnersTx(tx, organizationId, input));
+}
+
+/**
+ * Unmerge tx-BODY (Commit 1d-3b). As above — the same LIFO reversal engine, taking
+ * an existing tx so unmerge + decision-unresolution share one atomic transaction.
+ */
+export async function unmergeOwnersTx(
+  tx: Prisma.TransactionClient,
+  organizationId: string,
+  mergeRecordId: string,
+  opts: { actorUserId?: string } = {},
+) {
+  const rec = await tx.ownerMergeRecord.findFirst({ where: { id: mergeRecordId, organizationId } });
+  if (!rec) throw new Error("Merge record not found");
+  if (rec.status !== "ACTIVE") throw new Error("Merge already reversed");
+  // LIFO: the winner must still be ACTIVE (not itself since merged away).
+  const winner = await tx.owner.findFirst({ where: { id: rec.winnerId, organizationId } });
+  if (!winner || winner.status !== "ACTIVE") throw new Error("Winner is not ACTIVE — reverse later merges first (LIFO)");
+
+  if (rec.movedSellerIds.length) await tx.seller.updateMany({ where: { id: { in: rec.movedSellerIds } }, data: { ownerId: rec.loserId } });
+  if (rec.movedPropertyIds.length) await tx.property.updateMany({ where: { id: { in: rec.movedPropertyIds } }, data: { ownerId: rec.loserId } });
+  if (rec.addedAliasIds.length) await tx.ownerAlias.deleteMany({ where: { id: { in: rec.addedAliasIds } } });
+  await tx.owner.update({ where: { id: rec.loserId }, data: { status: "ACTIVE", mergedIntoId: null } });
+
+  return tx.ownerMergeRecord.update({
+    where: { id: rec.id },
+    data: { status: "REVERSED", reversedByUserId: opts.actorUserId, reversedAt: new Date() },
   });
 }
 
 /** Reverse an ACTIVE merge record, restoring the graph exactly. Transactional. */
 export async function unmergeOwners(organizationId: string, mergeRecordId: string, opts: { actorUserId?: string } = {}) {
-  return prisma.$transaction(async (tx) => {
-    const rec = await tx.ownerMergeRecord.findFirst({ where: { id: mergeRecordId, organizationId } });
-    if (!rec) throw new Error("Merge record not found");
-    if (rec.status !== "ACTIVE") throw new Error("Merge already reversed");
-    // LIFO: the winner must still be ACTIVE (not itself since merged away).
-    const winner = await tx.owner.findFirst({ where: { id: rec.winnerId, organizationId } });
-    if (!winner || winner.status !== "ACTIVE") throw new Error("Winner is not ACTIVE — reverse later merges first (LIFO)");
-
-    if (rec.movedSellerIds.length) await tx.seller.updateMany({ where: { id: { in: rec.movedSellerIds } }, data: { ownerId: rec.loserId } });
-    if (rec.movedPropertyIds.length) await tx.property.updateMany({ where: { id: { in: rec.movedPropertyIds } }, data: { ownerId: rec.loserId } });
-    if (rec.addedAliasIds.length) await tx.ownerAlias.deleteMany({ where: { id: { in: rec.addedAliasIds } } });
-    await tx.owner.update({ where: { id: rec.loserId }, data: { status: "ACTIVE", mergedIntoId: null } });
-
-    return tx.ownerMergeRecord.update({
-      where: { id: rec.id },
-      data: { status: "REVERSED", reversedByUserId: opts.actorUserId, reversedAt: new Date() },
-    });
-  });
+  return prisma.$transaction((tx) => unmergeOwnersTx(tx, organizationId, mergeRecordId, opts));
 }
 
 /**

@@ -6,7 +6,7 @@ import { Icon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { requireUser } from "@/lib/auth";
-import { can } from "@/lib/permissions";
+import { can, canMergeOwners } from "@/lib/permissions";
 import { ilike, listQueryString, parseListParams, totalPages } from "@/lib/list-params";
 import { prisma } from "@/lib/prisma";
 
@@ -62,6 +62,7 @@ export default async function OwnersPage({
   const pages = totalPages(total);
   const canCreate = can(user.role, "CREATE", "OWNER");
   const canReviewDuplicates = can(user.role, "READ", "OWNER_IDENTITY");
+  const canMerge = canMergeOwners(user.role);
   const baseQuery = { q: params.hasQuery ? params.q : undefined, sort: params.sort, merged: showMerged ? "1" : undefined };
 
   return (
@@ -75,6 +76,11 @@ export default async function OwnersPage({
             {canReviewDuplicates ? (
               <Link className="btn-ghost" href="/owners/candidates">
                 Review duplicates
+              </Link>
+            ) : null}
+            {canMerge ? (
+              <Link className="btn-ghost" href="/owners/merges">
+                Merges
               </Link>
             ) : null}
             {canCreate ? (

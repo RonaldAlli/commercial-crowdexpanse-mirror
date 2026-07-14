@@ -5,7 +5,7 @@ import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { requireUser } from "@/lib/auth";
-import { can, canReopenMatchDecision } from "@/lib/permissions";
+import { can, canMergeOwners, canReopenMatchDecision } from "@/lib/permissions";
 import { listQueryString, parseListParams, totalPages } from "@/lib/list-params";
 import { countConfirmed, generateCandidateQueue, listDecisions } from "@/lib/owner-match";
 
@@ -58,6 +58,13 @@ export default async function OwnerCandidatesPage({ searchParams }: { searchPara
         {tab("dismissed", "Dismissed")}
         {tab("confirmed", "Awaiting merge", confirmedCount)}
       </div>
+
+      {view === "confirmed" && canMergeOwners(user.role) ? (
+        <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-600">
+          <span>These confirmed duplicates are ready to merge. Merging is a separate, structural step.</span>
+          <Link className="btn-primary shrink-0" href="/owners/merges">Merge workspace →</Link>
+        </div>
+      ) : null}
 
       {view === "pending" ? (
         pending && pending.pending.length > 0 ? (

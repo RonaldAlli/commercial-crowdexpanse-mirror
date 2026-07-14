@@ -32,6 +32,7 @@ const CRITICAL = [
   "lib/intelligence/owner-identity.ts",
   "lib/intelligence/projection-precedence.ts",
   "lib/intelligence/owner-duplicates.ts",
+  "lib/intelligence/owner-merge-suggest.ts",
 ];
 const TRACKED = [
   ...CRITICAL,

@@ -350,6 +350,14 @@ model OwnerMatchDecision {
   decidedAt         DateTime         @default(now())
   reopenedByUserId  String? // set on explicit ADMIN reopen
   reopenedAt        DateTime? // when set, the decision is inactive (pair pending again)
+  // Merge resolution (Commit 1d-3b). A CONFIRMED, active, unresolved decision is
+  // "awaiting merge"; a merge CONSUMES it, stamping these. The status stays
+  // CONFIRMED (there is no MERGED status) — resolution is modeled here. Unmerge
+  // CLEARS these three, returning the still-CONFIRMED pair to the merge queue.
+  // mergeRecordId is @unique so one merge record can resolve at most one decision.
+  resolvedAt        DateTime? // set when a merge consumed this decision
+  resolvedByUserId  String?
+  mergeRecordId     String?          @unique // the OwnerMergeRecord produced (scalar; no FK — history-safe)
   organization      Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, ownerIdA, ownerIdB])
