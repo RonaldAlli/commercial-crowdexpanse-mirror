@@ -1,7 +1,7 @@
 # Version 1.2 — Commercial Intelligence
 
 > **Theme:** Enrich the data so underwriting and matching get better inputs.
-> **Status:** 🔵 Architecture locked (2026-07-14); implementation not yet begun. Builds on the released [1.1](./VERSION_1_1.md) operational foundation (`v1.1.0`).
+> **Status:** 🟡 In progress. Architecture locked (2026-07-14); **Slice 1 Commit 1a shipped** (2026-07-14) — Owner entity + identity spine, deployed to production. Builds on the released [1.1](./VERSION_1_1.md) operational foundation (`v1.1.0`).
 > **Design authority:** **[Volume 12 — Commercial Intelligence Architecture](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md)** is the canonical design for this release. This file is the release-scope summary; Volume 12 governs the model, provenance, identity, scoring, and refresh design. Where they differ, Volume 12 wins.
 
 ## Goal
@@ -31,6 +31,10 @@ Full rationale in [Volume 12 §13](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md#13-
 
 ## Release slices
 Seven intelligence slices, spine-first ([Volume 12 §9](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md#9-release-roadmap)): (1) Intelligence Spine + Owner foundation, (2) Property Intelligence, (3) Market Intelligence, (4) Portfolio Intelligence, (5) Cross-entity scoring, (6) Refresh engine, (7) UI integration — plus the two carried-over 1.1 items sequenced flexibly.
+
+**Slice 1 progress:**
+- ✅ **1a — Owner + identity foundation** (shipped 2026-07-14): `Owner`/`OwnerAlias`/`OwnerExternalIdentifier`, nullable `Seller`/`Property` links, deterministic identity library (proposal-only), permissions, tests; the [six identity invariants](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md#the-six-identity-invariants-non-negotiable--stable-across-all-providers) hold. Additive migration deployed to production.
+- ⏳ **1a-2 — Owner merge/unmerge** (reversible) · **1b** — provenance ledger + typed projections · **1c** — manual source adapter + refresh · **1d** — minimal Owner UI + linking.
 
 ## Architecture notes
 - New data lands as **structured columns + a provenance ledger**, org-scoped, additive (no breaking changes to core records).
