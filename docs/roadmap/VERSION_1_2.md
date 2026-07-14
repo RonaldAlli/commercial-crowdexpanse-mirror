@@ -1,7 +1,7 @@
 # Version 1.2 — Commercial Intelligence
 
 > **Theme:** Enrich the data so underwriting and matching get better inputs.
-> **Status:** 🟡 In progress. Architecture locked (2026-07-14); **Slice 1 Commit 1b complete** (2026-07-14) — Owner identity spine + the `Observation → Signal → Projection` intelligence pipeline, deployed to production. Builds on the released [1.1](./VERSION_1_1.md) operational foundation (`v1.1.0`). Next: **Commit 1c** — manual source adapter + refresh.
+> **Status:** 🟡 In progress. Architecture locked (2026-07-14); **Slice 1 Commit 1c complete** (2026-07-14) — Owner identity spine, the `Observation → Signal → Projection` pipeline, and the `SourceAdapter` + on-demand `RefreshJob` ingestion path, deployed to production. Builds on the released [1.1](./VERSION_1_1.md) operational foundation (`v1.1.0`). Next: **Commit 1d** — minimal Owner UI + linking (the first consumer of the headless foundation).
 > **Design authority:** **[Volume 12 — Commercial Intelligence Architecture](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md)** is the canonical design for this release. This file is the release-scope summary; Volume 12 governs the model, provenance, identity, scoring, and refresh design. Where they differ, Volume 12 wins.
 
 ## Goal
@@ -39,7 +39,9 @@ Seven intelligence slices, spine-first ([Volume 12 §9](./COMMERCIAL_INTELLIGENC
 - ✅ **1b-1 — Provenance ledger** (shipped 2026-07-14): the append-only `Observation → Signal` pipeline (immutable, supersession not mutation, version-stamped, complete lineage), headless provenance read API, idempotent genesis backfill. Deployed to production. *The system now stores sourced facts, not bare values.*
 - ✅ **1b-2 — Projection engine** (shipped 2026-07-14): `Owner` columns are now ledger-backed **projections** — a deterministic, total-order precedence rule (pin → asOf → confidence → source-category → id), transactional `createOwner`/`updateOwnerField`, sticky overrides + clear, and the **reconstruction invariant** (rebuild from ledger == live projection, E2E-verified byte-for-byte). Migration-free.
 - **Commit 1b is complete — the `Observation → Signal → Projection` core pipeline is in place.**
-- ⏳ Next: **1c** — manual source adapter + refresh · **1d** — minimal Owner UI + linking (consumes projected values + provenance).
+- ✅ **1c — Manual source adapter + refresh** (shipped 2026-07-14): the first general-purpose ingestion pipeline. A pure `SourceAdapter` contract (`fetch` + `map`), the USER_ENTERED `manualAdapter`, and the `runRefresh` orchestrator that feeds the ledger and triggers projection — with a durable `RefreshJob` (sole audit surface + idempotency anchor), client/​content-hash idempotency, and `adapterVersion` stamped on every observation. **Refresh is observational, replayable, and atomic; adapters are pure.** Deployed to production (migration 8). *Every future source — CSV, county, licensed, AI — is now just another adapter; the orchestrator, ledger, and projection engine stay fixed.*
+- **Commit 1c is complete — the ingestion path is established and the intelligence foundation is fully headless.**
+- ⏳ Next: **1d** — minimal Owner UI + linking (a *consumer* of the foundation: navigation, list/detail, create/edit via `updateOwnerField`, override clearing, Seller/Property linking, candidate review, provenance history, manual-refresh trigger + job history, merge/unmerge controls — adding **no** new intelligence rules).
 
 ## Architecture notes
 - New data lands as **structured columns + a provenance ledger**, org-scoped, additive (no breaking changes to core records).
