@@ -27,6 +27,8 @@
 | 8 | [TESTING_ROADMAP.md](./TESTING_ROADMAP.md) | Unit, integration, E2E, regression, perf, security, load, DR |
 | 9 | [OPERATIONS_ROADMAP.md](./OPERATIONS_ROADMAP.md) | Release, rollback, backups, monitoring, incident, maintenance |
 | 10 | [EXECUTIVE_DASHBOARD.md](./EXECUTIVE_DASHBOARD.md) | Module status/version/% complete table |
+| 11 | [PERFORMANCE.md](./PERFORMANCE.md) | Latency baseline, budgets, and optimization records (PQ-3/PQ-4) |
+| 12 | [COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md) | Version 1.2 design authority — owner/property/market/portfolio model, provenance, identity, scoring, refresh |
 | — | [FEATURE_DEPENDENCIES.md](./FEATURE_DEPENDENCIES.md) | What must exist before what |
 
 ---
@@ -94,6 +96,8 @@ Browser → middleware (session gate) → Server Component (reads via Prisma, or
 
 ### Module Relationships
 `Organization` owns everything. `Seller` → `Property` → `Opportunity` (pipeline) → `DealAnalysis` (underwriting) and `BuyerMatch` (→ `Buyer`). `Task`/`Note`/`Document`/`ActivityLog` attach to opportunities and records. See [FEATURE_DEPENDENCIES.md](./FEATURE_DEPENDENCIES.md).
+
+**Version 1.2 (Commercial Intelligence)** adds a new canonical **`Owner`** domain — the durable title-holder that bears a portfolio and accumulates enrichment — distinct from `Seller` (the transaction counterparty), plus a `Market` reference entity and a shared **provenance spine**. All additive and org-scoped; **no core workflow changes**. The full model, provenance, identity strategy, scoring, and refresh design are the design authority in **[Volume 12 — Commercial Intelligence Architecture](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md)**.
 
 ### Security Model
 Session-cookie auth → middleware gate → per-request `requireUser`/`requireRole` → org-scoped queries. `getCurrentUser` re-reads the user each request, so only `ACTIVE` accounts hold a live session; deactivation sets a per-user `sessionsValidAfter` epoch that invalidates every previously-issued cookie at once (stateless signed cookies, no server-side store). Uploads are size-capped and path-guarded. Secrets via env (`SESSION_SECRET`, `DATABASE_URL`). RBAC is enforced through the Authorization Principles below. Future: audit hardening, rate limiting, and **password reset (Slice 3e, now scheduled in [1.2](./VERSION_1_2.md))** — see [Tech Debt](./TECHNICAL_DEBT.md).
