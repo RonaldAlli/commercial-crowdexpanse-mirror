@@ -36,7 +36,8 @@ Seven intelligence slices, spine-first ([Volume 12 §9](./COMMERCIAL_INTELLIGENC
 - ✅ **1a — Owner + identity foundation** (shipped 2026-07-14): `Owner`/`OwnerAlias`/`OwnerExternalIdentifier`, nullable `Seller`/`Property` links, deterministic identity library (proposal-only), permissions, tests; the [six identity invariants](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md#the-six-identity-invariants-non-negotiable--stable-across-all-providers) hold.
 - ✅ **1a-2 — Owner merge/unmerge** (shipped 2026-07-14): reversible, structural-only, ADMIN-only, LIFO; `OwnerMergeRecord` with typed `mergeReason`; the reversibility golden invariant (snapshot → merge → unmerge → identical graph) is E2E-verified; merged owners are never physically deleted.
 - **The identity spine is now complete.** Both migrations deployed to production.
-- ⏳ Next: **1b** — provenance ledger (Observation → Signal) + typed projections · **1c** — manual source adapter + refresh · **1d** — minimal Owner UI + linking.
+- ✅ **1b-1 — Provenance ledger** (shipped 2026-07-14): the append-only `Observation → Signal` pipeline (immutable, supersession not mutation, version-stamped, complete lineage), headless provenance read API, idempotent genesis backfill. Deployed to production. *The system now stores sourced facts, not bare values.*
+- ⏳ Next: **1b-2** — projection engine (ProjectionService + precedence + `createOwner` rewire + reconstruction invariant) · **1c** — manual source adapter + refresh · **1d** — minimal Owner UI + linking.
 
 ## Architecture notes
 - New data lands as **structured columns + a provenance ledger**, org-scoped, additive (no breaking changes to core records).
