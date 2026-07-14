@@ -25,14 +25,14 @@
 - **List relation search:** generalize `lib/list-params.ts` to support relation filters cleanly (deferred across Better Lists slices).
 
 ## Performance
-- p95 budgets unset for the heaviest paths (Opportunities board, Global Search).
-- Global Search is a linear scan pattern — needs indexing/ranking at volume.
-- Review indexes for new list search/sort columns as row counts grow.
+- ✅ **p95 budgets set + measured (PQ-3 baseline, PQ-4 optimization).** Board < 300 ms, Search < 250 ms, lists < 200 ms; all met with large headroom at 1k opps / 2k props / 5k tasks. Board optimized (PQ-4a — dedicated `select`, p95 ~109 → ~43 ms). Re-measure via `npm run perf:measure` / `npm run perf:explain`.
+- Global Search is a linear scan pattern — fast at current volume (p95 ~13 ms) but **needs indexing/ranking (e.g. `pg_trgm`) at larger volume**; deferred by design until a baseline shows it approaching budget.
+- Review indexes for new list search/sort columns as row counts grow (none needed today — `EXPLAIN`-confirmed).
 
 ## Scaling
 - Single VPS: app + DB + documents co-located — a single failure domain.
-- Board view loads all opportunities (by design) — revisit at large pipelines.
-- No caching layer; every page is `force-dynamic`.
+- Board view loads all opportunities (by design), now with a **narrowed payload** (PQ-4a) — well within budget at current scale. **Pagination/virtualization are documented future scalability options** ([Performance](./PERFORMANCE.md#pq-4--complete)), to be added only if a future baseline breaches the board budget at large pipelines.
+- No caching layer; every page is `force-dynamic` (out of scope for 1.1 by decision — a future option, not current debt).
 
 ## Security
 - Add cross-org access tests (enforce D2 invariant).
