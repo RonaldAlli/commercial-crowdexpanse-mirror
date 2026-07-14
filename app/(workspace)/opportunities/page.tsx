@@ -33,10 +33,32 @@ const SORT_ORDER: Record<string, Prisma.OpportunityOrderByWithRelationInput> = {
   title: { title: "asc" },
 };
 
+// List view — the row uses opp scalars + property.name + seller.name.
 const OPP_INCLUDE = {
   property: { select: { name: true, city: true, state: true, assetType: true } },
   seller: { select: { name: true } },
 } satisfies Prisma.OpportunityInclude;
+
+type OppWithRels = Prisma.OpportunityGetPayload<{ include: typeof OPP_INCLUDE }>;
+
+// Board view (PQ-4) — a full-pipeline kanban of EVERY org opportunity, so its
+// payload matters most. The card renders only six opportunity scalars plus
+// property {name, assetType}; it shows no seller and no target-close date. The
+// board query therefore selects exactly those fields (Prisma adds the propertyId
+// FK to resolve the relation) — dropping nine Opportunity columns, two property
+// columns, and the seller relation query entirely versus OPP_INCLUDE. Kept
+// separate from the list path so narrowing here never widens the list's type.
+const BOARD_SELECT = {
+  id: true,
+  title: true,
+  stage: true,
+  priority: true,
+  contractValueUsd: true,
+  assignmentFeeUsd: true,
+  property: { select: { name: true, assetType: true } },
+} satisfies Prisma.OpportunitySelect;
+
+type BoardOpp = Prisma.OpportunityGetPayload<{ select: typeof BOARD_SELECT }>;
 
 function usd(value: number | null) {
   return value == null ? null : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 1, notation: "compact" }).format(value);
@@ -45,12 +67,10 @@ function usd(value: number | null) {
 async function loadBoardOpportunities(organizationId: string) {
   return prisma.opportunity.findMany({
     where: { organizationId },
-    include: OPP_INCLUDE,
+    select: BOARD_SELECT,
     orderBy: { updatedAt: "desc" },
   });
 }
-
-type OppWithRels = Awaited<ReturnType<typeof loadBoardOpportunities>>[number];
 
 export default async function OpportunitiesPage({
   searchParams,
@@ -234,8 +254,8 @@ export default async function OpportunitiesPage({
   );
 }
 
-function Board({ opportunities, role }: { opportunities: OppWithRels[]; role: UserRole }) {
-  const byStage = new Map<string, OppWithRels[]>();
+function Board({ opportunities, role }: { opportunities: BoardOpp[]; role: UserRole }) {
+  const byStage = new Map<string, BoardOpp[]>();
   for (const stage of STAGE_ORDER) byStage.set(stage, []);
   for (const opp of opportunities) byStage.get(opp.stage)?.push(opp);
 

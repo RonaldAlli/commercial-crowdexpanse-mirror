@@ -12,10 +12,20 @@ import { seedPerfOrg, PERF_COUNTS } from "./seed-perf.mjs";
 const ITERATIONS = 25;
 const WARMUP = 3;
 
-// Board: every org opportunity with the board's includes, newest first.
+// Board: every org opportunity, newest first. Two shapes are measured so the
+// PQ-4 payload narrowing is an apples-to-apples comparison in one process:
+//  - OPP_INCLUDE  = the legacy include (all Opportunity scalars + property
+//    {name,city,state,assetType} + seller{name}); still the LIST view's shape.
+//  - BOARD_SELECT = the narrowed board select the app now uses (six card columns
+//    + property{name,assetType}; propertyId FK added by Prisma; no seller).
 const OPP_INCLUDE = {
   property: { select: { name: true, city: true, state: true, assetType: true } },
   seller: { select: { name: true } },
+};
+const BOARD_SELECT = {
+  id: true, title: true, stage: true, priority: true,
+  contractValueUsd: true, assignmentFeeUsd: true,
+  property: { select: { name: true, assetType: true } },
 };
 
 async function measure(fn) {
@@ -44,7 +54,9 @@ async function main() {
   console.log(`  ${reused ? "reused existing" : "seeded"} perf org: ${JSON.stringify(counts)}\n`);
 
   const paths = [
-    { name: "Board (opportunities + includes)", rows: `${counts.opportunities} opps`,
+    { name: "Board (narrowed select — PQ-4)", rows: `${counts.opportunities} opps`,
+      fn: () => prisma.opportunity.findMany({ where: { organizationId: orgId }, select: BOARD_SELECT, orderBy: { updatedAt: "desc" } }) },
+    { name: "Board (legacy include — pre-PQ-4)", rows: `${counts.opportunities} opps`,
       fn: () => prisma.opportunity.findMany({ where: { organizationId: orgId }, include: OPP_INCLUDE, orderBy: { updatedAt: "desc" } }) },
     { name: 'Global Search ("Atlanta")', rows: `${counts.properties} props / ${counts.sellers} sellers`,
       fn: () => searchAll(orgId, "Atlanta") },
