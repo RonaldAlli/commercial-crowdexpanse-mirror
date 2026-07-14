@@ -2,9 +2,16 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { UserRole } from "@prisma/client";
 
-import { can } from "../../../lib/permissions";
+import { can, canMergeOwners } from "../../../lib/permissions";
 
 const { ADMIN, ACQUISITIONS, ANALYST, DISPOSITIONS } = UserRole;
+
+test("canMergeOwners is ADMIN-only (stricter than OWNER_IDENTITY manage)", () => {
+  assert.equal(canMergeOwners(ADMIN), true);
+  for (const role of [ACQUISITIONS, ANALYST, DISPOSITIONS]) {
+    assert.equal(canMergeOwners(role), false);
+  }
+});
 
 test("OWNER: acquisitions + admin write; analyst + dispositions read-only", () => {
   for (const role of [ADMIN, ACQUISITIONS]) {

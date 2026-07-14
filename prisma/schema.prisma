@@ -105,8 +105,22 @@ enum OwnerEntityType {
 
 enum OwnerStatus {
   ACTIVE
-  MERGED // used only by merge/unmerge (Commit 1a-2); defined now
+  MERGED // set on the loser of a merge (Commit 1a-2)
   ARCHIVED
+}
+
+enum OwnerMergeStatus {
+  ACTIVE
+  REVERSED
+}
+
+// Why two owners were merged — a typed audit dimension (Commit 1a-2).
+enum OwnerMergeReason {
+  DUPLICATE_IMPORT
+  MANUAL_DUPLICATE
+  PROVIDER_RECONCILIATION
+  ALIAS_CONSOLIDATION
+  OTHER
 }
 
 model User {
@@ -159,6 +173,7 @@ model Organization {
   settings      OrganizationSettings?
   emailMessages EmailMessage[]
   owners        Owner[]
+  ownerMerges   OwnerMergeRecord[]
 
   @@map("organizations")
 }
@@ -174,9 +189,12 @@ model Owner {
   entityType     OwnerEntityType           @default(UNKNOWN)
   status         OwnerStatus               @default(ACTIVE)
   matchKey       String // normalized identity key; NOT unique (owners may share a normalized name)
+  mergedIntoId   String? // set on a MERGED loser → its surviving winner (Commit 1a-2)
   createdAt      DateTime                  @default(now())
   updatedAt      DateTime                  @updatedAt
   organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  mergedInto     Owner?                    @relation("OwnerMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
+  mergedFrom     Owner[]                   @relation("OwnerMerge")
   aliases        OwnerAlias[]
   externalIds    OwnerExternalIdentifier[]
   sellers        Seller[]
@@ -185,7 +203,37 @@ model Owner {
   @@index([organizationId])
   @@index([status])
   @@index([matchKey])
+  @@index([mergedIntoId])
   @@map("owners")
+}
+
+// Reversible, audited record of an owner merge (Commit 1a-2). Structural only —
+// it captures the graph changes needed to unmerge exactly (repointed links +
+// merge-derived aliases), never business data (Volume 12 "merge is structural").
+// Scalar-list columns hold the reversal payload; the record is append-only
+// (status flips ACTIVE → REVERSED on unmerge, never deleted).
+model OwnerMergeRecord {
+  id               String           @id @default(cuid())
+  organizationId   String
+  winnerId         String
+  loserId          String
+  reason           OwnerMergeReason
+  note             String?
+  status           OwnerMergeStatus @default(ACTIVE)
+  movedSellerIds   String[]
+  movedPropertyIds String[]
+  addedAliasIds    String[]
+  mergedByUserId   String?
+  mergedAt         DateTime         @default(now())
+  reversedByUserId String?
+  reversedAt       DateTime?
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([winnerId])
+  @@index([loserId])
+  @@index([status])
+  @@map("owner_merge_records")
 }
 
 // Alternate/normalized names used to PROPOSE candidate matches (never to link

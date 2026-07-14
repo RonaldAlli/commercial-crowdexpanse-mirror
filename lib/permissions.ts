@@ -77,6 +77,14 @@ const idx = (s: OpportunityStage) => STAGE_ORDER.indexOf(s);
  * - ANALYST: none.
  * UNDER_CONTRACT is the shared handoff. Backward moves are rejected for non-admins.
  */
+// --- Owner identity: merge/unmerge -------------------------------------------
+// Merging owners changes CANONICAL identity, so it is the strictest identity op:
+// ADMIN only (a distinct check, like canMoveStage). Candidate accept/reject is
+// the lower bar OWNER_IDENTITY MANAGE (ADMIN + ACQUISITIONS).
+export function canMergeOwners(role: UserRole): boolean {
+  return role === ADMIN;
+}
+
 export function canMoveStage(role: UserRole, current: OpportunityStage, target: OpportunityStage): boolean {
   const c = idx(current);
   const t = idx(target);
