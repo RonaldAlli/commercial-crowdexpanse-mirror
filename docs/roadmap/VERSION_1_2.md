@@ -1,7 +1,7 @@
 # Version 1.2 — Commercial Intelligence
 
 > **Theme:** Enrich the data so underwriting and matching get better inputs.
-> **Status:** 🟡 In progress. Architecture locked (2026-07-14); **Slice 1 Commit 1d-2b complete** (2026-07-14) — the **standalone candidate-review queue** (confirm/dismiss owner duplicates, ADMIN reopen; **candidate ≠ merge**) is merged and its `OwnerMatchDecision` migration is deployed to production (schema at 9 migrations, restore-verified backup taken first). Builds on the released [1.1](./VERSION_1_1.md) operational foundation (`v1.1.0`). Next: **Commit 1d-3** — merge/unmerge controls (final Slice 1 UI). ⚠️ **Frontend deploy pending**: the 1.2 Owner UI is merged/built but the running PM2 instance still serves the pre-1.2 build (root-owned `.next` — see [Tech Debt](./TECHNICAL_DEBT.md)).
+> **Status:** 🟡 In progress. Architecture locked (2026-07-14); **Slice 1 Commit 1d-3a complete** (2026-07-14) — **manual refresh controls** (source-attributed trigger + inline job history on Owner detail) are merged, built, backend-compatible, and prod-DB-current (schema at 9 migrations; 1d-3a is migration-free). Builds on the released [1.1](./VERSION_1_1.md) operational foundation (`v1.1.0`). Next & final Slice 1 item: **Commit 1d-3b** — merge/unmerge controls. ⚠️ **Not yet user-accessible**: the entire 1.2 Owner UI is merged/built but **awaiting frontend redeployment** — the running PM2 instance still serves the pre-1.2 build (root-owned `.next`, [Tech Debt D5](./TECHNICAL_DEBT.md)).
 > **Design authority:** **[Volume 12 — Commercial Intelligence Architecture](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md)** is the canonical design for this release. This file is the release-scope summary; Volume 12 governs the model, provenance, identity, scoring, and refresh design. Where they differ, Volume 12 wins.
 
 ## Goal
@@ -47,7 +47,9 @@ Seven intelligence slices, spine-first ([Volume 12 §9](./COMMERCIAL_INTELLIGENC
 - **Commit 1d-2a is complete — operational-graph linking is separate from canonical identity.**
 - ✅ **1d-2b — Standalone candidate review** (shipped 2026-07-14, prod migration 8→9): a duplicate-owner review queue (Pending / Dismissed / Awaiting-merge) with Confirm / Dismiss (`OWNER_IDENTITY`) and ADMIN Reopen. Generation is **exact `matchKey` + alias overlap only** (no fuzzy); pairs use a canonical unordered identity; a dismissed pair re-surfaces only on a **material identity-fingerprint change** or explicit ADMIN reopen. **Records human decisions only — never merges, links, creates/deletes owners, or writes Observations/Signals** (`OwnerMatchDecision`). Confirmed pairs feed the 1d-3 merge queue.
 - **Commit 1d-2b is complete — candidate review (decision-support) is separate from merge.**
-- ⏳ Next: **1d-3** — manual-refresh trigger + refresh-job history + **merge/unmerge controls** (the final Slice 1 UI, consuming the confirmed-pair queue).
+- ✅ **1d-3a — Manual refresh controls** (shipped 2026-07-14, migration-free): a source-attributed manual-refresh trigger on Owner detail (records an observation through the manual adapter → accepts signals → runs projection → logs a `RefreshJob`, explicitly distinct from direct Edit) + inline history of the 10 most recent Owner-specific jobs. First UI call-sites of `REFRESH` (trigger = ADMIN/ACQUISITIONS; history = all roles). Merged + built + prod-DB-current; awaiting frontend redeploy (D5).
+- **Commit 1d-3a is complete — the ingestion pipeline now has a UI trigger + audit history.**
+- ⏳ Next (final Slice 1 item): **1d-3b** — **merge/unmerge controls** (ADMIN-only, consuming the confirmed-pair queue; the only workflow permitted structural identity change).
 
 ## Architecture notes
 - New data lands as **structured columns + a provenance ledger**, org-scoped, additive (no breaking changes to core records).
