@@ -31,7 +31,7 @@
 | Testing & CI (cross-cutting) | ✅ Complete | 1.1 | 100% |
 | Backups & DR (cross-cutting, D4) | ✅ Complete (code+docs) | 1.1 | 100%¹ |
 | Deal Analyzer / Underwriting | 🟡 Partial | 1.3 | 35% |
-| Commercial Intelligence (Owner/Property/Market/Portfolio) | 🟡 In progress | 1.2 | 16% (identity spine + provenance ledger shipped — 1a/1a-2/1b-1) |
+| Commercial Intelligence (Owner/Property/Market/Portfolio) | 🟡 In progress | 1.2 | 20% (identity spine + full `Observation → Signal → Projection` pipeline shipped — Commit 1b complete) |
 | Closing Center | 🔴 Planned | 1.4 | 0% |
 | Automation & Campaigns | 🔴 Planned | 2.0 | 0% |
 | AI Layer | 🔴 Planned | 2.0 | 0% |
@@ -44,7 +44,7 @@
 |---|---|---|
 | 1.0 | Foundation | ✅ Shipped |
 | 1.1 | Operational Excellence | ✅ **Released — `v1.1.0`** (frozen on `release/1.1`). Testing/CI/lists + D4 backups + permissions Slices 1–2 + member lifecycle + invitation resend + org settings + email 3d-i/3d-ii + unit-test PQ-1 + lint-CI PQ-2 + perf PQ-3/PQ-4 all shipped — board p95 ~109→~43 ms; every path within budget. Password reset (3e) + relation search moved to 1.2. |
-| 1.2 | Commercial Intelligence | 🟡 In progress — architecture locked ([Volume 12](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md)); **identity spine + provenance ledger shipped** (1a/1a-2/1b-1: Owner, reversible merge, immutable Observation→Signal ledger — deployed to prod). Next: 1b-2 projection engine |
+| 1.2 | Commercial Intelligence | 🟡 In progress — architecture locked ([Volume 12](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md)); **Commit 1b complete — the `Observation → Signal → Projection` pipeline is in place** (1a/1a-2: Owner + reversible merge; 1b-1: immutable ledger; 1b-2: deterministic projection engine + reconstruction invariant — deployed to prod). Next: 1c manual source adapter + refresh |
 | 1.3 | Commercial Underwriting | 🟡 Foundation (~35%) |
 | 1.4 | Closing Center | 🔴 Planned |
 | 2.0 | Automation & AI | 🔴 Planned |
@@ -57,7 +57,7 @@ Roadmap → Architecture → Specification → Implementation → Testing → Do
 Nothing skips a step. See the [EMP lifecycle](./ENGINEERING_MASTER_PLAN.md#development-lifecycle).
 
 ## Top priorities right now
-1. **Version 1.2 — Commercial Intelligence (building the data pipeline):** architecture is locked ([Volume 12](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md)); the identity spine (1a/1a-2) and the **immutable provenance ledger** (1b-1 — `Observation → Signal`, append-only, version-stamped, complete lineage) are shipped and deployed to production. Next: **1b-2** — the projection engine (ProjectionService + precedence) that makes `Owner` columns ledger-backed and rebuildable.
+1. **Version 1.2 — Commercial Intelligence (building the data pipeline):** architecture is locked ([Volume 12](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md)); **Commit 1b is complete — the full `Observation → Signal → Projection` core pipeline is shipped and deployed to production.** The identity spine (1a/1a-2), the immutable provenance ledger (1b-1 — append-only, version-stamped, complete lineage), and the deterministic projection engine (1b-2 — ProjectionService + total-order precedence, sticky overrides, and the byte-for-byte reconstruction invariant) are all in place. Next: **1c** — the manual source adapter + refresh orchestration that feeds the ledger from an external source.
 2. **Carried into 1.2:** **password reset (Slice 3e)** on the messaging platform (closes D10), and **relation search** (Better Lists enrichment). Both reuse 1.1 platforms and are independent of the intelligence work.
 
 *(Version 1.1 is released — `v1.1.0`, frozen on `release/1.1`. PQ-1/PQ-2/PQ-3/PQ-4 complete; CI runs Typecheck → Lint → Unit → E2E → Build as distinct blocking steps.)*

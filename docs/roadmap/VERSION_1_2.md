@@ -1,7 +1,7 @@
 # Version 1.2 — Commercial Intelligence
 
 > **Theme:** Enrich the data so underwriting and matching get better inputs.
-> **Status:** 🟡 In progress. Architecture locked (2026-07-14); **Slice 1 Commit 1a shipped** (2026-07-14) — Owner entity + identity spine, deployed to production. Builds on the released [1.1](./VERSION_1_1.md) operational foundation (`v1.1.0`).
+> **Status:** 🟡 In progress. Architecture locked (2026-07-14); **Slice 1 Commit 1b complete** (2026-07-14) — Owner identity spine + the `Observation → Signal → Projection` intelligence pipeline, deployed to production. Builds on the released [1.1](./VERSION_1_1.md) operational foundation (`v1.1.0`). Next: **Commit 1c** — manual source adapter + refresh.
 > **Design authority:** **[Volume 12 — Commercial Intelligence Architecture](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md)** is the canonical design for this release. This file is the release-scope summary; Volume 12 governs the model, provenance, identity, scoring, and refresh design. Where they differ, Volume 12 wins.
 
 ## Goal
@@ -37,7 +37,9 @@ Seven intelligence slices, spine-first ([Volume 12 §9](./COMMERCIAL_INTELLIGENC
 - ✅ **1a-2 — Owner merge/unmerge** (shipped 2026-07-14): reversible, structural-only, ADMIN-only, LIFO; `OwnerMergeRecord` with typed `mergeReason`; the reversibility golden invariant (snapshot → merge → unmerge → identical graph) is E2E-verified; merged owners are never physically deleted.
 - **The identity spine is now complete.** Both migrations deployed to production.
 - ✅ **1b-1 — Provenance ledger** (shipped 2026-07-14): the append-only `Observation → Signal` pipeline (immutable, supersession not mutation, version-stamped, complete lineage), headless provenance read API, idempotent genesis backfill. Deployed to production. *The system now stores sourced facts, not bare values.*
-- ⏳ Next: **1b-2** — projection engine (ProjectionService + precedence + `createOwner` rewire + reconstruction invariant) · **1c** — manual source adapter + refresh · **1d** — minimal Owner UI + linking.
+- ✅ **1b-2 — Projection engine** (shipped 2026-07-14): `Owner` columns are now ledger-backed **projections** — a deterministic, total-order precedence rule (pin → asOf → confidence → source-category → id), transactional `createOwner`/`updateOwnerField`, sticky overrides + clear, and the **reconstruction invariant** (rebuild from ledger == live projection, E2E-verified byte-for-byte). Migration-free.
+- **Commit 1b is complete — the `Observation → Signal → Projection` core pipeline is in place.**
+- ⏳ Next: **1c** — manual source adapter + refresh · **1d** — minimal Owner UI + linking (consumes projected values + provenance).
 
 ## Architecture notes
 - New data lands as **structured columns + a provenance ledger**, org-scoped, additive (no breaking changes to core records).
