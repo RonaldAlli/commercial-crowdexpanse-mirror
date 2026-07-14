@@ -123,6 +123,27 @@ enum OwnerMergeReason {
   OTHER
 }
 
+// Provenance ledger (Commit 1b-1). Precedence order is USER_ENTERED > LICENSED >
+// PUBLIC > CALCULATION > AI_DERIVED (a tiebreak; see Volume 12 §5). AI_DERIVED is
+// reserved for 2.0 and unused in 1.2.
+enum SourceCategory {
+  USER_ENTERED
+  LICENSED
+  PUBLIC
+  CALCULATION
+  AI_DERIVED
+}
+
+enum SignalState {
+  ACCEPTED
+  SUPERSEDED
+}
+
+// Which canonical entity a signal is about (extensible: PROPERTY, MARKET later).
+enum IntelligenceEntityType {
+  OWNER
+}
+
 model User {
   id             String        @id @default(cuid())
   organizationId String
@@ -174,8 +195,78 @@ model Organization {
   emailMessages EmailMessage[]
   owners        Owner[]
   ownerMerges   OwnerMergeRecord[]
+  observations  Observation[]
+  signals       IntelligenceSignal[]
 
   @@map("organizations")
+}
+
+// ── Provenance ledger (v1.2, Commit 1b-1) ────────────────────────────────────
+// The raw-capture layer: every inbound datum enters here FIRST, immutably.
+// Observations that are rejected still persist (they simply never yield a
+// Signal). Append-only — never edited or deleted. See Volume 12 §3.
+model Observation {
+  id                   String                 @id @default(cuid())
+  organizationId       String
+  entityType           IntelligenceEntityType
+  entityId             String
+  fieldKey             String
+  valueType            String
+  valueRaw             String
+  valueNormalized      String?
+  sourceCategory       SourceCategory
+  sourceId             String
+  licenseRef           String?
+  asOf                 DateTime
+  retrievedAt          DateTime               @default(now())
+  confidence           Float                  @default(1)
+  method               String
+  schemaVersion        Int                    @default(1)
+  normalizationVersion Int                    @default(1)
+  createdAt            DateTime               @default(now())
+  organization         Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  signal               IntelligenceSignal?
+
+  @@index([organizationId])
+  @@index([entityType, entityId, fieldKey])
+  @@map("observations")
+}
+
+// Accepted intelligence: an Observation promoted into the canonical ledger.
+// IMMUTABLE — a correction is a NEW signal that SUPERSEDES the prior (never an
+// edit/delete). Multiple ACCEPTED signals may coexist per field (one per source
+// lineage); the projection winner is chosen by precedence in 1b-2.
+model IntelligenceSignal {
+  id                   String                 @id @default(cuid())
+  organizationId       String
+  entityType           IntelligenceEntityType
+  entityId             String
+  fieldKey             String
+  valueType            String
+  valueRaw             String
+  valueNormalized      String?
+  sourceCategory       SourceCategory
+  sourceId             String
+  licenseRef           String?
+  asOf                 DateTime
+  retrievedAt          DateTime               @default(now())
+  confidence           Float                  @default(1)
+  method               String
+  state                SignalState            @default(ACCEPTED)
+  isOverride           Boolean                @default(false)
+  observationId        String                 @unique
+  supersededById       String?
+  schemaVersion        Int                    @default(1)
+  normalizationVersion Int                    @default(1)
+  projectionVersion    Int                    @default(1)
+  createdAt            DateTime               @default(now())
+  organization         Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  observation          Observation            @relation(fields: [observationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([entityType, entityId, fieldKey, state])
+  @@index([supersededById])
+  @@map("intelligence_signals")
 }
 
 // ── Commercial Intelligence (v1.2, Slice 1 / Commit 1a) ──────────────────────
