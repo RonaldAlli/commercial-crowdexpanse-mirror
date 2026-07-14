@@ -330,6 +330,8 @@ Locked 2026-07-14. These are binding for all 1.2 work; changing one requires an 
 
 ### Canonical invariants (locked 2026-07-14)
 - **Ledger immutability.** Observations and Signals are never edited, overwritten, or deleted — only `SUPERSEDED`. The projection changes; the ledger never does (§3). Git-like history.
+- **Observations are immutable even if rejected.** A rejected observation is never discarded — it persists **permanently**, explaining *why* something was not accepted into the intelligence layer. Rejected observations are as valuable for audit and review as accepted ones.
+- **Complete lineage.** Every Signal references **exactly one** originating Observation (`observationId`). No signal can exist that cannot be traced back to the raw fact it came from — `Observation → Signal → Projection → Score` is unbroken end to end.
 - **Projections are disposable.** The ledger is the sole source of truth; a projection (typed column) is a **cache that must be fully rebuildable from the ledger** and is never authoritative. If a projection and the ledger disagree, the ledger wins and the projection is rebuilt. This is what makes the operational read model safe to drop, recompute, or re-shape at any time.
 - **ExternalIdentifier immutability.** Crosswalk rows are never edited, reassigned, or deleted — a changed mapping is a **new** row; old rows are permanent history (§7). Append-only, like the ledger.
 - **Intelligence pipeline.** `Observation → Signal → Projection → Score` (raw fact → accepted intelligence → operational model → decision support). Observation is the immutable raw-capture parent of Signal (Vocabulary).
