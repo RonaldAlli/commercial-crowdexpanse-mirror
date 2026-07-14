@@ -20,7 +20,12 @@ export type Resource =
   | "DOCUMENT"
   | "TEAM"
   | "INVITATION"
-  | "ORGANIZATION";
+  | "ORGANIZATION"
+  // Commercial Intelligence (v1.2). OWNER = the owner domain (read/write/link).
+  // OWNER_IDENTITY = high-risk identity resolution (candidate accept/reject);
+  // merge/unmerge is a distinct ADMIN-only check added in Commit 1a-2.
+  | "OWNER"
+  | "OWNER_IDENTITY";
 
 export type Action = "CREATE" | "READ" | "UPDATE" | "DELETE" | "MANAGE";
 
@@ -43,6 +48,10 @@ const MATRIX: Record<Resource, Capability> = {
   TEAM: { write: [ADMIN], read: [] },
   INVITATION: { write: [ADMIN], read: [] },
   ORGANIZATION: { write: [ADMIN], read: [] },
+  // Owners are sourcing-side, like SELLER/PROPERTY: everyone reads, acquisitions write.
+  OWNER: { write: [ADMIN, ACQUISITIONS], read: [ANALYST, DISPOSITIONS] },
+  // Identity resolution is a high-risk MANAGE operation — no read-only tier.
+  OWNER_IDENTITY: { write: [ADMIN, ACQUISITIONS], read: [] },
 };
 
 /** Can `role` perform `action` on `resource`? Pipeline movement is separate — see canMoveStage. */

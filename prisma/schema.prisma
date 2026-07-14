@@ -90,6 +90,25 @@ enum EmailStatus {
   FAILED
 }
 
+// Commercial Intelligence (v1.2) — Owner domain. See Volume 12.
+enum OwnerEntityType {
+  INDIVIDUAL
+  LLC
+  TRUST
+  CORPORATION
+  PARTNERSHIP
+  REIT
+  GOVERNMENT
+  OTHER
+  UNKNOWN
+}
+
+enum OwnerStatus {
+  ACTIVE
+  MERGED // used only by merge/unmerge (Commit 1a-2); defined now
+  ARCHIVED
+}
+
 model User {
   id             String        @id @default(cuid())
   organizationId String
@@ -139,8 +158,69 @@ model Organization {
   activities    ActivityLog[]
   settings      OrganizationSettings?
   emailMessages EmailMessage[]
+  owners        Owner[]
 
   @@map("organizations")
+}
+
+// ── Commercial Intelligence (v1.2, Slice 1 / Commit 1a) ──────────────────────
+// Owner: the durable, canonical title-holding party (Volume 12 §2). Distinct
+// from Seller (the transaction counterparty). In 1a, displayName/entityType are
+// written directly; in 1b they become projections driven from the signal ledger.
+model Owner {
+  id             String                    @id @default(cuid())
+  organizationId String
+  displayName    String
+  entityType     OwnerEntityType           @default(UNKNOWN)
+  status         OwnerStatus               @default(ACTIVE)
+  matchKey       String // normalized identity key; NOT unique (owners may share a normalized name)
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  aliases        OwnerAlias[]
+  externalIds    OwnerExternalIdentifier[]
+  sellers        Seller[]
+  properties     Property[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([matchKey])
+  @@map("owners")
+}
+
+// Alternate/normalized names used to PROPOSE candidate matches (never to link
+// automatically — Volume 12 S1-4). sourceCategory is a lightweight attribution
+// in 1a; the full provenance-ledger link arrives in 1b.
+model OwnerAlias {
+  id              String   @id @default(cuid())
+  ownerId         String
+  value           String
+  normalizedValue String
+  sourceCategory  String
+  createdAt       DateTime @default(now())
+  owner           Owner    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@index([normalizedValue])
+  @@map("owner_aliases")
+}
+
+// The authoritative identity crosswalk (Volume 12 §7, S1-4). IMMUTABLE: rows are
+// never edited, reassigned, or deleted — a changed mapping is a NEW row. Empty
+// until a provider adapter exists, but the mechanism ships now.
+model OwnerExternalIdentifier {
+  id             String    @id @default(cuid())
+  organizationId String
+  ownerId        String
+  provider       String
+  externalId     String
+  asOf           DateTime?
+  createdAt      DateTime  @default(now())
+  owner          Owner     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, provider, externalId])
+  @@index([ownerId])
+  @@map("owner_external_identifiers")
 }
 
 // Org-wide defaults, one row per organization. The single home for all
@@ -191,6 +271,7 @@ model EmailMessage {
 model Seller {
   id             String        @id @default(cuid())
   organizationId String
+  ownerId        String? // v1.2: the canonical Owner this deal contact represents (nullable, additive)
   name           String
   company        String?
   email          String?
@@ -201,6 +282,7 @@ model Seller {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner          Owner?        @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   properties     Property[]
   opportunities  Opportunity[]
   notes          Note[]
@@ -208,6 +290,7 @@ model Seller {
   activities     ActivityLog[]
 
   @@index([organizationId])
+  @@index([ownerId])
   @@map("sellers")
 }
 
@@ -238,6 +321,7 @@ model Property {
   id             String        @id @default(cuid())
   organizationId String
   sellerId       String?
+  ownerId        String? // v1.2: the canonical Owner that holds title (nullable, additive)
   name           String
   assetType      AssetType
   addressLine1   String
@@ -259,6 +343,7 @@ model Property {
   updatedAt      DateTime      @updatedAt
   organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   seller         Seller?       @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  owner          Owner?        @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   opportunities  Opportunity[]
   analyses       DealAnalysis[]
   documents      Document[]
@@ -267,6 +352,7 @@ model Property {
 
   @@index([organizationId])
   @@index([sellerId])
+  @@index([ownerId])
   @@map("properties")
 }
 
