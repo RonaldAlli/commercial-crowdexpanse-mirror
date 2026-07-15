@@ -26,6 +26,7 @@ const writeMatrix: Record<Resource, UserRole[]> = {
   PROPERTY_IDENTITY: [ADMIN, ACQUISITIONS],
   REFRESH: [ADMIN, ACQUISITIONS],
   UNDERWRITING: [ADMIN, ANALYST],
+  UNDERWRITING_APPROVAL: [ADMIN, ACQUISITIONS, DISPOSITIONS],
 };
 
 const ALL_ROLES = [ADMIN, ACQUISITIONS, ANALYST, DISPOSITIONS];
@@ -65,6 +66,19 @@ test("TEAM/INVITATION management is ADMIN-only", () => {
   for (const resource of ["TEAM", "INVITATION"] as Resource[]) {
     assert.equal(can(ADMIN, "MANAGE", resource), true);
     assert.equal(can(ACQUISITIONS, "MANAGE", resource), false);
+  }
+});
+
+test("UNDERWRITING_APPROVAL enforces separation of duties (AP-5): analyst authors but cannot decide", () => {
+  // The analyst holds UNDERWRITING write but NOT the decision.
+  assert.equal(can(ANALYST, "CREATE", "UNDERWRITING"), true);
+  assert.equal(can(ANALYST, "CREATE", "UNDERWRITING_APPROVAL"), false);
+  // The analyst can still READ the decision.
+  assert.equal(can(ANALYST, "READ", "UNDERWRITING_APPROVAL"), true);
+  // Acquisitions/dispositions decide; they do not author.
+  for (const role of [ACQUISITIONS, DISPOSITIONS]) {
+    assert.equal(can(role, "CREATE", "UNDERWRITING_APPROVAL"), true);
+    assert.equal(can(role, "CREATE", "UNDERWRITING"), false);
   }
 });
 

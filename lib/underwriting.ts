@@ -14,7 +14,7 @@
 //   • ScenarioResult rebuild reads ONLY frozen assumptions + model lineage + the
 //     pure kernel — never current Property projections.
 import { Prisma } from "@prisma/client";
-import type { AssumptionSource, LineItemKind } from "@prisma/client";
+import type { AssumptionSource, LineItemKind, UnderwritingDecisionLevel } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import {
@@ -920,6 +920,7 @@ export async function getActiveScenarioResult(organizationId: string, opportunit
       lineItems: { orderBy: { position: "asc" } },
       findings: { orderBy: { position: "asc" } },
       recommendation: true,
+      decisions: { orderBy: { sequence: "desc" } },
       financingCases: {
         orderBy: { position: "asc" },
         include: {
@@ -950,6 +951,47 @@ export async function lockScenario(organizationId: string, scenarioId: string, o
     return tx.underwritingScenario.update({
       where: { id: scenarioId },
       data: { status: "LOCKED", lockedAt: new Date() },
+    });
+  });
+}
+
+// --- decided recommendation / approval (v1.3, Commit 3d) ----------------------
+
+/**
+ * Record a human DECISION on a LOCKED scenario (AP-1…AP-6). A terminal, append-only,
+ * immutable OPERATIONAL record — NOT a calculation artifact: no lineage, no fingerprint,
+ * no rebuild, and it never feeds back into any metric/finding/recommendation (AP-3). It
+ * captures the immutable snapshot the human reviewed (scenarioVersion + the current
+ * findingsVersion/suggested level). A new decision SUPERSEDES by appending a higher
+ * per-scenario sequence; no prior row is ever mutated (AP-4).
+ */
+export async function recordUnderwritingDecision(
+  organizationId: string,
+  scenarioId: string,
+  input: { decision: UnderwritingDecisionLevel; rationale: string; actorUserId: string },
+) {
+  return prisma.$transaction(async (tx) => {
+    const scenario = await tx.underwritingScenario.findFirstOrThrow({ where: { id: scenarioId, organizationId } });
+    if (scenario.status !== "LOCKED") throw new Error("A decision can only be recorded on a LOCKED scenario"); // AP-2
+    const rationale = input.rationale.trim();
+    if (!rationale) throw new Error("A decision rationale is required");
+    // Snapshot the engine's suggestion the human is deciding against (AP-6) — read only.
+    const recommendation = await tx.scenarioRecommendation.findUnique({ where: { scenarioId } });
+    const max = await tx.underwritingDecision.aggregate({ where: { scenarioId }, _max: { sequence: true } });
+    const sequence = (max._max.sequence ?? 0) + 1;
+    return tx.underwritingDecision.create({
+      data: {
+        organizationId,
+        scenarioId,
+        underwritingId: scenario.underwritingId,
+        sequence,
+        decision: input.decision,
+        rationale,
+        scenarioVersion: scenario.scenarioVersion,
+        findingsVersion: recommendation?.findingsVersion ?? null,
+        suggestedLevel: recommendation?.level ?? null,
+        actorUserId: input.actorUserId,
+      },
     });
   });
 }

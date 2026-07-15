@@ -6,11 +6,75 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
-import { saveAnalyzerScenario, type FinancingCaseEntry } from "@/lib/underwriting";
+import { saveAnalyzerScenario, recordUnderwritingDecision, type FinancingCaseEntry } from "@/lib/underwriting";
 import type { AssumptionKey } from "@/lib/underwriting/assumptions";
 import type { SensitivityMetric, SensitivitySpec } from "@/lib/underwriting/sensitivity";
+import type { UnderwritingDecisionLevel } from "@prisma/client";
 
 export type AnalysisFormState = { error?: string } | undefined;
+export type DecisionFormState = { error?: string } | undefined;
+
+const DECISION_LEVELS = ["APPROVED", "DECLINED", "DEFERRED"] as const;
+
+/**
+ * Record the DECIDED recommendation on a LOCKED scenario (Commit 3d). Authorized on the
+ * SEPARATE UNDERWRITING_APPROVAL resource (AP-5) — an analyst who can author cannot decide.
+ * The service enforces the LOCKED gate (AP-2) and appends an immutable audit row (AP-4).
+ */
+export async function decideUnderwriting(
+  opportunityId: string,
+  scenarioId: string,
+  _prev: DecisionFormState,
+  formData: FormData,
+): Promise<DecisionFormState> {
+  const user = await requireUser();
+  if (!(await checkAuthorized(user, "CREATE", "UNDERWRITING_APPROVAL", { opportunityId }))) {
+    return { error: GENERIC_DENIAL };
+  }
+  const opportunity = await prisma.opportunity.findFirst({
+    where: { id: opportunityId, organizationId: user.organizationId },
+    include: { property: { select: { id: true } } },
+  });
+  if (!opportunity) return { error: "Opportunity not found." };
+
+  const decision = String(formData.get("decision") ?? "");
+  if (!DECISION_LEVELS.includes(decision as (typeof DECISION_LEVELS)[number])) return { error: "Choose a decision." };
+  const rationale = String(formData.get("rationale") ?? "").trim();
+  if (!rationale) return { error: "A decision rationale is required." };
+
+  // Scope the scenario to this opportunity's underwriting (org + anchor).
+  const scenario = await prisma.underwritingScenario.findFirst({
+    where: { id: scenarioId, organizationId: user.organizationId, underwriting: { opportunityId } },
+    select: { id: true },
+  });
+  if (!scenario) return { error: "Scenario not found." };
+
+  try {
+    await recordUnderwritingDecision(user.organizationId, scenarioId, {
+      decision: decision as UnderwritingDecisionLevel,
+      rationale,
+      actorUserId: user.id,
+    });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Could not record the decision." };
+  }
+
+  await prisma.activityLog.create({
+    data: {
+      organizationId: user.organizationId,
+      opportunityId,
+      propertyId: opportunity.property.id,
+      actorId: user.id,
+      eventType: "underwriting.decided",
+      eventLabel: `Underwriting ${decision.toLowerCase()}: ${opportunity.title}`,
+      eventBody: rationale.slice(0, 500),
+    },
+  });
+
+  revalidatePath(`/analyzer/${opportunityId}`);
+  revalidatePath("/dashboard");
+  redirect(`/analyzer/${opportunityId}`);
+}
 
 function intOrNull(raw: string) {
   const cleaned = raw.replace(/[,$%\s]/g, "");

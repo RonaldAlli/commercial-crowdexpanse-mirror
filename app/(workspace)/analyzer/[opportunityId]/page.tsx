@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { decideUnderwriting } from "@/app/(workspace)/analyzer/actions";
+import { DecisionForm } from "@/components/decision-form";
 import { EmptyState } from "@/components/empty-state";
 import { Icon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
@@ -83,6 +85,22 @@ const SEV_CLASS: Record<string, string> = {
   WARNING: "bg-amber-50 text-amber-700 ring-amber-200",
   INFO: "bg-slate-50 text-slate-600 ring-slate-200",
 };
+
+// --- decided recommendation presentation (3d) --------------------------------
+const DECISION_LABEL: Record<string, string> = { APPROVED: "Approved", DECLINED: "Declined", DEFERRED: "Deferred" };
+const DECISION_TONE: Record<string, "success" | "warning" | "danger"> = {
+  APPROVED: "success",
+  DECLINED: "danger",
+  DEFERRED: "warning",
+};
+const DEC_CLASS: Record<string, string> = {
+  APPROVED: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  DECLINED: "bg-rose-50 text-rose-700 ring-rose-200",
+  DEFERRED: "bg-amber-50 text-amber-700 ring-amber-200",
+};
+function dateStr(d: Date) {
+  return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(d);
+}
 
 export default async function AnalysisViewPage({ params }: { params: { opportunityId: string } }) {
   const user = await requireUser();
@@ -246,6 +264,57 @@ export default async function AnalysisViewPage({ params }: { params: { opportuni
           ) : (
             <p className="mt-4 text-sm text-slate-500">No findings — the scenario cleared every rule in the current ruleset.</p>
           )}
+        </article>
+      ) : null}
+
+      {scenario.status === "LOCKED" ? (
+        <article className="card p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="eyebrow">Decision</p>
+              <p className="mt-1 text-xs text-slate-400">
+                The human decision on this locked scenario — recorded against an immutable snapshot and kept as an append-only audit
+                trail. Separate from the engine&apos;s suggestion; the engine never decides.
+              </p>
+            </div>
+            {scenario.decisions[0] ? (
+              <Badge tone={DECISION_TONE[scenario.decisions[0].decision] ?? "warning"}>
+                {DECISION_LABEL[scenario.decisions[0].decision] ?? scenario.decisions[0].decision}
+              </Badge>
+            ) : (
+              <span className="inline-flex rounded px-2 py-0.5 text-xs font-medium text-slate-500 ring-1 ring-inset ring-slate-200">Undecided</span>
+            )}
+          </div>
+          {scenario.decisions.length > 0 ? (
+            <ul className="mt-4 space-y-3">
+              {scenario.decisions.map((d, i) => (
+                <li key={d.id} className={`rounded-lg border p-3 ${i === 0 ? "border-slate-200" : "border-slate-100 opacity-70"}`}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`inline-flex rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ring-1 ring-inset ${DEC_CLASS[d.decision] ?? DEC_CLASS.DEFERRED}`}>
+                      {DECISION_LABEL[d.decision] ?? d.decision}
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      #{d.sequence} · {dateStr(d.createdAt)} · {i === 0 ? "current" : "superseded"}
+                    </span>
+                  </div>
+                  <p className="mt-1.5 text-sm text-slate-700">{d.rationale}</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Snapshot: scenario {d.scenarioVersion.slice(0, 8)}
+                    {d.findingsVersion ? ` · findings ${d.findingsVersion.slice(0, 8)}` : ""}
+                    {d.suggestedLevel ? ` · engine suggested ${d.suggestedLevel}` : ""}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-4 text-sm text-slate-500">No decision recorded yet.</p>
+          )}
+          {can(user.role, "CREATE", "UNDERWRITING_APPROVAL") ? (
+            <div className="mt-5 border-t border-slate-100 pt-4">
+              <p className="text-sm font-medium text-slate-700">Record a decision</p>
+              <DecisionForm action={decideUnderwriting.bind(null, opportunity.id, scenario.id)} />
+            </div>
+          ) : null}
         </article>
       ) : null}
 

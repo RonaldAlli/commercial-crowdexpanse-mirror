@@ -35,9 +35,11 @@ export type Resource =
   | "REFRESH"
   // Commercial Underwriting (v1.3, Commit 3a). UNDERWRITING = authoring scenarios /
   // assumptions and rebuilding results — the canonical successor to DEAL_ANALYSIS.
-  // A future UNDERWRITING_APPROVAL resource (deciding a recommendation) is reserved
-  // for Commit 3d and deliberately NOT added here.
-  | "UNDERWRITING";
+  | "UNDERWRITING"
+  // UNDERWRITING_APPROVAL (v1.3, Commit 3d) = recording the DECIDED recommendation on a
+  // LOCKED scenario. Deliberately SEPARATE from UNDERWRITING authoring (separation of
+  // duties, AP-5): an analyst may author a scenario but not decide it.
+  | "UNDERWRITING_APPROVAL";
 
 export type Action = "CREATE" | "READ" | "UPDATE" | "DELETE" | "MANAGE";
 
@@ -72,9 +74,12 @@ const MATRIX: Record<Resource, Capability> = {
   // Refresh mirrors OWNER: acquisitions run ingestion; everyone can read the trail.
   REFRESH: { write: [ADMIN, ACQUISITIONS], read: [ANALYST, DISPOSITIONS] },
   // Underwriting mirrors the legacy DEAL_ANALYSIS policy exactly: analysts author,
-  // acquisitions/dispositions read. Deciding a recommendation is a separate,
-  // higher-risk action reserved for UNDERWRITING_APPROVAL in Commit 3d.
+  // acquisitions/dispositions read.
   UNDERWRITING: { write: [ADMIN, ANALYST], read: [ACQUISITIONS, DISPOSITIONS] },
+  // Deciding a recommendation is the higher-risk acquisition/disposition action:
+  // ADMIN + ACQUISITIONS + DISPOSITIONS decide; ANALYST authors but only READS the
+  // decision (separation of duties, AP-5). Read = all four (write ∪ [ANALYST]).
+  UNDERWRITING_APPROVAL: { write: [ADMIN, ACQUISITIONS, DISPOSITIONS], read: [ANALYST] },
 };
 
 /** Can `role` perform `action` on `resource`? Pipeline movement is separate — see canMoveStage. */

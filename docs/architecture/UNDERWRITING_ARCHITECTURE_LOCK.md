@@ -52,7 +52,7 @@ ScenarioResult          (derived, cached, rebuildable — 1:1 with the Scenario)
 | U-G | The **Opportunity is the anchor** for an Underwriting. |
 | U-H | Documents own reports/exports (offer memo / LOI), not the calc core. |
 | U-I | No AI in the deterministic core. |
-| U-J | An `UNDERWRITING` RBAC resource governs authoring; `UNDERWRITING_APPROVAL` (deciding a recommendation) is reserved for a later slice. |
+| U-J | An `UNDERWRITING` RBAC resource governs authoring; `UNDERWRITING_APPROVAL` (deciding a recommendation) is a **separate** resource — realized in Commit 3d (see the Approval invariants AP-1…AP-6). |
 | U-K | **Model lineage** = `UNDERWRITING_MODEL_VERSION` + `CALCULATION_LIBRARY_VERSION` + `RULESET_VERSION`. |
 | U-L | **ScenarioResult** concept: a Scenario owns assumptions; a ScenarioResult owns the derived calculations, findings, risks, and suggested recommendation. |
 
@@ -275,6 +275,42 @@ increment ONLY (the kernel and model shape are unchanged).
 Scope excludes (deferred): market-signal / external-data risks (occupancy, 1.2 signals),
 the decided recommendation + approval workflow, offer-memo/LOI export, configurable rules,
 and any ML/narrative. 3b-vi evaluates ONLY the scenario's own frozen underwriting outputs.
+
+### Decided-recommendation / Approval invariants (Commit 3d)
+
+3d completes the U-B split by adding the *decided* recommendation — the **human** decision,
+which is fundamentally different from everything above it: it is **non-deterministic,
+authored, and terminal**. It lives entirely OUTSIDE the pure engine (UW-4) and never leaks
+back into it (Principle 7 / UW-7). A decision (`APPROVED` / `DECLINED` / `DEFERRED`) is
+recorded against a **LOCKED** Scenario as an **append-only, immutable, audited** ledger
+row (`UnderwritingDecision`) capturing the actor, timestamp, rationale, and the immutable
+snapshot it was made against (`scenarioVersion` + `findingsVersion`, plus the engine's
+suggested level for contrast). A new decision **supersedes** by appending a higher-sequence
+row — prior rows are never mutated. It is governed by a NEW `UNDERWRITING_APPROVAL` RBAC
+resource, separate from `UNDERWRITING` authoring (separation of duties). It is an
+**operational record, NOT a calculation artifact**: it gets no lineage, no fingerprint, no
+version identifier, and no rebuild; `lib/analysis.ts` and every pure calc module are
+untouched, and no model lineage bumps.
+
+- **AP-1 — Only humans create underwriting decisions.** The engine reports and recommends
+  (the *suggested* recommendation); it never records a decision (UW-4).
+- **AP-2 — Decisions are only valid for LOCKED scenarios.** A DRAFT is still mutable
+  (its meaning can change), so it is not approvable (UW-2 / UW-8).
+- **AP-3 — Decisions are never calculation inputs.** They never influence any deterministic
+  underwriting metric, finding, or suggested recommendation — the dependency arrow is
+  terminal (Principle 7 / UW-7).
+- **AP-4 — Decisions are append-only, fully audited, and immutable once recorded.** A change
+  supersedes by appending a new row (higher per-scenario sequence); no row is ever mutated
+  or deleted (mirrors `PropertyResolution` / `OwnerMergeRecord`).
+- **AP-5 — `UNDERWRITING_APPROVAL` governs decision authority** independently of
+  `UNDERWRITING` authoring — an analyst may author a scenario but not decide it.
+- **AP-6 — Every decision belongs to exactly one Scenario and one immutable underwriting
+  snapshot** (`scenarioVersion` + `findingsVersion`). Superseding a Scenario into a new
+  version does NOT carry the decision forward — a fresh locked Scenario needs a fresh decision.
+
+Scope excludes (deferred / other modules): offer-memo / LOI export (Documents — U-H),
+multi-stage approval chains / delegation, notifications / workflow automation, and any
+feedback of the decision into calculations.
 
 ## 5. Commit 3a — Underwriting Model Formalization (headed by this lock)
 

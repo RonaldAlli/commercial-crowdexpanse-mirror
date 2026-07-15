@@ -912,6 +912,7 @@ model UnderwritingScenario {
   financingCases  FinancingCase[]
   findings        ScenarioFinding[]
   recommendation  ScenarioRecommendation?
+  decisions       UnderwritingDecision[]
 
   @@unique([underwritingId, version])
   @@index([organizationId])
@@ -1077,6 +1078,44 @@ model FinancingCaseResult {
 
   @@index([organizationId])
   @@map("financing_case_results")
+}
+
+// The DECIDED recommendation (v1.3, Commit 3d) — the U-B human half. Fundamentally
+// different from every calculation surface: non-deterministic, AUTHORED, and TERMINAL.
+// It lives OUTSIDE the pure engine (UW-4) and never feeds back into it (Principle 7 /
+// UW-7 / AP-3). It is an OPERATIONAL record — NOT a calculation artifact: no lineage, no
+// fingerprint, no version, no rebuild. A decision is recorded only against a LOCKED
+// Scenario (AP-2), is append-only + immutable (AP-4 — a change appends a higher-sequence
+// row; nothing is mutated/deleted), and captures the immutable snapshot it was made
+// against (AP-6). Governed by the separate UNDERWRITING_APPROVAL resource (AP-5).
+enum UnderwritingDecisionLevel {
+  APPROVED
+  DECLINED
+  DEFERRED
+}
+
+model UnderwritingDecision {
+  id                       String                    @id @default(cuid())
+  organizationId           String
+  scenarioId               String
+  underwritingId           String // denormalized for scoping (set at record time)
+  // Per-scenario monotonic order; the highest sequence is the current decision.
+  sequence                 Int
+  decision                 UnderwritingDecisionLevel
+  rationale                String
+  // Immutable snapshot the human reviewed (AP-6) — read from the scenario/recommendation,
+  // never recomputed here.
+  scenarioVersion          String
+  findingsVersion          String?
+  suggestedLevel           RecommendationLevel? // the engine's suggestion at decision time (for contrast)
+  actorUserId              String
+  createdAt                DateTime                  @default(now())
+  scenario                 UnderwritingScenario      @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@unique([scenarioId, sequence])
+  @@index([organizationId])
+  @@index([scenarioId])
+  @@map("underwriting_decisions")
 }
 
 // Findings / Risks / Suggested Recommendation (v1.3, Commit 3b-vi). The TOP consumer

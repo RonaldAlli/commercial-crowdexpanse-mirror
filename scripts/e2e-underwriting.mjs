@@ -21,6 +21,7 @@ import {
   rebuildFinancingCase,
   lockScenario,
   createNextVersion,
+  recordUnderwritingDecision,
   setScenarioAssumptions,
   setSensitivityAnalysis,
   rebuildSensitivity,
@@ -457,6 +458,41 @@ try {
   ]);
   const px = await getActiveScenarioResult(a.id, pOpp.id);
   assert(px.recommendation.level === "PASS" && px.findings.some((f) => f.code === "NEGATIVE_SPREAD" && f.financingCaseId === null), "an underwater deal (estimated value < all-in cost) → PASS on a decisive operating NEGATIVE_SPREAD finding");
+
+  console.log("\n[16] Decided recommendation + approval (3d, AP-1…AP-6):");
+  const dProp = await createPropertyRecord(a.id, op({ name: "Decision", unitCount: UNIT_COUNT, estimatedValueUsd: 1_300_000 }), {});
+  const dOpp = await mkOpp(a.id, dProp.id, "Decision deal");
+  const { scenarioId: dScenarioId } = await saveAnalyzerScenario(a.id, dOpp.id, [
+    { key: "PURCHASE_PRICE", value: 1_000_000 },
+    { key: "GROSS_INCOME", value: 130_000 },
+    { key: "OPERATING_EXPENSES", value: 30_000 },
+  ], { financingCases: [{ label: "Base", capital: [{ key: "LOAN_AMOUNT", value: 750_000 }, { key: "INTEREST_RATE", value: 6 }, { key: "AMORTIZATION_YEARS", value: 30 }] }] });
+  // AP-2: a decision may only be recorded on a LOCKED scenario.
+  await throws(() => recordUnderwritingDecision(a.id, dScenarioId, { decision: "APPROVED", rationale: "too early", actorUserId: "user-approver" }), "AP-2: a decision on a DRAFT scenario is rejected");
+  await lockScenario(a.id, dScenarioId);
+  const beforeDec = await getActiveScenarioResult(a.id, dOpp.id); // settled outputs BEFORE any decision (AP-3 baseline)
+  await throws(() => recordUnderwritingDecision(a.id, dScenarioId, { decision: "APPROVED", rationale: "   ", actorUserId: "user-approver" }), "a blank rationale is rejected");
+  // Decision #1.
+  const dec1 = await recordUnderwritingDecision(a.id, dScenarioId, { decision: "APPROVED", rationale: "Healthy DSCR and a strong spread.", actorUserId: "user-approver" });
+  assert(dec1.sequence === 1 && dec1.decision === "APPROVED" && dec1.scenarioVersion === beforeDec.scenarioVersion, "AP-6: decision #1 snapshots the immutable scenarioVersion");
+  assert(dec1.findingsVersion === beforeDec.recommendation.findingsVersion && dec1.suggestedLevel === beforeDec.recommendation.level, "the decision snapshots the findings fingerprint + engine suggestion it was made against");
+  assert(dec1.actorUserId === "user-approver" && dec1.rationale.length > 0, "the decision records the actor + rationale (AP-1)");
+  // AP-3: recording a decision changes NO deterministic output.
+  const afterDec = await getActiveScenarioResult(a.id, dOpp.id);
+  assert(afterDec.scenarioVersion === beforeDec.scenarioVersion && afterDec.result.noiAnnualUsd === beforeDec.result.noiAnnualUsd && afterDec.recommendation.findingsVersion === beforeDec.recommendation.findingsVersion && afterDec.findings.length === beforeDec.findings.length, "AP-3: a decision never alters metrics, findings, or the suggested recommendation");
+  // Append-only supersession + immutability (AP-4).
+  const decXmin = async (id) => (await prisma.$queryRaw`SELECT xmin::text AS xmin FROM underwriting_decisions WHERE id = ${id}`)[0]?.xmin;
+  const z1 = await decXmin(dec1.id);
+  const dec2 = await recordUnderwritingDecision(a.id, dScenarioId, { decision: "DECLINED", rationale: "Reconsidered — prefer to redeploy capital.", actorUserId: "user-approver" });
+  assert(dec2.sequence === 2, "a superseding decision appends sequence 2");
+  assert((await decXmin(dec1.id)) === z1, "AP-4: the prior decision row is immutable (xmin unchanged) — append-only, never mutated");
+  assert((await prisma.underwritingDecision.count({ where: { scenarioId: dScenarioId } })) === 2, "both decisions are preserved (full audit history)");
+  const withDec = await getActiveScenarioResult(a.id, dOpp.id);
+  assert(withDec.decisions.length === 2 && withDec.decisions[0].decision === "DECLINED" && withDec.decisions[0].sequence === 2, "current decision = the highest sequence (DECLINED); history ordered desc");
+  // AP-6 / AP-F: a new version carries NO decision.
+  const dV2 = await createNextVersion(a.id, dScenarioId);
+  assert((await prisma.underwritingDecision.count({ where: { scenarioId: dV2.id } })) === 0, "AP-6: decisions do NOT propagate to a new scenario version");
+  assert((await prisma.underwritingDecision.count({ where: { scenarioId: dScenarioId } })) === 2, "the superseded scenario keeps its complete decision history");
 } finally {
   console.log("\nCleaning up throwaway orgs (cascade)...");
   for (const id of orgIds) await prisma.organization.delete({ where: { id } }).catch((e) => console.log(`  cleanup warn: ${e.message}`));
