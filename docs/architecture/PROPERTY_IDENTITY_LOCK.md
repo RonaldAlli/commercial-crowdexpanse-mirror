@@ -73,6 +73,9 @@ Resolution is the layer that decides **how new evidence attaches** to a canonica
 
 ## 4. The guarded tiered resolution rule (PI-E, refined)
 
+> **Canonical enumeration:** [Property Identity — Decision Matrix](./PROPERTY_IDENTITY_DECISION_MATRIX.md) lists every inbound evidence pattern → tier → basis → outcome (mirrors `classifyResolution`).
+
+
 | Tier | Trigger | Behavior |
 |---|---|---|
 | **1A** | Exact `(countyFipsCode, apnNormalized)` match **and all guards hold** | **Deterministic resolve-before-create** → resolve to the existing `Property`. |
