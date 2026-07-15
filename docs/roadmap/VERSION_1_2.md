@@ -76,7 +76,7 @@ Slice 2 extends the shared intelligence substrate to a second canonical entity: 
 - **Behavior clarified (discovered during 2b):** an invalid Property refresh value (e.g. out-of-range `yearBuilt`) is **rejected → the run FAILS with a reason**, never silently converted to NOOP. This is the documented, tested behavior (E2E assertion added).
 - **Deployment (D13 closure):** FF-merged + dual-pushed; fresh restore-verified backup; built as `deploy` + PM2 restarted; served build-ID flip verified (disk + external); genesis backfill re-run (0 backfilled — 0 prod properties), idempotency + reconstruction proven, **Owner byte-for-byte unchanged**; production smoke incl. the **Owner → Property → Owner shared-component regression** (no state leak, entity-scoped provenance/history) and REFRESH role gating.
 
-**Next — Commit 2c:** (Slice 2 continuation, per Volume 12 §9).
+**Next — Commit 2c (Property Identity):** requires a **fresh architecture lock** — it introduces canonical Property identity (parcel/APN, FIPS, normalized address, external-identifier crosswalk, deterministic candidate matching), which is materially different from the projection/refresh work of 2a/2b and must not be treated as the next coding task. Entry checkpoint: **[V1.2 Midpoint Architecture Status](../architecture/V1_2_ARCHITECTURE_STATUS.md)** (what is validated, what remains a hypothesis, and what is frozen).
 
 **Deferred within Slice 2 (gated on founder Property-source sign-off, Decision F):** PropertyIdentity (parcel/APN + county FIPS + normalized address/geocode + crosswalk + dedup) and the richer approved signal set (tax/assessment, prior sales, condition, full unit-mix). The skeleton is `USER_ENTERED`-only to proceed unblocked.
 
