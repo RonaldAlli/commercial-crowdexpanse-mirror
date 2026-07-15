@@ -21,8 +21,7 @@ import { createHash } from "node:crypto";
 
 import { prisma } from "@/lib/prisma";
 import { acceptObservationAsSignalTx, recordObservation } from "@/lib/intelligence/provenance";
-import { recomputeOwnerField } from "@/lib/intelligence/projection";
-import { isOwnerProjectedField, type OwnerProjectedField } from "@/lib/intelligence/owner-fields";
+import { getProjector } from "@/lib/intelligence/entity-registry";
 import type { RefreshInput, SourceAdapter } from "@/lib/intelligence/sources/types";
 
 /** Thrown for caller-input problems (invalid records, missing target) — no job row is created. */
@@ -54,10 +53,15 @@ export function contentHash(adapter: SourceAdapter, input: RefreshInput): string
   return createHash("sha256").update(payload).digest("hex");
 }
 
-/** Resolve the refresh target (existing entity, org-scoped). 1c: OWNER only, never creates. */
+/**
+ * Resolve the refresh target (existing entity, org-scoped) via the entity's
+ * registered projector. Never creates — a missing/cross-org/unregistered target
+ * returns null and the caller rejects the run.
+ */
 async function resolveTarget(organizationId: string, input: RefreshInput) {
-  if (input.targetEntityType !== "OWNER") return null;
-  return prisma.owner.findFirst({ where: { id: input.targetEntityId, organizationId }, select: { id: true } });
+  const projector = getProjector(input.targetEntityType);
+  if (!projector) return null;
+  return projector.resolveTarget(prisma, organizationId, input.targetEntityId);
 }
 
 export interface RunRefreshOptions {
@@ -87,6 +91,8 @@ export async function runRefresh(
   // Never creates an Owner — a missing/cross-org target is a caller error.
   const target = await resolveTarget(organizationId, input);
   if (!target) throw new RefreshRejectedError("Refresh target not found in organization");
+  // The projector exists (resolveTarget above resolved the target through it).
+  const projector = getProjector(input.targetEntityType)!;
 
   // Commit to a run: create the durable job (audit surface + idempotency anchor).
   // Everything after this point resolves to a terminal job — never a throw.
@@ -118,7 +124,7 @@ export async function runRefresh(
       let recorded = 0;
       let accepted = 0;
       let superseded = 0;
-      const affected = new Set<OwnerProjectedField>();
+      const affected = new Set<string>();
 
       for (const c of candidates) {
         // Value-grain idempotency: skip a value already current for this lineage —
@@ -138,11 +144,12 @@ export async function runRefresh(
         await acceptObservationAsSignalTx(tx, organizationId, obs.id);
         accepted += 1;
         if (head) superseded += 1;
-        if (isOwnerProjectedField(c.fieldKey)) affected.add(c.fieldKey);
+        if (projector.isProjectedField(c.fieldKey)) affected.add(c.fieldKey);
       }
 
-      // Trigger projection for every affected field (frozen ProjectionService).
-      for (const f of Array.from(affected)) await recomputeOwnerField(organizationId, input.targetEntityId, f, tx);
+      // Trigger projection for every affected field (frozen ProjectionService,
+      // dispatched to the target entity's projector).
+      for (const f of Array.from(affected)) await projector.recomputeField(tx, organizationId, input.targetEntityId, f);
       return { recorded, accepted, superseded };
     });
 
