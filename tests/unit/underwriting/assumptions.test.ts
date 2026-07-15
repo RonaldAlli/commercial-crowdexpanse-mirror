@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { computeAnalysis } from "../../../lib/analysis";
 import {
   ASSUMPTION_KEYS,
+  CAPITAL_ASSUMPTION_KEYS,
   MANUAL_ASSUMPTION_KEYS,
   SEEDED_ASSUMPTION_KEYS,
   assumptionsToAnalysisInputs,
@@ -28,14 +29,21 @@ const full: Pick<ResolvedAssumption, "key" | "value">[] = [
   num("ESTIMATED_VALUE", 1_200_000),
 ];
 
-test("the 10 keys totally cover AnalysisInputs; manual ∪ seeded = all, disjoint", () => {
+test("capital is NOT Scenario-owned (CF-1); Scenario kernel keys + the 3 debt terms = all kernel inputs", () => {
   assert.equal(ASSUMPTION_KEYS.length, 10);
+  const scenarioOwned = [...MANUAL_ASSUMPTION_KEYS, ...SEEDED_ASSUMPTION_KEYS];
+  // No capital key (loan/rate/amort/ltv/ltc/dscr) may be owned by the Scenario.
+  for (const k of CAPITAL_ASSUMPTION_KEYS) {
+    assert.ok(!scenarioOwned.includes(k), `${k} must be FinancingCase-owned, not Scenario-owned`);
+  }
+  // manual/seeded stay disjoint.
+  assert.equal(MANUAL_ASSUMPTION_KEYS.filter((k) => SEEDED_ASSUMPTION_KEYS.includes(k)).length, 0);
+  // The Scenario supplies every kernel input EXCEPT the 3 debt terms (which the case supplies).
+  const scenarioKernelKeys = scenarioOwned.filter((k) => (ASSUMPTION_KEYS as readonly string[]).includes(k));
   assert.deepEqual(
-    [...MANUAL_ASSUMPTION_KEYS, ...SEEDED_ASSUMPTION_KEYS].sort(),
+    [...scenarioKernelKeys, "LOAN_AMOUNT", "INTEREST_RATE", "AMORTIZATION_YEARS"].sort(),
     [...ASSUMPTION_KEYS].sort(),
   );
-  const overlap = MANUAL_ASSUMPTION_KEYS.filter((k) => SEEDED_ASSUMPTION_KEYS.includes(k));
-  assert.equal(overlap.length, 0);
 });
 
 test("a full assumption set maps to the exact AnalysisInputs the kernel expects", () => {

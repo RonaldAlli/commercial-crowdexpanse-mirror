@@ -47,15 +47,21 @@ async function latestUnderwritingSummary(organizationId: string) {
   if (!uw?.activeScenarioId) return null;
   const scenario = await prisma.underwritingScenario.findFirst({
     where: { id: uw.activeScenarioId, organizationId },
-    include: { result: true, assumptions: { where: { key: "PURCHASE_PRICE" } } },
+    include: {
+      result: true,
+      assumptions: { where: { key: "PURCHASE_PRICE" } },
+      // Financing metrics are per-case (CF-2) — the primary case supplies the headline.
+      financingCases: { where: { position: 0 }, include: { result: true } },
+    },
   });
   if (!scenario?.result) return null;
+  const primary = scenario.financingCases[0]?.result ?? null;
   return {
     purchasePriceUsd: scenario.assumptions[0]?.valueNumeric.toNumber() ?? null,
     noiAnnualUsd: scenario.result.noiAnnualUsd,
     capRate: scenario.result.capRate,
-    debtYield: scenario.result.debtYieldPct,
-    dscr: scenario.result.dscr,
+    debtYield: primary?.debtYieldPct ?? null,
+    dscr: primary?.dscr ?? null,
     pricePerUnitUsd: scenario.result.pricePerUnitUsd,
     analystSummary: scenario.analystSummary,
     opportunity: { title: uw.opportunity.title },

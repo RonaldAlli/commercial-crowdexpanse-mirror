@@ -1,11 +1,14 @@
-// Focused E2E for Commercial Underwriting (v1.3, Commit 3a). Runs against the
-// *_test DB with throwaway orgs. Proves: the canonical Underwriting → Scenario →
-// Assumption → ScenarioResult model; ScenarioResult == the unchanged kernel
-// (behavior-preserving); the one-way ScenarioSeed snapshot (a Scenario never
+// Focused E2E for Commercial Underwriting (v1.3). Runs against the *_test DB with
+// throwaway orgs. Proves: the canonical Underwriting → Scenario → Assumption →
+// ScenarioResult model; ScenarioResult == the unchanged kernel (operating,
+// behavior-preserving); the one-way ScenarioSeed snapshot (a Scenario never
 // changes because the Property changes); deterministic + content-idempotent
 // rebuild that NEVER reads current Property state; DRAFT/LOCKED/SUPERSEDED
 // lifecycle + versioning; "every deterministic output belongs to exactly one
-// Scenario"; the DealAnalysis backfill; and org scoping.
+// Scenario"; the DealAnalysis backfill; org scoping; debt sizing + income/expense
+// schedules; and (3b-iii) FinancingCase capital structures + multi-year cash flow
+// under CF-1…CF-5 (capital owned by the case; operating economics shared; cash
+// flow per case; independent reproducibility).
 import { assertTestDatabase } from "./e2e-guard.mjs";
 
 import { prisma } from "../lib/prisma.ts";
@@ -15,6 +18,7 @@ import { sizeDebt } from "../lib/underwriting/debt-sizing.ts";
 import {
   saveAnalyzerScenario,
   rebuildScenarioResult,
+  rebuildFinancingCase,
   lockScenario,
   createNextVersion,
   setScenarioAssumptions,
@@ -36,24 +40,23 @@ const op = (over = {}) => ({
   noiAnnualUsd: null, askingPriceUsd: null, estimatedValueUsd: null, capRate: null, ...over,
 });
 
-// The base deal (mirrors the analysis unit test). Manual = the 8 analyst inputs;
-// UNIT_COUNT + ESTIMATED_VALUE come from the Property as SEEDED assumptions.
+// The base deal (mirrors the analysis unit test). MANUAL is now OPERATING-ONLY
+// (3b-iii, CF-1): capital lives on a FinancingCase. UNIT_COUNT + ESTIMATED_VALUE
+// come from the Property as SEEDED assumptions.
 const MANUAL = [
   { key: "PURCHASE_PRICE", value: 1_000_000 },
   { key: "RENOVATION_BUDGET", value: 50_000 },
   { key: "CLOSING_COSTS", value: 25_000 },
   { key: "GROSS_INCOME", value: 120_000 },
   { key: "OPERATING_EXPENSES", value: 40_000 },
-  { key: "LOAN_AMOUNT", value: 750_000 },
-  { key: "INTEREST_RATE", value: 6 },
-  { key: "AMORTIZATION_YEARS", value: 30 },
 ];
 const UNIT_COUNT = 10;
 const EST_VALUE = 1_200_000;
+// Operating (debt-free) kernel expectation for the base deal.
 const expected = computeAnalysis({
   purchasePriceUsd: 1_000_000, renovationBudgetUsd: 50_000, closingCostsUsd: 25_000,
-  grossIncomeAnnualUsd: 120_000, operatingExpensesUsd: 40_000, loanAmountUsd: 750_000,
-  interestRatePct: 6, amortizationYears: 30, unitCount: UNIT_COUNT, estimatedValueUsd: EST_VALUE,
+  grossIncomeAnnualUsd: 120_000, operatingExpensesUsd: 40_000, loanAmountUsd: null,
+  interestRatePct: null, amortizationYears: null, unitCount: UNIT_COUNT, estimatedValueUsd: EST_VALUE,
 });
 
 const xmin = async (sid) => (await prisma.$queryRaw`SELECT xmin::text AS xmin FROM scenario_results WHERE "scenarioId" = ${sid}`)[0]?.xmin;
@@ -68,20 +71,21 @@ try {
   const b = await prisma.organization.create({ data: { name: TAG, slug: `${TAG}-${process.pid}-b` } });
   orgIds.push(b.id);
 
-  console.log("\n[1] Save → the ScenarioResult equals the unchanged kernel (behavior-preserving):");
+  console.log("\n[1] Save → the operating ScenarioResult equals the unchanged kernel (behavior-preserving):");
   const prop = await createPropertyRecord(a.id, op({ unitCount: UNIT_COUNT, estimatedValueUsd: EST_VALUE }), {});
   const opp = await mkOpp(a.id, prop.id);
   const { scenarioId, result } = await saveAnalyzerScenario(a.id, opp.id, MANUAL);
   assert(result.allInCostUsd === expected.allInCostUsd && result.allInCostUsd === 1_075_000, "all-in cost matches the kernel");
   assert(result.noiAnnualUsd === expected.noiAnnualUsd && result.noiAnnualUsd === 80_000, "NOI matches the kernel");
   assert(result.capRate === expected.capRate && result.capRate === 8, "cap rate matches the kernel");
-  assert(result.dscr === expected.dscr && result.pricePerUnitUsd === expected.pricePerUnitUsd, "dscr + price/unit match the kernel");
+  assert(result.pricePerUnitUsd === expected.pricePerUnitUsd, "price/unit matches the kernel");
   assert(result.spreadUsd === expected.spreadUsd && result.spreadUsd === 125_000, "spread uses the SEEDED estimated value");
-  assert(result.sizedLoanUsd === null && result.bindingConstraint === null, "no debt-sizing constraints ⇒ null sizing (3a behavior preserved)");
+  assert(result.dscr === undefined, "operating ScenarioResult carries NO financing metric (dscr column gone, CF-2)");
+  assert((await prisma.financingCase.count({ where: { scenarioId } })) === 0, "no financing case yet (no debt modeled)");
 
-  console.log("\n[2] Assumption provenance — 8 MANUAL + 2 SEEDED, seeds carry field/asOf:");
+  console.log("\n[2] Assumption provenance — 5 MANUAL + 2 SEEDED, seeds carry field/asOf:");
   const rows = await resolveScenarioAssumptions(scenarioId);
-  assert(rows.length === 10, "exactly 10 assumptions (8 manual + 2 seeded)");
+  assert(rows.length === 7, "exactly 7 operating assumptions (5 manual + 2 seeded)");
   const seeded = await prisma.underwritingAssumption.findMany({ where: { scenarioId, source: "SEEDED" }, orderBy: { key: "asc" } });
   assert(seeded.length === 2 && seeded.every((s) => s.sourceField && s.sourceAsOf), "SEEDED assumptions carry sourceField + sourceAsOf");
   assert(seeded.find((s) => s.key === "ESTIMATED_VALUE").valueNumeric.toNumber() === EST_VALUE, "ESTIMATED_VALUE snapshotted from the property");
@@ -90,7 +94,7 @@ try {
   const sc1 = await prisma.underwritingScenario.findUnique({ where: { id: scenarioId } });
   assert(typeof sc1.scenarioVersion === "string" && sc1.scenarioVersion.length === 32, "scenario carries a 32-char scenarioVersion");
   assert(result.scenarioVersion === sc1.scenarioVersion, "the result reflects the scenario's current scenarioVersion (not stale)");
-  assert(sc1.modelVersion === 3 && sc1.calcLibVersion === 3 && sc1.rulesetVersion === 1, "model lineage frozen on the scenario (3b-ii bump)");
+  assert(sc1.modelVersion === 4 && sc1.calcLibVersion === 4 && sc1.rulesetVersion === 1, "model lineage frozen on the scenario (3b-iii bump)");
 
   console.log("\n[4] ScenarioSeed is a ONE-WAY snapshot — a later Property change never mutates the Scenario:");
   await prisma.property.update({ where: { id: prop.id }, data: { estimatedValueUsd: 5_000_000 } });
@@ -134,7 +138,7 @@ try {
   assert(src.status === "SUPERSEDED" && src.supersededById === v2.id, "the source is SUPERSEDED, pointing at v2");
   const uw = await prisma.underwriting.findUnique({ where: { opportunityId: opp.id } });
   assert(uw.activeScenarioId === v2.id, "the underwriting's active head is now v2");
-  assert((await resolveScenarioAssumptions(v2.id)).length === 10, "v2 cloned all 10 assumptions from the locked source");
+  assert((await resolveScenarioAssumptions(v2.id)).length === 7, "v2 cloned all 7 operating assumptions from the locked source");
   await setScenarioAssumptions(a.id, v2.id, [{ key: "PURCHASE_PRICE", value: 2_000_000, source: "MANUAL" }]);
   await rebuildScenarioResult(a.id, v2.id);
   const v2res = await prisma.scenarioResult.findUnique({ where: { scenarioId: v2.id } });
@@ -148,8 +152,9 @@ try {
   const r1 = await backfillUnderwritingFromDealAnalysis(a.id);
   assert(r1.created === 1, "backfill created exactly one underwriting from the legacy row");
   const migrated = await getActiveScenarioResult(a.id, opp2.id);
-  assert(migrated.result.capRate === legacyMetrics.capRate && migrated.result.noiAnnualUsd === legacyMetrics.noiAnnualUsd, "migrated result equals the kernel over the legacy inputs + property context");
+  assert(migrated.result.capRate === legacyMetrics.capRate && migrated.result.noiAnnualUsd === legacyMetrics.noiAnnualUsd, "migrated operating result equals the kernel over the legacy inputs + property context");
   assert(migrated.analystSummary === "legacy note", "legacy analystSummary preserved onto the scenario");
+  assert(migrated.financingCases.length === 1 && migrated.financingCases[0].result.annualDebtServiceUsd != null, "legacy debt migrated to a Base financing case (CF-1)");
   const r2 = await backfillUnderwritingFromDealAnalysis(a.id);
   assert(r2.created === 0 && r2.skipped === 1, "backfill is idempotent (second run skips the existing underwriting)");
 
@@ -158,30 +163,38 @@ try {
   assert((await prisma.scenarioResult.count({ where: { organizationId: b.id } })) === 0, "org B has no scenario results");
   await throws(() => saveAnalyzerScenario(b.id, opp.id, MANUAL), "org B cannot underwrite org A's opportunity (cross-org rejected)");
 
-  console.log("\n[10] Debt sizing (3b-i) — deterministic sizing by LTV/LTC/DSCR, binding constraint, rebuilds:");
+  console.log("\n[10] Debt sizing (3b-i) now lives on the FinancingCase (3b-iii) — deterministic sizing + rebuild:");
   const sp = await createPropertyRecord(a.id, op({ name: "Sizing", unitCount: UNIT_COUNT, estimatedValueUsd: 1_000_000 }), {});
   const sopp = await mkOpp(a.id, sp.id, "Sizing deal");
-  const sizingManual = [
-    ...MANUAL.filter((m) => m.key !== "GROSS_INCOME" && m.key !== "OPERATING_EXPENSES"),
+  const sizingOperating = [
+    { key: "PURCHASE_PRICE", value: 1_000_000 },
+    { key: "RENOVATION_BUDGET", value: 50_000 },
+    { key: "CLOSING_COSTS", value: 25_000 },
     { key: "GROSS_INCOME", value: 130_000 },
     { key: "OPERATING_EXPENSES", value: 30_000 },
-    { key: "TARGET_LTV_PCT", value: 75 },
-    { key: "TARGET_LTC_PCT", value: 80 },
-    { key: "MIN_DSCR", value: 1.25 },
   ];
-  const sres = (await saveAnalyzerScenario(a.id, sopp.id, sizingManual)).result;
-  // Cross-check against the pure kernel: NOI 100k, allInCost = 1.075M, estValue 1M (seeded).
+  const sizedCase = [{ label: "Sized", capital: [
+    { key: "LOAN_AMOUNT", value: 750_000 }, { key: "INTEREST_RATE", value: 6 }, { key: "AMORTIZATION_YEARS", value: 30 },
+    { key: "TARGET_LTV_PCT", value: 75 }, { key: "TARGET_LTC_PCT", value: 80 }, { key: "MIN_DSCR", value: 1.25 },
+  ] }];
+  await saveAnalyzerScenario(a.id, sopp.id, sizingOperating, { financingCases: sizedCase });
+  const sActive = await getActiveScenarioResult(a.id, sopp.id);
+  const fc = sActive.financingCases[0];
+  const fcr = fc.result;
+  // Cross-check against the pure kernel + sizing module: NOI 100k, allInCost 1.075M, estValue 1M (seeded).
   const km = computeAnalysis({ purchasePriceUsd: 1_000_000, renovationBudgetUsd: 50_000, closingCostsUsd: 25_000, grossIncomeAnnualUsd: 130_000, operatingExpensesUsd: 30_000, loanAmountUsd: 750_000, interestRatePct: 6, amortizationYears: 30, unitCount: UNIT_COUNT, estimatedValueUsd: 1_000_000 });
   const expSizing = sizeDebt({ estimatedValueUsd: 1_000_000, allInCostUsd: km.allInCostUsd, noiAnnualUsd: km.noiAnnualUsd, interestRatePct: 6, amortizationYears: 30, targetLtvPct: 75, targetLtcPct: 80, minDscr: 1.25 });
-  assert(sres.loanByLtvUsd === 750_000, "loan by LTV = 75% of estimated value (1M) = 750k");
-  assert(sres.loanByLtcUsd === expSizing.loanByLtcUsd && sres.loanByLtcUsd === 860_000, "loan by LTC = 80% of all-in cost (1.075M) = 860k");
-  assert(sres.loanByDscrUsd === expSizing.loanByDscrUsd, "loan by DSCR matches the pure sizing module");
-  assert(sres.sizedLoanUsd === 750_000 && sres.bindingConstraint === "LTV", "sized loan = min = LTV-bound 750k");
-  // Rebuild is deterministic for the sized result too (reads only frozen assumptions).
-  await prisma.scenarioResult.delete({ where: { scenarioId: sres.scenarioId } });
-  await rebuildScenarioResult(a.id, sres.scenarioId);
-  const sAfter = await prisma.scenarioResult.findUnique({ where: { scenarioId: sres.scenarioId } });
-  assert(sAfter.sizedLoanUsd === 750_000 && sAfter.bindingConstraint === "LTV", "sized result reconstructs deterministically from frozen assumptions");
+  assert(fcr.loanByLtvUsd === 750_000, "loan by LTV = 75% of estimated value (1M) = 750k");
+  assert(fcr.loanByLtcUsd === expSizing.loanByLtcUsd && fcr.loanByLtcUsd === 860_000, "loan by LTC = 80% of all-in cost (1.075M) = 860k");
+  assert(fcr.loanByDscrUsd === expSizing.loanByDscrUsd, "loan by DSCR matches the pure sizing module");
+  assert(fcr.sizedLoanUsd === 750_000 && fcr.bindingConstraint === "LTV", "sized loan = min = LTV-bound 750k (on the FinancingCase)");
+  assert(fcr.dscr === km.dscr && fcr.debtYieldPct === km.debtYieldPct, "case carries the kernel's debt service metrics");
+  // The operating ScenarioResult has no sizing fields (relocated).
+  assert(sActive.result.sizedLoanUsd === undefined, "operating ScenarioResult has no debt-sizing fields (CF-2)");
+  // Rebuild the financing case deterministically (reads only frozen operating + capital).
+  await rebuildFinancingCase(a.id, fc.id);
+  const fcr2 = await prisma.financingCaseResult.findUnique({ where: { financingCaseId: fc.id } });
+  assert(fcr2.sizedLoanUsd === 750_000 && fcr2.bindingConstraint === "LTV", "financing result reconstructs deterministically from frozen inputs");
 
   console.log("\n[11] Income/expense schedules (3b-ii) — roll up to NOI, override scalar, rebuild, revert:");
   const schedProp = await createPropertyRecord(a.id, op({ name: "Sched", unitCount: UNIT_COUNT, estimatedValueUsd: 1_200_000 }), {});
@@ -199,14 +212,52 @@ try {
   assert(schedRes.noiAnnualUsd === 90_000, "NOI = 140k − 50k = 90k, sourced from the schedule");
   const schedSid = schedRes.scenarioId;
   assert((await prisma.scenarioLineItem.count({ where: { scenarioId: schedSid } })) === 4, "4 schedule line items persisted");
-  // Rebuild reads the schedule deterministically (never current Property state).
   await prisma.scenarioResult.delete({ where: { scenarioId: schedSid } });
   await rebuildScenarioResult(a.id, schedSid);
   assert((await prisma.scenarioResult.findUnique({ where: { scenarioId: schedSid } })).noiAnnualUsd === 90_000, "schedule-derived NOI reconstructs from persisted line items");
-  // Clearing the schedule reverts to the scalar assumptions (behavior preserved).
   await saveAnalyzerScenario(a.id, schedOpp.id, MANUAL, { lines: [] });
   const cleared = (await getActiveScenarioResult(a.id, schedOpp.id)).result;
   assert(cleared.grossIncomeAnnualUsd === 120_000 && cleared.noiAnnualUsd === 80_000, "clearing the schedule reverts to scalar gross income 120k / NOI 80k");
+
+  console.log("\n[12] Financing cases + cash flow (3b-iii, CF-1…CF-5) — per-case debt over shared operating NOI:");
+  const cfProp = await createPropertyRecord(a.id, op({ name: "CashFlow", unitCount: UNIT_COUNT, estimatedValueUsd: 1_000_000 }), {});
+  const cfOpp = await mkOpp(a.id, cfProp.id, "CashFlow deal");
+  const cfOperating = [
+    { key: "PURCHASE_PRICE", value: 1_000_000 },
+    { key: "GROSS_INCOME", value: 130_000 },
+    { key: "OPERATING_EXPENSES", value: 30_000 },
+    { key: "INCOME_GROWTH_PCT", value: 0 },
+    { key: "EXPENSE_GROWTH_PCT", value: 0 },
+    { key: "HOLD_YEARS", value: 3 },
+  ];
+  const twoCases = [
+    { label: "Debt", capital: [{ key: "LOAN_AMOUNT", value: 750_000 }, { key: "INTEREST_RATE", value: 6 }, { key: "AMORTIZATION_YEARS", value: 30 }] },
+    { label: "All cash", capital: [] },
+  ];
+  await saveAnalyzerScenario(a.id, cfOpp.id, cfOperating, { financingCases: twoCases });
+  const cf = await getActiveScenarioResult(a.id, cfOpp.id);
+  assert(cf.financingCases.length === 2, "two financing cases persisted under one scenario");
+  const [debtCase, cashCase] = cf.financingCases;
+  // CF-2: operating NOI is shared; the operating result carries no debt.
+  assert(cf.result.noiAnnualUsd === 100_000, "operating NOI (100k) is shared by both cases (CF-2)");
+  // CF-5: each case's cash-flow NOI equals the shared operating NOI.
+  assert(debtCase.cashFlow.length === 3 && debtCase.cashFlow[0].noiUsd === 100_000, "debt case projects 3 years; year-1 NOI = operating NOI (CF-5)");
+  assert(cashCase.cashFlow[0].noiUsd === 100_000, "all-cash case shares the SAME operating NOI (CF-5)");
+  // Debt case: levered cash flow < NOI; DSCR present.
+  assert(debtCase.result.dscr != null && debtCase.result.annualDebtServiceUsd != null, "debt case has DSCR + debt service");
+  assert(debtCase.cashFlow[0].cashFlowBeforeTaxUsd < 100_000, "levered cash flow < NOI (debt service deducted)");
+  // All-cash case: NOI passes straight through, no DSCR.
+  assert(cashCase.result.dscr === null && cashCase.result.annualDebtServiceUsd === null, "all-cash case has no debt service / DSCR");
+  assert(cashCase.cashFlow[0].cashFlowBeforeTaxUsd === 100_000, "all-cash cash flow = the full NOI");
+  // CF-3: cases share operating but differ by capital ⇒ distinct fingerprints + cash flow.
+  assert(debtCase.financingCaseVersion !== cashCase.financingCaseVersion, "cases have distinct fingerprints (capital differs, CF-3)");
+  assert(debtCase.cashFlow[0].cashFlowBeforeTaxUsd !== cashCase.cashFlow[0].cashFlowBeforeTaxUsd, "cases differ in cash flow");
+  // CF-4: changing the operating scenario reprices EVERY case, but the case set is unchanged (financingCases omitted).
+  await saveAnalyzerScenario(a.id, cfOpp.id, cfOperating.map((m) => (m.key === "GROSS_INCOME" ? { ...m, value: 150_000 } : m)));
+  const cf2 = await getActiveScenarioResult(a.id, cfOpp.id);
+  assert(cf2.result.noiAnnualUsd === 120_000, "operating NOI updated to 120k after the income edit");
+  assert(cf2.financingCases.length === 2, "cases preserved (only refreshed) when financingCases is omitted (CF-4)");
+  assert(cf2.financingCases[0].cashFlow[0].noiUsd === 120_000, "each case's cash flow reflects the new operating NOI (CF-4/CF-5)");
 } finally {
   console.log("\nCleaning up throwaway orgs (cascade)...");
   for (const id of orgIds) await prisma.organization.delete({ where: { id } }).catch((e) => console.log(`  cleanup warn: ${e.message}`));
@@ -214,7 +265,7 @@ try {
 }
 
 function manualInputs(purchase) {
-  return { purchasePriceUsd: purchase, renovationBudgetUsd: 50_000, closingCostsUsd: 25_000, grossIncomeAnnualUsd: 120_000, operatingExpensesUsd: 40_000, loanAmountUsd: 750_000, interestRatePct: 6, amortizationYears: 30 };
+  return { purchasePriceUsd: purchase, renovationBudgetUsd: 50_000, closingCostsUsd: 25_000, grossIncomeAnnualUsd: 120_000, operatingExpensesUsd: 40_000, loanAmountUsd: null, interestRatePct: null, amortizationYears: null };
 }
 
 console.log(`\n${fail.length === 0 ? "PASS" : "FAIL"} — ${ok} assertions passed, ${fail.length} failed`);

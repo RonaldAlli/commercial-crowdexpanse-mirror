@@ -17,10 +17,13 @@
 //     deterministic debt-sizing calculation) / rules 1 (unchanged).
 //   v3 (3b-ii) — model 3 (scenario line-item schedules exist) / calc 3 (new
 //     deterministic schedule roll-up feeding NOI) / rules 1 (unchanged).
+//   v4 (3b-iii) — model 4 (FinancingCase capital structures + projection
+//     assumptions exist; capital relocated off the Scenario) / calc 4 (new
+//     deterministic multi-year cash-flow projection) / rules 1 (unchanged).
 import { createHash } from "node:crypto";
 
-export const UNDERWRITING_MODEL_VERSION = 3;
-export const CALCULATION_LIBRARY_VERSION = 3;
+export const UNDERWRITING_MODEL_VERSION = 4;
+export const CALCULATION_LIBRARY_VERSION = 4;
 export const RULESET_VERSION = 1;
 
 export type ModelLineage = {
@@ -67,5 +70,26 @@ export function computeScenarioVersion(
   for (const l of sortedL) lineRows.push([l.kind, l.category, l.canonical]);
   const { modelVersion, calcLibVersion, rulesetVersion } = lineage;
   const canonical = JSON.stringify({ model: modelVersion, calc: calcLibVersion, rules: rulesetVersion, a: rows, s: lineRows });
+  return createHash("sha256").update(canonical).digest("hex").slice(0, 32);
+}
+
+/**
+ * Deterministic FINGERPRINT for one FinancingCase (v1.3, Commit 3b-iii, CF-3). A
+ * pure function of the operating scenarioVersion it consumes (CF-4/CF-5 — it reads
+ * the Scenario's frozen operating economics, so the operating fingerprint fully
+ * captures that dependency), its own canonical capital assumptions, and the model
+ * lineage. Two cases under one Scenario differ iff their capital differs; a case
+ * changes iff the operating scenario OR its capital OR the lineage changes.
+ */
+export function computeFinancingCaseVersion(
+  scenarioVersion: string,
+  capital: FingerprintAssumption[],
+  lineage: ModelLineage,
+): string {
+  const sorted = [...capital].sort((a, b) => a.key.localeCompare(b.key));
+  const rows: string[][] = [];
+  for (const x of sorted) rows.push([x.key, x.canonical, x.source]);
+  const { modelVersion, calcLibVersion, rulesetVersion } = lineage;
+  const canonical = JSON.stringify({ model: modelVersion, calc: calcLibVersion, rules: rulesetVersion, sv: scenarioVersion, c: rows });
   return createHash("sha256").update(canonical).digest("hex").slice(0, 32);
 }

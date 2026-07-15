@@ -834,10 +834,16 @@ enum AssumptionKey {
   UNIT_COUNT
   ESTIMATED_VALUE
   // Debt-sizing constraints (v1.3, Commit 3b-i). Optional analyst inputs — not
-  // kernel inputs; consumed only by the pure debt-sizing calculation.
+  // kernel inputs; consumed only by the pure debt-sizing calculation. As of 3b-iii
+  // these are CAPITAL assumptions, owned by a FinancingCase (CF-1), not the Scenario.
   TARGET_LTV_PCT
   TARGET_LTC_PCT
   MIN_DSCR
+  // Projection assumptions (v1.3, Commit 3b-iii). OPERATING inputs (financing-
+  // independent, CF-5): they shape the shared NOI trajectory, not the debt.
+  INCOME_GROWTH_PCT
+  EXPENSE_GROWTH_PCT
+  HOLD_YEARS
 }
 
 // Which constraint bound the sized loan (v1.3, Commit 3b-i).
@@ -898,6 +904,7 @@ model UnderwritingScenario {
   assumptions     UnderwritingAssumption[]
   lineItems       ScenarioLineItem[]
   result          ScenarioResult?
+  financingCases  FinancingCase[]
 
   @@unique([underwritingId, version])
   @@index([organizationId])
@@ -940,20 +947,11 @@ model ScenarioResult {
   capRate              Float?
   pricePerUnitUsd      Float?
   expenseRatioPct      Float?
-  // Float, not Int: computeAnalysis returns a 2-decimal amortized payment (e.g.
-  // 53959.55). An Int column would truncate it and break rebuild idempotency.
-  annualDebtServiceUsd Float?
-  dscr                 Float?
-  debtYieldPct         Float?
   spreadUsd            Int?
-  // Debt sizing (v1.3, Commit 3b-i) — derived, deterministic loan sizing by
-  // constraint. Null when no sizing constraints are provided.
-  loanByLtvUsd         Int?
-  loanByLtcUsd         Int?
-  loanByDscrUsd        Int?
-  sizedLoanUsd         Int?
-  bindingConstraint    DebtSizingConstraint?
-  scenario             UnderwritingScenario  @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  // OPERATING-ONLY (v1.3, Commit 3b-iii): every financing-dependent metric
+  // (debt service, DSCR, debt yield, debt sizing) relocated to FinancingCaseResult
+  // per CF-1/CF-2 — a Scenario's result carries no financing economics.
+  scenario             UnderwritingScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
   @@map("scenario_results")
@@ -979,6 +977,101 @@ model ScenarioLineItem {
   @@index([organizationId])
   @@index([scenarioId])
   @@map("scenario_line_items")
+}
+
+// One capital structure alternative under a Scenario (v1.3, Commit 3b-iii). A
+// FinancingCase consumes the Scenario's frozen operating economics (CF-4/CF-5) and
+// owns its own capital inputs + financing-dependent outputs — so debt, all-cash,
+// seller-financing, mezzanine, or preferred-equity alternatives can be compared
+// side by side without touching the operating model.
+model FinancingCase {
+  id                 String                @id @default(cuid())
+  organizationId     String
+  scenarioId         String
+  label              String
+  position           Int
+  source             AssumptionSource
+  // Deterministic per-case fingerprint (CF-3): sha256(operating scenarioVersion +
+  // sorted capital assumptions + model lineage). Each case is independently
+  // reproducible and independently comparable.
+  financingCaseVersion String
+  createdAt          DateTime              @default(now())
+  scenario           UnderwritingScenario  @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  capitalAssumptions FinancingAssumption[]
+  result             FinancingCaseResult?
+  cashFlow           CashFlowYear[]
+
+  @@index([organizationId])
+  @@index([scenarioId])
+  @@map("financing_cases")
+}
+
+// A capital input owned by a FinancingCase (CF-1). Mirrors UnderwritingAssumption
+// exactly, but scoped to the capital structure rather than the operating Scenario.
+model FinancingAssumption {
+  id              String        @id @default(cuid())
+  organizationId  String
+  financingCaseId String
+  key             AssumptionKey
+  valueNumeric    Decimal
+  source          AssumptionSource
+  sourceField     String?
+  sourceAsOf      DateTime?
+  createdAt       DateTime      @default(now())
+  financingCase   FinancingCase @relation(fields: [financingCaseId], references: [id], onDelete: Cascade)
+
+  @@unique([financingCaseId, key])
+  @@index([organizationId])
+  @@map("financing_assumptions")
+}
+
+// The financing-dependent summary for one FinancingCase (relocated from
+// ScenarioResult per CF-2). Derived, cached, content-idempotent, rebuildable —
+// 1:1 with a FinancingCase.
+model FinancingCaseResult {
+  id                   String                @id @default(cuid())
+  organizationId       String
+  financingCaseId      String                @unique
+  financingCaseVersion String
+  calcLibVersion       Int
+  // Debt service on the case's amortizing loan (Float — a 2-decimal payment).
+  annualDebtServiceUsd Float?
+  dscr                 Float?
+  debtYieldPct         Float?
+  // Debt sizing (relocated from 3b-i): the loan the case's constraints permit.
+  loanByLtvUsd         Int?
+  loanByLtcUsd         Int?
+  loanByDscrUsd        Int?
+  sizedLoanUsd         Int?
+  bindingConstraint    DebtSizingConstraint?
+  // Multi-year operating cash-flow aggregates for this case.
+  projectionYears      Int?
+  avgDscr              Float?
+  cumulativeCashFlowUsd Int?
+  financingCase        FinancingCase         @relation(fields: [financingCaseId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("financing_case_results")
+}
+
+// One year of a FinancingCase's operating cash-flow projection (v1.3, Commit
+// 3b-iii). Disposable + rebuildable, like ScenarioResult. NOI is echoed from the
+// shared operating trajectory (CF-5); debt service + cash flow are the case's own.
+// Operating cash flow only — no sale, terminal value, refinance, or waterfall.
+model CashFlowYear {
+  id                   String        @id @default(cuid())
+  organizationId       String
+  financingCaseId      String
+  year                 Int
+  noiUsd               Float
+  debtServiceUsd       Float
+  cashFlowBeforeTaxUsd Float
+  dscr                 Float?
+  financingCase        FinancingCase @relation(fields: [financingCaseId], references: [id], onDelete: Cascade)
+
+  @@unique([financingCaseId, year])
+  @@index([organizationId])
+  @@map("cash_flow_years")
 }
 
 model Task {

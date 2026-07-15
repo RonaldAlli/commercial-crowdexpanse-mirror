@@ -40,6 +40,7 @@ const CRITICAL = [
   "lib/underwriting/assumptions.ts",
   "lib/underwriting/debt-sizing.ts",
   "lib/underwriting/schedule.ts",
+  "lib/underwriting/cash-flow.ts",
 ];
 const TRACKED = [
   ...CRITICAL,
@@ -51,6 +52,11 @@ const TRACKED = [
   // 83% regardless of test quality — the exact tsx artifact this file documents. It
   // is TRACKED (counts toward the ≥80% mean), not CRITICAL, rather than lower a gate.
   "lib/underwriting/scenario-result.ts",
+  // financing.ts is likewise a pure COMPOSITION (kernel ∘ debt-sizing ∘ cash-flow)
+  // that layers a case's debt onto frozen operating inputs — same near-branchless
+  // shape as scenario-result.ts, so it is TRACKED (its real logic lives in the
+  // three CRITICAL modules it composes, each independently gated at ≥90%).
+  "lib/underwriting/financing.ts",
   "lib/env.ts",
   "lib/note-links.ts",
   "lib/safe-redirect.ts",

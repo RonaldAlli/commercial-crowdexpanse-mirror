@@ -7,6 +7,7 @@ import {
   CALCULATION_LIBRARY_VERSION,
   RULESET_VERSION,
   computeScenarioVersion,
+  computeFinancingCaseVersion,
   type FingerprintAssumption,
   type FingerprintLine,
   type ModelLineage,
@@ -19,11 +20,11 @@ const set: FingerprintAssumption[] = [
   { key: "UNIT_COUNT", canonical: "10", source: "SEEDED" },
 ];
 
-test("lineage constants reflect the 3b-ii bump and CURRENT_MODEL_LINEAGE mirrors them", () => {
-  assert.equal(UNDERWRITING_MODEL_VERSION, 3);
-  assert.equal(CALCULATION_LIBRARY_VERSION, 3);
+test("lineage constants reflect the 3b-iii bump and CURRENT_MODEL_LINEAGE mirrors them", () => {
+  assert.equal(UNDERWRITING_MODEL_VERSION, 4);
+  assert.equal(CALCULATION_LIBRARY_VERSION, 4);
   assert.equal(RULESET_VERSION, 1);
-  assert.deepEqual(L, { modelVersion: 3, calcLibVersion: 3, rulesetVersion: 1 });
+  assert.deepEqual(L, { modelVersion: 4, calcLibVersion: 4, rulesetVersion: 1 });
 });
 
 test("fingerprint is a 32-char hex string", () => {
@@ -109,4 +110,31 @@ test("numerically-equal canonical values fingerprint identically (Decimal normal
   const a = [{ key: "UNIT_COUNT", canonical: "10", source: "SEEDED" }];
   const b = [{ key: "UNIT_COUNT", canonical: "10", source: "SEEDED" }];
   assert.equal(computeScenarioVersion(a, L), computeScenarioVersion(b, L));
+});
+
+// --- FinancingCase fingerprint (3b-iii, CF-3/CF-4/CF-5) ----------------------
+const capital: FingerprintAssumption[] = [
+  { key: "LOAN_AMOUNT", canonical: "750000", source: "MANUAL" },
+  { key: "INTEREST_RATE", canonical: "6", source: "MANUAL" },
+];
+const sv = "0123456789abcdef0123456789abcdef";
+
+test("a financing-case fingerprint is a 32-char hex string", () => {
+  assert.match(computeFinancingCaseVersion(sv, capital, L), /^[0-9a-f]{32}$/);
+});
+
+test("financing-case fingerprint is order-independent in capital and deterministic", () => {
+  assert.equal(computeFinancingCaseVersion(sv, capital, L), computeFinancingCaseVersion(sv, [...capital].reverse(), L));
+});
+
+test("a capital change, the operating scenarioVersion, or the lineage each flips the case fingerprint", () => {
+  const base = computeFinancingCaseVersion(sv, capital, L);
+  const cap2 = capital.map((c) => (c.key === "LOAN_AMOUNT" ? { ...c, canonical: "800000" } : c));
+  assert.notEqual(base, computeFinancingCaseVersion(sv, cap2, L)); // capital change
+  assert.notEqual(base, computeFinancingCaseVersion("ffffffffffffffffffffffffffffffff", capital, L)); // operating change (CF-4/CF-5)
+  assert.notEqual(base, computeFinancingCaseVersion(sv, capital, { ...L, calcLibVersion: L.calcLibVersion + 1 })); // lineage
+});
+
+test("an all-cash case (no capital) fingerprints distinctly from a levered one under the same scenario", () => {
+  assert.notEqual(computeFinancingCaseVersion(sv, capital, L), computeFinancingCaseVersion(sv, [], L));
 });

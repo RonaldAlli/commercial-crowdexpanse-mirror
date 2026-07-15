@@ -15,22 +15,25 @@ const resolved = (key: string, value: number, source = "MANUAL"): ResolvedAssump
   canonical: String(value),
 });
 
+// Operating-only (3b-iii, CF-1): capital (loan/rate/amort + sizing) is owned by the
+// FinancingCase now, not the Scenario, so the operating result is debt-free.
 const full: ResolvedAssumption[] = [
   resolved("PURCHASE_PRICE", 1_000_000),
   resolved("RENOVATION_BUDGET", 50_000),
   resolved("CLOSING_COSTS", 25_000),
   resolved("GROSS_INCOME", 120_000),
   resolved("OPERATING_EXPENSES", 40_000),
-  resolved("LOAN_AMOUNT", 750_000),
-  resolved("INTEREST_RATE", 6),
-  resolved("AMORTIZATION_YEARS", 30),
   resolved("UNIT_COUNT", 10, "SEEDED"),
   resolved("ESTIMATED_VALUE", 1_200_000, "SEEDED"),
 ];
 
-test("derived metrics equal the unchanged kernel over the mapped inputs", () => {
+test("derived OPERATING metrics equal the unchanged kernel over the mapped inputs (debt-free)", () => {
   const { metrics } = deriveScenarioResult(full, [], L);
   assert.deepEqual(metrics, computeAnalysis(assumptionsToAnalysisInputs(full)));
+  // Financing-dependent metrics are null on the operating result (they belong to the case).
+  assert.equal(metrics.annualDebtServiceUsd, null);
+  assert.equal(metrics.dscr, null);
+  assert.equal(metrics.debtYieldPct, null);
 });
 
 test("derived scenarioVersion equals the standalone fingerprint of (canonical, source, lineage)", () => {

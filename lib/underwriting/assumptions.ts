@@ -28,18 +28,38 @@ export const ASSUMPTION_KEYS = [
 // deliberately kept out of ASSUMPTION_KEYS (which totally determines AnalysisInputs).
 export const SIZING_ASSUMPTION_KEYS = ["TARGET_LTV_PCT", "TARGET_LTC_PCT", "MIN_DSCR"] as const;
 
-export type AssumptionKey = (typeof ASSUMPTION_KEYS)[number] | (typeof SIZING_ASSUMPTION_KEYS)[number];
+// Projection assumptions (v1.3, Commit 3b-iii). OPERATING, financing-independent
+// (CF-5): they shape the shared multi-year NOI trajectory, never the debt. Not
+// kernel inputs — consumed only by the pure cash-flow projection.
+export const PROJECTION_ASSUMPTION_KEYS = ["INCOME_GROWTH_PCT", "EXPENSE_GROWTH_PCT", "HOLD_YEARS"] as const;
 
-/** The keys sourced from the analyst's form (MANUAL). */
+export type AssumptionKey =
+  | (typeof ASSUMPTION_KEYS)[number]
+  | (typeof SIZING_ASSUMPTION_KEYS)[number]
+  | (typeof PROJECTION_ASSUMPTION_KEYS)[number];
+
+// --- Ownership of assumptions (v1.3, Commit 3b-iii — CF-1) --------------------
+// CAPITAL assumptions are owned by a FinancingCase, not the Scenario: the loan
+// terms AND the debt-sizing constraints. Everything else is OPERATING (Scenario).
+export const CAPITAL_ASSUMPTION_KEYS: AssumptionKey[] = [
+  "LOAN_AMOUNT",
+  "INTEREST_RATE",
+  "AMORTIZATION_YEARS",
+  "TARGET_LTV_PCT",
+  "TARGET_LTC_PCT",
+  "MIN_DSCR",
+];
+
+/** The OPERATING keys sourced from the analyst's form (MANUAL) — capital moved to the FinancingCase. */
 export const MANUAL_ASSUMPTION_KEYS: AssumptionKey[] = [
   "PURCHASE_PRICE",
   "RENOVATION_BUDGET",
   "CLOSING_COSTS",
   "GROSS_INCOME",
   "OPERATING_EXPENSES",
-  "LOAN_AMOUNT",
-  "INTEREST_RATE",
-  "AMORTIZATION_YEARS",
+  "INCOME_GROWTH_PCT",
+  "EXPENSE_GROWTH_PCT",
+  "HOLD_YEARS",
 ];
 
 /** The keys snapshotted from the Version 1.2 platform at scenario creation (SEEDED / ScenarioSeed). */

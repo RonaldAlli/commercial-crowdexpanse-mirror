@@ -8,23 +8,41 @@ import type { AnalysisFormState } from "@/app/(workspace)/analyzer/actions";
 
 export type ScheduleLineValue = { kind: "INCOME" | "EXPENSE"; category: string; amountAnnualUsd: number };
 
+// One capital structure (v1.3, Commit 3b-iii). Capital lives on the FinancingCase,
+// never the Scenario (CF-1).
+export type FinancingCaseValue = {
+  label: string;
+  loanAmountUsd: number | null;
+  interestRatePct: number | null;
+  amortizationYears: number | null;
+  targetLtvPct: number | null;
+  targetLtcPct: number | null;
+  minDscr: number | null;
+};
+
 export type AnalysisFormValues = {
   purchasePriceUsd?: number | null;
   renovationBudgetUsd?: number | null;
   closingCostsUsd?: number | null;
   grossIncomeAnnualUsd?: number | null;
   operatingExpensesUsd?: number | null;
-  loanAmountUsd?: number | null;
-  interestRatePct?: number | null;
-  amortizationYears?: number | null;
-  targetLtvPct?: number | null;
-  targetLtcPct?: number | null;
-  minDscr?: number | null;
+  // Operating projection assumptions (financing-independent, CF-5).
+  incomeGrowthPct?: number | null;
+  expenseGrowthPct?: number | null;
+  holdYears?: number | null;
   lines?: ScheduleLineValue[];
+  financingCases?: FinancingCaseValue[];
   analystSummary?: string | null;
 };
 
 type ScheduleRow = { kind: "INCOME" | "EXPENSE"; category: string; amount: string };
+
+function parseNum(s: string): number | null {
+  const c = s.replace(/[,$%\s]/g, "");
+  if (!c) return null;
+  const v = Number(c);
+  return Number.isFinite(v) ? v : null;
+}
 
 // Optional line-item schedule. When any income (or expense) lines are present they
 // roll up to that total, overriding the single scalar field above. Serialized into a
@@ -74,6 +92,86 @@ function ScheduleEditor({ initial }: { initial?: ScheduleLineValue[] }) {
       <div className="grid gap-6 sm:grid-cols-2">
         {group("INCOME", "Income lines")}
         {group("EXPENSE", "Expense lines")}
+      </div>
+    </section>
+  );
+}
+
+type CaseRow = { label: string; loan: string; rate: string; amort: string; ltv: string; ltc: string; dscr: string };
+
+// Capital structure alternatives (v1.3, Commit 3b-iii). Each case owns its own debt
+// terms + sizing constraints and is compared side by side against the same operating
+// NOI. Serialized to a hidden field the server action parses.
+function FinancingEditor({ initial }: { initial?: FinancingCaseValue[] }) {
+  const [rows, setRows] = useState<CaseRow[]>(
+    (initial ?? []).map((c) => ({
+      label: c.label,
+      loan: c.loanAmountUsd != null ? String(c.loanAmountUsd) : "",
+      rate: c.interestRatePct != null ? String(c.interestRatePct) : "",
+      amort: c.amortizationYears != null ? String(c.amortizationYears) : "",
+      ltv: c.targetLtvPct != null ? String(c.targetLtvPct) : "",
+      ltc: c.targetLtcPct != null ? String(c.targetLtcPct) : "",
+      dscr: c.minDscr != null ? String(c.minDscr) : "",
+    })),
+  );
+  const serialized = JSON.stringify(
+    rows.map((r) => ({
+      label: r.label.trim() || "Financing",
+      loanAmountUsd: parseNum(r.loan),
+      interestRatePct: parseNum(r.rate),
+      amortizationYears: parseNum(r.amort),
+      targetLtvPct: parseNum(r.ltv),
+      targetLtcPct: parseNum(r.ltc),
+      minDscr: parseNum(r.dscr),
+    })),
+  );
+  const add = () => setRows((rs) => [...rs, { label: `Financing ${rs.length + 1}`, loan: "", rate: "", amort: "", ltv: "", ltc: "", dscr: "" }]);
+  const update = (i: number, patch: Partial<CaseRow>) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const remove = (i: number) => setRows((rs) => rs.filter((_, j) => j !== i));
+
+  const field = (i: number, key: keyof CaseRow, placeholder: string) => (
+    <input
+      className="input"
+      type="number"
+      min="0"
+      step="any"
+      placeholder={placeholder}
+      value={rows[i][key]}
+      onChange={(e) => update(i, { [key]: e.target.value })}
+    />
+  );
+
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="eyebrow">Financing cases (optional — one capital structure per row; compared side by side)</p>
+        <button type="button" className="btn-ghost text-xs" onClick={add}>
+          + Add financing case
+        </button>
+      </div>
+      <input type="hidden" name="financingCasesJson" value={serialized} />
+      <div className="space-y-4">
+        {rows.length === 0 ? (
+          <p className="text-sm text-slate-400">No financing modeled — add a case to compute debt service, DSCR, sizing, and cash flow.</p>
+        ) : null}
+        {rows.map((r, i) => (
+          <div key={i} className="rounded-lg border border-slate-200 p-4">
+            <div className="flex items-center gap-2">
+              <input className="input flex-1 font-medium" placeholder="Label (e.g. Base financing)" value={r.label} onChange={(e) => update(i, { label: e.target.value })} />
+              <button type="button" className="px-2 text-lg leading-none text-slate-400 hover:text-rose-500" onClick={() => remove(i)} aria-label="Remove financing case">
+                ×
+              </button>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              {field(i, "loan", "Loan amount ($)")}
+              {field(i, "rate", "Interest rate (%)")}
+              {field(i, "amort", "Amortization (yrs)")}
+              {field(i, "ltv", "Target LTV (%)")}
+              {field(i, "ltc", "Target LTC (%)")}
+              {field(i, "dscr", "Min DSCR")}
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   );
@@ -148,17 +246,13 @@ export function AnalysisForm({
 
       <ScheduleEditor initial={values?.lines} />
 
-      <Section title="Debt (optional — enables DSCR & debt yield)">
-        <Field label="Loan amount (USD)" name="loanAmountUsd" value={values?.loanAmountUsd} />
-        <Field label="Interest rate (%)" name="interestRatePct" value={values?.interestRatePct} step="any" />
-        <Field label="Amortization (years)" name="amortizationYears" value={values?.amortizationYears} />
+      <Section title="Projection (optional — drives the multi-year cash flow)">
+        <Field label="Income growth / yr (%)" name="incomeGrowthPct" value={values?.incomeGrowthPct} step="any" hint="Grows the NOI trajectory" />
+        <Field label="Expense growth / yr (%)" name="expenseGrowthPct" value={values?.expenseGrowthPct} step="any" hint="Grows operating expenses" />
+        <Field label="Hold period (years)" name="holdYears" value={values?.holdYears} hint="Years of cash flow to project" />
       </Section>
 
-      <Section title="Debt sizing (optional — sizes the loan by LTV / LTC / DSCR)">
-        <Field label="Target LTV (%)" name="targetLtvPct" value={values?.targetLtvPct} step="any" hint="Loan ≤ this % of estimated value" />
-        <Field label="Target LTC (%)" name="targetLtcPct" value={values?.targetLtcPct} step="any" hint="Loan ≤ this % of all-in cost" />
-        <Field label="Min DSCR" name="minDscr" value={values?.minDscr} step="any" hint="Loan sized so NOI ÷ debt service ≥ this" />
-      </Section>
+      <FinancingEditor initial={values?.financingCases} />
 
       <section className="space-y-4">
         <p className="eyebrow">Analyst summary</p>

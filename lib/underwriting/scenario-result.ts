@@ -5,21 +5,27 @@
 // invariant). No Prisma, no clock, no randomness. The financial math is delegated
 // unchanged to lib/analysis.ts (CALCULATION_LIBRARY_VERSION). A ResolvedAssumption
 // already carries { key, canonical, source }, so it feeds the fingerprint directly.
-import { computeAnalysis, type AnalysisMetrics } from "@/lib/analysis";
-import { assumptionValue, assumptionsToAnalysisInputs, validateAssumptions, type ResolvedAssumption } from "./assumptions";
-import { sizeDebt, type DebtSizingResult } from "./debt-sizing";
+//
+// As of 3b-iii this is OPERATING-ONLY (CF-2): debt sizing and every financing-
+// dependent metric moved to the FinancingCase (see financing.ts). A Scenario's
+// result carries no capital economics. The effective operating `inputs` are
+// exposed so each FinancingCase can layer its debt onto the same frozen numbers.
+import { computeAnalysis, type AnalysisInputs, type AnalysisMetrics } from "@/lib/analysis";
+import { assumptionsToAnalysisInputs, validateAssumptions, type ResolvedAssumption } from "./assumptions";
 import { computeScenarioVersion, type ModelLineage } from "./model-version";
 import { rollUpSchedule, type ResolvedLine } from "./schedule";
 
 export type DerivedScenario = {
   scenarioVersion: string;
   metrics: AnalysisMetrics;
-  sizing: DebtSizingResult;
   // Effective income/expense actually used for NOI (schedule roll-up or scalar).
   effective: { grossIncomeAnnualUsd: number | null; operatingExpensesUsd: number | null };
+  // The effective operating AnalysisInputs (schedule applied, no debt) — the frozen
+  // numbers each FinancingCase consumes (CF-5). Debt-less by construction.
+  inputs: AnalysisInputs;
 };
 
-/** Derive a scenario's result purely from its frozen assumptions + line items + lineage. */
+/** Derive a scenario's OPERATING result purely from its frozen assumptions + line items + lineage. */
 export function deriveScenarioResult(
   assumptions: ResolvedAssumption[],
   lines: ResolvedLine[],
@@ -34,28 +40,22 @@ export function deriveScenarioResult(
   // otherwise fall back to the scalar assumption (3a behavior preserved).
   const rollup = rollUpSchedule(lines);
   const base = assumptionsToAnalysisInputs(assumptions);
-  const inputs = {
+  const inputs: AnalysisInputs = {
     ...base,
     grossIncomeAnnualUsd: rollup.hasIncomeSchedule ? rollup.grossIncomeAnnualUsd : base.grossIncomeAnnualUsd,
     operatingExpensesUsd: rollup.hasExpenseSchedule ? rollup.operatingExpensesUsd : base.operatingExpensesUsd,
+    // Capital lives on the FinancingCase now (CF-1) — the operating result carries no debt.
+    loanAmountUsd: null,
+    interestRatePct: null,
+    amortizationYears: null,
   };
 
   const metrics = computeAnalysis(inputs);
-  const sizing = sizeDebt({
-    estimatedValueUsd: inputs.estimatedValueUsd,
-    allInCostUsd: metrics.allInCostUsd,
-    noiAnnualUsd: metrics.noiAnnualUsd,
-    interestRatePct: inputs.interestRatePct,
-    amortizationYears: inputs.amortizationYears,
-    targetLtvPct: assumptionValue(assumptions, "TARGET_LTV_PCT"),
-    targetLtcPct: assumptionValue(assumptions, "TARGET_LTC_PCT"),
-    minDscr: assumptionValue(assumptions, "MIN_DSCR"),
-  });
 
   return {
     scenarioVersion,
     metrics,
-    sizing,
     effective: { grossIncomeAnnualUsd: inputs.grossIncomeAnnualUsd, operatingExpensesUsd: inputs.operatingExpensesUsd },
+    inputs,
   };
 }

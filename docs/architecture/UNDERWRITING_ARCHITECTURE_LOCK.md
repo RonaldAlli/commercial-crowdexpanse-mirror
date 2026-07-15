@@ -124,6 +124,41 @@ slices add their own alongside them.
   deterministic Scenario meaning (and therefore the fingerprint). The canonical
   fingerprint sorts by `(kind, category, amount)` and excludes `position`.
 
+### Financing-case invariants (Commit 3b-iii)
+
+A **FinancingCase** is a first-class child of a Scenario representing **one capital
+structure** (debt, all-cash, and — later — seller-financing, mezzanine, preferred
+equity). The ownership chain is `Scenario (operating) → FinancingCase (capital) →
+CashFlow (per-case projection)`. Capital assumptions and every financing-dependent
+output were **relocated off the Scenario** onto the FinancingCase — a sanctioned
+one-time model correction made while production held zero underwriting rows.
+
+- **CF-1 — Operating and capital ownership are separate.** Every FinancingCase
+  shares exactly one operating Scenario. Operating assumptions (rents, expenses,
+  growth, hold, purchase, seed) are owned by the **Scenario**; capital assumptions
+  (loan, rate, amortization, LTV/LTC/DSCR sizing) are owned by the **FinancingCase**
+  (`FinancingAssumption`). Capital ownership never lives in two places.
+- **CF-2 — Cash flow belongs to the FinancingCase; NOI belongs to the Scenario.**
+  Operating economics and financing economics stay separate: `ScenarioResult` is
+  operating-only (NOI, cap rate, price/unit, expense ratio, spread); debt service,
+  DSCR, debt yield, debt sizing, and the multi-year cash flow live on
+  `FinancingCaseResult` / `CashFlowYear`.
+- **CF-3 — Every FinancingCase is independently reproducible.** Its cash flow is a
+  pure function of the frozen Scenario operating economics + its own capital
+  assumptions + model lineage — never current Property state, never another case.
+  Its `financingCaseVersion` fingerprints exactly that dependency.
+- **CF-4 — A FinancingCase never changes the operating Scenario.** Cases consume the
+  Scenario's frozen operating economics; they never mutate assumptions, schedules,
+  NOI, or `ScenarioResult`. Editing the operating side reprices every case; editing
+  a case changes only that case.
+- **CF-5 — The operating NOI trajectory is computed once and reused identically by
+  every FinancingCase.** A case may change debt service, DSCR, and cash flow before
+  tax; it may not change the operating income or expense trajectory.
+
+Operating cash flow only (3b-iii): terminal value, exit valuation, refinance,
+equity waterfall, IRR, and equity multiple are out of scope and remain future
+sub-slices.
+
 ## 5. Commit 3a — Underwriting Model Formalization (headed by this lock)
 
 3a establishes the ownership model without deepening the math:

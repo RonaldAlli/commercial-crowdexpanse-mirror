@@ -34,13 +34,19 @@ export default async function AnalyzerPage() {
   const activeScenarioIds = underwritings.map((u) => u.activeScenarioId).filter((id): id is string => id != null);
   const resultRows = await prisma.scenarioResult.findMany({
     where: { organizationId: user.organizationId, scenarioId: { in: activeScenarioIds } },
-    select: { scenarioId: true, capRate: true, noiAnnualUsd: true, dscr: true },
+    select: { scenarioId: true, capRate: true, noiAnnualUsd: true },
   });
   const resultByScenario = new Map(resultRows.map((r) => [r.scenarioId, r]));
+  // DSCR is financing-dependent (CF-2) — read it from the primary financing case.
+  const primaryCases = await prisma.financingCase.findMany({
+    where: { organizationId: user.organizationId, scenarioId: { in: activeScenarioIds }, position: 0 },
+    select: { scenarioId: true, result: { select: { dscr: true } } },
+  });
+  const dscrByScenario = new Map(primaryCases.map((c) => [c.scenarioId, c.result?.dscr ?? null]));
   const resultByOpp = new Map<string, { capRate: number | null; noiAnnualUsd: number | null; dscr: number | null }>();
   for (const u of underwritings) {
     const r = u.activeScenarioId ? resultByScenario.get(u.activeScenarioId) : undefined;
-    if (r) resultByOpp.set(u.opportunityId, r);
+    if (r) resultByOpp.set(u.opportunityId, { ...r, dscr: u.activeScenarioId ? dscrByScenario.get(u.activeScenarioId) ?? null : null });
   }
 
   const analyzed = opportunities.filter((o) => resultByOpp.has(o.id));

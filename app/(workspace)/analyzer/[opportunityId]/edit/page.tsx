@@ -36,6 +36,11 @@ export default async function EditAnalysisPage({ params }: { params: { opportuni
   const a = new Map<AssumptionKey, number>();
   for (const row of scenario?.assumptions ?? []) a.set(row.key as AssumptionKey, row.valueNumeric.toNumber());
   const val = (k: AssumptionKey): number | null => (a.has(k) ? (a.get(k) as number) : null);
+  // Prefill capital per case from its own assumptions (CF-1).
+  const capOf = (fc: NonNullable<typeof scenario>["financingCases"][number], k: AssumptionKey): number | null => {
+    const r = fc.capitalAssumptions.find((x) => x.key === k);
+    return r ? r.valueNumeric.toNumber() : null;
+  };
 
   const action = saveAnalysis.bind(null, opportunity.id);
   const existed = scenario != null;
@@ -58,16 +63,22 @@ export default async function EditAnalysisPage({ params }: { params: { opportuni
                   closingCostsUsd: val("CLOSING_COSTS"),
                   grossIncomeAnnualUsd: val("GROSS_INCOME"),
                   operatingExpensesUsd: val("OPERATING_EXPENSES"),
-                  loanAmountUsd: val("LOAN_AMOUNT"),
-                  interestRatePct: val("INTEREST_RATE"),
-                  amortizationYears: val("AMORTIZATION_YEARS"),
-                  targetLtvPct: val("TARGET_LTV_PCT"),
-                  targetLtcPct: val("TARGET_LTC_PCT"),
-                  minDscr: val("MIN_DSCR"),
+                  incomeGrowthPct: val("INCOME_GROWTH_PCT"),
+                  expenseGrowthPct: val("EXPENSE_GROWTH_PCT"),
+                  holdYears: val("HOLD_YEARS"),
                   lines: (scenario?.lineItems ?? []).map((l) => ({
                     kind: l.kind,
                     category: l.category,
                     amountAnnualUsd: l.amountAnnualUsd.toNumber(),
+                  })),
+                  financingCases: (scenario?.financingCases ?? []).map((fc) => ({
+                    label: fc.label,
+                    loanAmountUsd: capOf(fc, "LOAN_AMOUNT"),
+                    interestRatePct: capOf(fc, "INTEREST_RATE"),
+                    amortizationYears: capOf(fc, "AMORTIZATION_YEARS"),
+                    targetLtvPct: capOf(fc, "TARGET_LTV_PCT"),
+                    targetLtcPct: capOf(fc, "TARGET_LTC_PCT"),
+                    minDscr: capOf(fc, "MIN_DSCR"),
                   })),
                   analystSummary: scenario?.analystSummary ?? null,
                 }

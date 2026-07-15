@@ -20,11 +20,16 @@ import { prisma } from "@/lib/prisma";
 import {
   type AssumptionKey,
   type ResolvedAssumption,
+  assumptionValue,
+  CAPITAL_ASSUMPTION_KEYS,
   validateAssumptions,
 } from "@/lib/underwriting/assumptions";
+import { deriveFinancingCase } from "@/lib/underwriting/financing";
 import {
   CURRENT_MODEL_LINEAGE,
+  computeFinancingCaseVersion,
   computeScenarioVersion,
+  type FingerprintAssumption,
   type FingerprintLine,
   type ModelLineage,
 } from "@/lib/underwriting/model-version";
@@ -89,6 +94,8 @@ async function refreshScenarioVersion(organizationId: string, scenarioId: string
   return scenarioVersion;
 }
 
+// OPERATING-ONLY as of 3b-iii (CF-2): every financing-dependent metric moved to
+// FinancingCaseResult. A Scenario's result carries no debt economics.
 const RESULT_METRIC_KEYS = [
   // Effective schedule totals (3b-ii)
   "grossIncomeAnnualUsd",
@@ -98,16 +105,7 @@ const RESULT_METRIC_KEYS = [
   "capRate",
   "pricePerUnitUsd",
   "expenseRatioPct",
-  "annualDebtServiceUsd",
-  "dscr",
-  "debtYieldPct",
   "spreadUsd",
-  // Debt sizing (3b-i)
-  "loanByLtvUsd",
-  "loanByLtcUsd",
-  "loanByDscrUsd",
-  "sizedLoanUsd",
-  "bindingConstraint",
 ] as const;
 
 /**
@@ -121,7 +119,7 @@ export async function rebuildScenarioResult(organizationId: string, scenarioId: 
   if (invalid) throw new Error(`Cannot derive ScenarioResult: ${invalid}`);
   const lines = await resolveScenarioLines(scenarioId, db);
   const scenario = await db.underwritingScenario.findFirstOrThrow({ where: { id: scenarioId, organizationId } });
-  const { scenarioVersion, metrics, sizing, effective } = deriveScenarioResult(assumptions, lines, lineageOf(scenario));
+  const { scenarioVersion, metrics, effective } = deriveScenarioResult(assumptions, lines, lineageOf(scenario));
 
   const values = {
     scenarioVersion,
@@ -129,7 +127,6 @@ export async function rebuildScenarioResult(organizationId: string, scenarioId: 
     grossIncomeAnnualUsd: effective.grossIncomeAnnualUsd,
     operatingExpensesUsd: effective.operatingExpensesUsd,
     ...pickMetrics(metrics),
-    ...sizing,
   };
   const existing = await db.scenarioResult.findUnique({ where: { scenarioId } });
   const unchanged =
@@ -147,15 +144,13 @@ export async function rebuildScenarioResult(organizationId: string, scenarioId: 
 }
 
 function pickMetrics(m: import("@/lib/analysis").AnalysisMetrics) {
+  // Operating-only (CF-2): debt service / DSCR / debt yield belong to the FinancingCase.
   return {
     noiAnnualUsd: m.noiAnnualUsd,
     allInCostUsd: m.allInCostUsd,
     capRate: m.capRate,
     pricePerUnitUsd: m.pricePerUnitUsd,
     expenseRatioPct: m.expenseRatioPct,
-    annualDebtServiceUsd: m.annualDebtServiceUsd,
-    dscr: m.dscr,
-    debtYieldPct: m.debtYieldPct,
     spreadUsd: m.spreadUsd,
   };
 }
@@ -225,6 +220,181 @@ export async function setScenarioLineItems(
     });
   }
   await refreshScenarioVersion(organizationId, scenarioId, db);
+}
+
+// --- financing cases (v1.3, Commit 3b-iii) ------------------------------------
+
+/** Read a FinancingCase's capital assumptions, resolved to the calculation boundary. */
+async function resolveFinancingCapital(financingCaseId: string, db: Db = prisma): Promise<ResolvedAssumption[]> {
+  const rows = await db.financingAssumption.findMany({ where: { financingCaseId }, orderBy: { key: "asc" } });
+  return rows.map((r) => ({
+    key: r.key as AssumptionKey,
+    value: r.valueNumeric.toNumber(),
+    source: r.source,
+    canonical: r.valueNumeric.toString(),
+  }));
+}
+
+const FCR_METRIC_KEYS = [
+  "annualDebtServiceUsd",
+  "dscr",
+  "debtYieldPct",
+  "loanByLtvUsd",
+  "loanByLtcUsd",
+  "loanByDscrUsd",
+  "sizedLoanUsd",
+  "bindingConstraint",
+  "projectionYears",
+  "avgDscr",
+  "cumulativeCashFlowUsd",
+] as const;
+
+/**
+ * Rebuild ONE FinancingCase's derived state (CF-3): its fingerprint, its result,
+ * and its multi-year cash flow — PURELY from the Scenario's frozen operating
+ * economics + the case's own capital + model lineage (never current Property,
+ * never another case). Content-idempotent: an unchanged rebuild performs zero
+ * writes to the result and to the cash-flow rows.
+ */
+export async function rebuildFinancingCase(organizationId: string, financingCaseId: string, db: Db = prisma) {
+  const fc = await db.financingCase.findFirstOrThrow({
+    where: { id: financingCaseId, organizationId },
+    include: { scenario: true },
+  });
+  const scenario = fc.scenario;
+
+  // Operating economics (frozen) — derived exactly as the ScenarioResult is (CF-5).
+  const assumptions = await resolveScenarioAssumptions(scenario.id, db);
+  const lines = await resolveScenarioLines(scenario.id, db);
+  const { scenarioVersion, inputs } = deriveScenarioResult(assumptions, lines, lineageOf(scenario));
+
+  // Capital economics (owned by the case, CF-1).
+  const capital = await resolveFinancingCapital(financingCaseId, db);
+  const cap = (k: AssumptionKey) => assumptionValue(capital, k);
+  const derived = deriveFinancingCase({
+    operatingInputs: inputs,
+    incomeGrowthPct: assumptionValue(assumptions, "INCOME_GROWTH_PCT"),
+    expenseGrowthPct: assumptionValue(assumptions, "EXPENSE_GROWTH_PCT"),
+    holdYears: assumptionValue(assumptions, "HOLD_YEARS"),
+    loanAmountUsd: cap("LOAN_AMOUNT"),
+    interestRatePct: cap("INTEREST_RATE"),
+    amortizationYears: cap("AMORTIZATION_YEARS"),
+    targetLtvPct: cap("TARGET_LTV_PCT"),
+    targetLtcPct: cap("TARGET_LTC_PCT"),
+    minDscr: cap("MIN_DSCR"),
+  });
+
+  const fpCapital: FingerprintAssumption[] = capital.map((c) => ({ key: c.key, canonical: c.canonical, source: c.source }));
+  const financingCaseVersion = computeFinancingCaseVersion(scenarioVersion, fpCapital, lineageOf(scenario));
+  if (fc.financingCaseVersion !== financingCaseVersion) {
+    await db.financingCase.update({ where: { id: financingCaseId }, data: { financingCaseVersion } });
+  }
+
+  const values = {
+    financingCaseVersion,
+    calcLibVersion: scenario.calcLibVersion,
+    annualDebtServiceUsd: derived.annualDebtServiceUsd,
+    dscr: derived.dscr,
+    debtYieldPct: derived.debtYieldPct,
+    loanByLtvUsd: derived.sizing.loanByLtvUsd,
+    loanByLtcUsd: derived.sizing.loanByLtcUsd,
+    loanByDscrUsd: derived.sizing.loanByDscrUsd,
+    sizedLoanUsd: derived.sizing.sizedLoanUsd,
+    bindingConstraint: derived.sizing.bindingConstraint,
+    projectionYears: derived.summary.projectionYears > 0 ? derived.summary.projectionYears : null,
+    avgDscr: derived.summary.avgDscr,
+    cumulativeCashFlowUsd: derived.summary.cumulativeCashFlowUsd,
+  };
+
+  // Content-idempotent result upsert.
+  const existing = await db.financingCaseResult.findUnique({ where: { financingCaseId } });
+  const resultUnchanged =
+    existing != null &&
+    existing.financingCaseVersion === values.financingCaseVersion &&
+    existing.calcLibVersion === values.calcLibVersion &&
+    FCR_METRIC_KEYS.every((k) => existing[k] === (values as Record<string, unknown>)[k]);
+  if (!resultUnchanged) {
+    await db.financingCaseResult.upsert({
+      where: { financingCaseId },
+      create: { organizationId, financingCaseId, ...values },
+      update: { organizationId, ...values },
+    });
+  }
+
+  // Cash-flow rows: disposable + rebuildable. Compare to avoid churn (zero-write
+  // when unchanged), else replace the whole series in deterministic year order.
+  const existingRows = await db.cashFlowYear.findMany({ where: { financingCaseId }, orderBy: { year: "asc" } });
+  const cfUnchanged =
+    existingRows.length === derived.cashFlow.length &&
+    derived.cashFlow.every((r, idx) => {
+      const e = existingRows[idx];
+      return (
+        e != null &&
+        e.year === r.year &&
+        e.noiUsd === r.noiUsd &&
+        e.debtServiceUsd === r.debtServiceUsd &&
+        e.cashFlowBeforeTaxUsd === r.cashFlowBeforeTaxUsd &&
+        e.dscr === r.dscr
+      );
+    });
+  if (!cfUnchanged) {
+    await db.cashFlowYear.deleteMany({ where: { financingCaseId } });
+    for (const r of derived.cashFlow) {
+      await db.cashFlowYear.create({
+        data: {
+          organizationId,
+          financingCaseId,
+          year: r.year,
+          noiUsd: r.noiUsd,
+          debtServiceUsd: r.debtServiceUsd,
+          cashFlowBeforeTaxUsd: r.cashFlowBeforeTaxUsd,
+          dscr: r.dscr,
+        },
+      });
+    }
+  }
+
+  return db.financingCaseResult.findUnique({ where: { financingCaseId } });
+}
+
+/** Rebuild every FinancingCase under a scenario (after the operating side changes). */
+async function rebuildAllFinancingCases(organizationId: string, scenarioId: string, db: Db): Promise<void> {
+  const cases = await db.financingCase.findMany({ where: { scenarioId }, orderBy: { position: "asc" } });
+  for (const fc of cases) await rebuildFinancingCase(organizationId, fc.id, db);
+}
+
+/** One capital structure to write. */
+export type FinancingCaseEntry = { label: string; source?: AssumptionSource; capital: { key: AssumptionKey; value: number | null }[] };
+
+/**
+ * Replace a DRAFT scenario's entire set of financing cases (in order), then rebuild
+ * each. Replace-whole (cascade drops each case's capital/result/cash-flow) keeps the
+ * set a clean deterministic list — position is the array index. Only CAPITAL keys
+ * are accepted (CF-1); anything else is ignored.
+ */
+export async function setFinancingCases(
+  organizationId: string,
+  scenarioId: string,
+  cases: FinancingCaseEntry[],
+  db: Db = prisma,
+): Promise<void> {
+  const scenario = await db.underwritingScenario.findFirstOrThrow({ where: { id: scenarioId, organizationId } });
+  if (scenario.status !== "DRAFT") throw new Error("Cannot modify financing cases on a non-DRAFT scenario");
+
+  await db.financingCase.deleteMany({ where: { scenarioId } });
+  for (let i = 0; i < cases.length; i++) {
+    const c = cases[i];
+    const fc = await db.financingCase.create({
+      data: { organizationId, scenarioId, label: c.label, position: i, source: c.source ?? "MANUAL", financingCaseVersion: "" },
+    });
+    for (const cap of c.capital) {
+      if (cap.value == null || !CAPITAL_ASSUMPTION_KEYS.includes(cap.key)) continue;
+      await db.financingAssumption.create({
+        data: { organizationId, financingCaseId: fc.id, key: cap.key, valueNumeric: new Prisma.Decimal(cap.value), source: c.source ?? "MANUAL" },
+      });
+    }
+  }
+  await rebuildAllFinancingCases(organizationId, scenarioId, db);
 }
 
 /** Read the Property context ONCE and freeze it as SEEDED assumptions (ScenarioSeed). */
@@ -313,7 +483,7 @@ export async function saveAnalyzerScenario(
   organizationId: string,
   opportunityId: string,
   manual: { key: AssumptionKey; value: number | null }[],
-  opts: { createdByUserId?: string; analystSummary?: string | null; lines?: LineItemEntry[] } = {},
+  opts: { createdByUserId?: string; analystSummary?: string | null; lines?: LineItemEntry[]; financingCases?: FinancingCaseEntry[] } = {},
 ) {
   return prisma.$transaction(async (tx) => {
     const scenario = await getOrCreateActiveScenarioTx(organizationId, opportunityId, tx, opts);
@@ -333,6 +503,14 @@ export async function saveAnalyzerScenario(
       });
     }
     const result = await rebuildScenarioResult(organizationId, scenario.id, tx);
+    // Financing cases consume the (now rebuilt) operating economics (CF-4/CF-5).
+    // A provided list replaces the set; otherwise refresh existing cases against
+    // the operating change.
+    if (opts.financingCases !== undefined) {
+      await setFinancingCases(organizationId, scenario.id, opts.financingCases, tx);
+    } else {
+      await rebuildAllFinancingCases(organizationId, scenario.id, tx);
+    }
     // Re-affirm the active head — idempotent in value, but bumps Underwriting.updatedAt
     // each save so "latest underwriting" ordering (dashboard) tracks analyst activity.
     await tx.underwriting.update({ where: { opportunityId }, data: { activeScenarioId: scenario.id } });
@@ -346,7 +524,15 @@ export async function getActiveScenarioResult(organizationId: string, opportunit
   if (!uw || uw.organizationId !== organizationId || !uw.activeScenarioId) return null;
   const scenario = await prisma.underwritingScenario.findFirst({
     where: { id: uw.activeScenarioId, organizationId },
-    include: { result: true, assumptions: true, lineItems: { orderBy: { position: "asc" } } },
+    include: {
+      result: true,
+      assumptions: true,
+      lineItems: { orderBy: { position: "asc" } },
+      financingCases: {
+        orderBy: { position: "asc" },
+        include: { result: true, capitalAssumptions: true, cashFlow: { orderBy: { year: "asc" } } },
+      },
+    },
   });
   return scenario;
 }
@@ -361,6 +547,7 @@ export async function lockScenario(organizationId: string, scenarioId: string, o
     if (invalid) throw new Error(`Cannot lock scenario: ${invalid}`);
     await refreshScenarioVersion(organizationId, scenarioId, tx);
     await rebuildScenarioResult(organizationId, scenarioId, tx);
+    await rebuildAllFinancingCases(organizationId, scenarioId, tx);
     void opts.actorUserId;
     return tx.underwritingScenario.update({
       where: { id: scenarioId },
@@ -379,7 +566,11 @@ export async function createNextVersion(organizationId: string, scenarioId: stri
   return prisma.$transaction(async (tx) => {
     const source = await tx.underwritingScenario.findFirstOrThrow({
       where: { id: scenarioId, organizationId },
-      include: { assumptions: true, lineItems: { orderBy: { position: "asc" } } },
+      include: {
+        assumptions: true,
+        lineItems: { orderBy: { position: "asc" } },
+        financingCases: { orderBy: { position: "asc" }, include: { capitalAssumptions: true } },
+      },
     });
     if (source.status !== "LOCKED") throw new Error("Only a LOCKED scenario can be branched into a new version");
     const max = await tx.underwritingScenario.aggregate({
@@ -425,8 +616,28 @@ export async function createNextVersion(organizationId: string, scenarioId: stri
         },
       });
     }
+    // Clone financing cases + their capital (the source is preserved, never edited).
+    for (const fc of source.financingCases) {
+      const nfc = await tx.financingCase.create({
+        data: { organizationId, scenarioId: next.id, label: fc.label, position: fc.position, source: fc.source, financingCaseVersion: "" },
+      });
+      for (const cap of fc.capitalAssumptions) {
+        await tx.financingAssumption.create({
+          data: {
+            organizationId,
+            financingCaseId: nfc.id,
+            key: cap.key,
+            valueNumeric: cap.valueNumeric,
+            source: cap.source,
+            sourceField: cap.sourceField,
+            sourceAsOf: cap.sourceAsOf,
+          },
+        });
+      }
+    }
     await refreshScenarioVersion(organizationId, next.id, tx);
     await rebuildScenarioResult(organizationId, next.id, tx);
+    await rebuildAllFinancingCases(organizationId, next.id, tx);
     await tx.underwritingScenario.update({ where: { id: source.id }, data: { status: "SUPERSEDED", supersededById: next.id } });
     await tx.underwriting.update({ where: { id: source.underwritingId }, data: { activeScenarioId: next.id } });
     return next;
@@ -435,12 +646,18 @@ export async function createNextVersion(organizationId: string, scenarioId: stri
 
 // --- migration backfill (DealAnalysis → Underwriting) -------------------------
 
+// OPERATING assumptions only (3b-iii, CF-1) — the legacy loan terms become a
+// "Base financing" FinancingCase, not Scenario assumptions.
 const BACKFILL_MANUAL_MAP: { key: AssumptionKey; field: keyof import("@prisma/client").DealAnalysis }[] = [
   { key: "PURCHASE_PRICE", field: "purchasePriceUsd" },
   { key: "RENOVATION_BUDGET", field: "renovationBudgetUsd" },
   { key: "CLOSING_COSTS", field: "closingCostsUsd" },
   { key: "GROSS_INCOME", field: "grossIncomeAnnualUsd" },
   { key: "OPERATING_EXPENSES", field: "operatingExpensesUsd" },
+];
+
+// Legacy debt columns → the Base financing case's capital assumptions.
+const BACKFILL_CAPITAL_MAP: { key: AssumptionKey; field: keyof import("@prisma/client").DealAnalysis }[] = [
   { key: "LOAN_AMOUNT", field: "loanAmountUsd" },
   { key: "INTEREST_RATE", field: "interestRatePct" },
   { key: "AMORTIZATION_YEARS", field: "amortizationYears" },
@@ -488,6 +705,13 @@ export async function backfillUnderwritingFromDealAnalysis(organizationId: strin
       await seedScenarioFromProperty(organizationId, scenario.id, a.propertyId, a.createdAt, tx);
       await refreshScenarioVersion(organizationId, scenario.id, tx);
       await rebuildScenarioResult(organizationId, scenario.id, tx);
+      // Legacy debt → a single Base financing case (only if any debt term was set).
+      const capital = BACKFILL_CAPITAL_MAP.map((m) => ({ key: m.key, value: (a[m.field] as number | null) ?? null })).filter(
+        (c) => c.value != null,
+      );
+      if (capital.length > 0) {
+        await setFinancingCases(organizationId, scenario.id, [{ label: "Base financing", capital }], tx);
+      }
       await tx.underwriting.update({ where: { id: uw.id }, data: { activeScenarioId: scenario.id } });
     });
     created++;

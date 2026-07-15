@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
-import { saveAnalyzerScenario } from "@/lib/underwriting";
+import { saveAnalyzerScenario, type FinancingCaseEntry } from "@/lib/underwriting";
 import type { AssumptionKey } from "@/lib/underwriting/assumptions";
 
 export type AnalysisFormState = { error?: string } | undefined;
@@ -54,20 +54,18 @@ export async function saveAnalysis(
     return { error: "Purchase price is required and must be greater than zero." };
   }
 
-  // Map the form to the MANUAL assumption set (the 8 analyst-authored inputs).
+  // Map the form to the OPERATING MANUAL assumption set. Capital (loan/rate/amort +
+  // sizing) is no longer here — it lives on the FinancingCase (3b-iii, CF-1).
   const manual: { key: AssumptionKey; value: number | null }[] = [
     { key: "PURCHASE_PRICE", value: purchasePriceUsd },
     { key: "RENOVATION_BUDGET", value: intOrNull(str("renovationBudgetUsd")) },
     { key: "CLOSING_COSTS", value: intOrNull(str("closingCostsUsd")) },
     { key: "GROSS_INCOME", value: intOrNull(str("grossIncomeAnnualUsd")) },
     { key: "OPERATING_EXPENSES", value: intOrNull(str("operatingExpensesUsd")) },
-    { key: "LOAN_AMOUNT", value: intOrNull(str("loanAmountUsd")) },
-    { key: "INTEREST_RATE", value: floatOrNull(str("interestRatePct")) },
-    { key: "AMORTIZATION_YEARS", value: intOrNull(str("amortizationYears")) },
-    // Debt-sizing constraints (3b-i) — optional; not kernel inputs.
-    { key: "TARGET_LTV_PCT", value: floatOrNull(str("targetLtvPct")) },
-    { key: "TARGET_LTC_PCT", value: floatOrNull(str("targetLtcPct")) },
-    { key: "MIN_DSCR", value: floatOrNull(str("minDscr")) },
+    // Projection assumptions (3b-iii) — operating, financing-independent.
+    { key: "INCOME_GROWTH_PCT", value: floatOrNull(str("incomeGrowthPct")) },
+    { key: "EXPENSE_GROWTH_PCT", value: floatOrNull(str("expenseGrowthPct")) },
+    { key: "HOLD_YEARS", value: intOrNull(str("holdYears")) },
   ];
 
   // Optional income/expense schedule (3b-ii). The client serializes rows to JSON; a
@@ -94,12 +92,44 @@ export async function saveAnalysis(
     }
   }
 
+  // Optional financing cases (3b-iii). Client serializes rows to JSON; a present-
+  // but-empty array clears all cases. Only capital keys are carried; a case may be
+  // all-cash (no capital) — a valid unlevered structure.
+  let financingCases: FinancingCaseEntry[] | undefined;
+  const capNum = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  const fcRaw = str("financingCasesJson");
+  if (fcRaw) {
+    try {
+      const parsed: unknown = JSON.parse(fcRaw);
+      if (Array.isArray(parsed)) {
+        financingCases = parsed
+          .filter((c): c is Record<string, unknown> => !!c && typeof c === "object")
+          .map((c) => ({
+            label: String(c.label ?? "Financing").trim().slice(0, 120) || "Financing",
+            capital: (
+              [
+                { key: "LOAN_AMOUNT" as const, value: capNum(c.loanAmountUsd) },
+                { key: "INTEREST_RATE" as const, value: capNum(c.interestRatePct) },
+                { key: "AMORTIZATION_YEARS" as const, value: capNum(c.amortizationYears) },
+                { key: "TARGET_LTV_PCT" as const, value: capNum(c.targetLtvPct) },
+                { key: "TARGET_LTC_PCT" as const, value: capNum(c.targetLtcPct) },
+                { key: "MIN_DSCR" as const, value: capNum(c.minDscr) },
+              ] as { key: AssumptionKey; value: number | null }[]
+            ).filter((x) => x.value != null),
+          }));
+      }
+    } catch {
+      financingCases = undefined;
+    }
+  }
+
   const existed = (await prisma.underwriting.findUnique({ where: { opportunityId: opportunity.id } })) != null;
 
   const { result } = await saveAnalyzerScenario(user.organizationId, opportunity.id, manual, {
     createdByUserId: user.id,
     analystSummary: orNull(str("analystSummary")),
     lines,
+    financingCases,
   });
 
   await prisma.activityLog.create({
