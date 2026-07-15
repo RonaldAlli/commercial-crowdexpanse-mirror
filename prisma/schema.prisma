@@ -159,9 +159,10 @@ enum RefreshJobStatus {
   NOOP
 }
 
-// Which canonical entity a signal is about (extensible: PROPERTY, MARKET later).
+// Which canonical entity a signal is about (extensible: MARKET later).
 enum IntelligenceEntityType {
   OWNER
+  PROPERTY
 }
 
 model User {

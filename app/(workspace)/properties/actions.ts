@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { authorize, checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
+import { createPropertyRecord, updatePropertyRecord } from "@/lib/properties";
 import { titleCase } from "@/lib/property-options";
 
 export type PropertyFormState = { error?: string } | undefined;
@@ -111,9 +112,15 @@ export async function createProperty(
   const result = await buildPayload(formData, user.organizationId);
   if ("error" in result) return { error: result.error };
 
-  const property = await prisma.property.create({
-    data: { organizationId: user.organizationId, ...result.payload },
-  });
+  // Projected fields (yearBuilt, squareFeet) flow through the ledger; operational
+  // columns are written directly — the domain module keeps both in one transaction.
+  const { yearBuilt, squareFeet, ...operational } = result.payload;
+  const property = await createPropertyRecord(
+    user.organizationId,
+    operational,
+    { yearBuilt, squareFeet },
+    { actorUserId: user.id },
+  );
 
   await prisma.activityLog.create({
     data: {
@@ -151,10 +158,16 @@ export async function updateProperty(
   const result = await buildPayload(formData, user.organizationId);
   if ("error" in result) return { error: result.error };
 
-  const property = await prisma.property.update({
-    where: { id: existing.id },
-    data: result.payload,
-  });
+  // Projected fields (yearBuilt, squareFeet) flow through the ledger; operational
+  // columns are written directly — the domain module keeps both in one transaction.
+  const { yearBuilt, squareFeet, ...operational } = result.payload;
+  const property = await updatePropertyRecord(
+    user.organizationId,
+    existing.id,
+    operational,
+    { yearBuilt, squareFeet },
+    { actorUserId: user.id },
+  );
 
   await prisma.activityLog.create({
     data: {

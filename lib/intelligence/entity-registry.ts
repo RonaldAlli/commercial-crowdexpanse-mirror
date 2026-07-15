@@ -27,6 +27,8 @@ import type { IntelligenceEntityType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isOwnerProjectedField, type OwnerProjectedField } from "@/lib/intelligence/owner-fields";
 import { recomputeOwnerField } from "@/lib/intelligence/projection";
+import { isPropertyProjectedField, type PropertyProjectedField } from "@/lib/intelligence/property-fields";
+import { recomputePropertyField } from "@/lib/intelligence/property-projection";
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -50,6 +52,14 @@ export const ENTITY_PROJECTORS: Record<IntelligenceEntityType, EntityProjector> 
     isProjectedField: isOwnerProjectedField,
     recomputeField: async (db, organizationId, entityId, fieldKey) => {
       await recomputeOwnerField(organizationId, entityId, fieldKey as OwnerProjectedField, db);
+    },
+  },
+  PROPERTY: {
+    resolveTarget: (db, organizationId, entityId) =>
+      db.property.findFirst({ where: { id: entityId, organizationId }, select: { id: true } }),
+    isProjectedField: isPropertyProjectedField,
+    recomputeField: async (db, organizationId, entityId, fieldKey) => {
+      await recomputePropertyField(organizationId, entityId, fieldKey as PropertyProjectedField, db);
     },
   },
 };
