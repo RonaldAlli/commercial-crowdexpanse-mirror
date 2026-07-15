@@ -64,6 +64,11 @@ export default async function EditAnalysisPage({ params }: { params: { opportuni
                   targetLtvPct: val("TARGET_LTV_PCT"),
                   targetLtcPct: val("TARGET_LTC_PCT"),
                   minDscr: val("MIN_DSCR"),
+                  lines: (scenario?.lineItems ?? []).map((l) => ({
+                    kind: l.kind,
+                    category: l.category,
+                    amountAnnualUsd: l.amountAnnualUsd.toNumber(),
+                  })),
                   analystSummary: scenario?.analystSummary ?? null,
                 }
               : undefined

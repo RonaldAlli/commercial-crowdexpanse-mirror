@@ -14,7 +14,7 @@
 //   • ScenarioResult rebuild reads ONLY frozen assumptions + model lineage + the
 //     pure kernel — never current Property projections.
 import { Prisma } from "@prisma/client";
-import type { AssumptionSource } from "@prisma/client";
+import type { AssumptionSource, LineItemKind } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import {
@@ -25,9 +25,11 @@ import {
 import {
   CURRENT_MODEL_LINEAGE,
   computeScenarioVersion,
+  type FingerprintLine,
   type ModelLineage,
 } from "@/lib/underwriting/model-version";
 import { deriveScenarioResult } from "@/lib/underwriting/scenario-result";
+import type { ResolvedLine } from "@/lib/underwriting/schedule";
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -59,12 +61,28 @@ function lineageOf(s: { modelVersion: number; calcLibVersion: number; rulesetVer
   return { modelVersion: s.modelVersion, calcLibVersion: s.calcLibVersion, rulesetVersion: s.rulesetVersion };
 }
 
-/** Recompute + persist scenario.scenarioVersion from its current assumptions (zero-write if unchanged). */
+/** Read a scenario's schedule line items and resolve them to the calculation boundary. */
+export async function resolveScenarioLines(scenarioId: string, db: Db = prisma): Promise<ResolvedLine[]> {
+  const rows = await db.scenarioLineItem.findMany({ where: { scenarioId }, orderBy: { position: "asc" } });
+  return rows.map((r) => ({
+    kind: r.kind,
+    category: r.category,
+    amountAnnualUsd: r.amountAnnualUsd.toNumber(),
+    position: r.position,
+    canonical: r.amountAnnualUsd.toString(),
+  }));
+}
+
+function toFingerprintLines(lines: ResolvedLine[]): FingerprintLine[] {
+  return lines.map((l) => ({ kind: l.kind, category: l.category, canonical: l.canonical }));
+}
+
+/** Recompute + persist scenario.scenarioVersion from its assumptions + line items (zero-write if unchanged). */
 async function refreshScenarioVersion(organizationId: string, scenarioId: string, db: Db): Promise<string> {
   const assumptions = await resolveScenarioAssumptions(scenarioId, db);
+  const lines = await resolveScenarioLines(scenarioId, db);
   const scenario = await db.underwritingScenario.findFirstOrThrow({ where: { id: scenarioId, organizationId } });
-  // ResolvedAssumption carries { key, canonical, source } → feeds the fingerprint directly.
-  const scenarioVersion = computeScenarioVersion(assumptions, lineageOf(scenario));
+  const scenarioVersion = computeScenarioVersion(assumptions, lineageOf(scenario), toFingerprintLines(lines));
   if (scenario.scenarioVersion !== scenarioVersion) {
     await db.underwritingScenario.update({ where: { id: scenarioId }, data: { scenarioVersion } });
   }
@@ -72,6 +90,9 @@ async function refreshScenarioVersion(organizationId: string, scenarioId: string
 }
 
 const RESULT_METRIC_KEYS = [
+  // Effective schedule totals (3b-ii)
+  "grossIncomeAnnualUsd",
+  "operatingExpensesUsd",
   "noiAnnualUsd",
   "allInCostUsd",
   "capRate",
@@ -98,10 +119,18 @@ export async function rebuildScenarioResult(organizationId: string, scenarioId: 
   const assumptions = await resolveScenarioAssumptions(scenarioId, db);
   const invalid = validateAssumptions(assumptions);
   if (invalid) throw new Error(`Cannot derive ScenarioResult: ${invalid}`);
+  const lines = await resolveScenarioLines(scenarioId, db);
   const scenario = await db.underwritingScenario.findFirstOrThrow({ where: { id: scenarioId, organizationId } });
-  const { scenarioVersion, metrics, sizing } = deriveScenarioResult(assumptions, lineageOf(scenario));
+  const { scenarioVersion, metrics, sizing, effective } = deriveScenarioResult(assumptions, lines, lineageOf(scenario));
 
-  const values = { scenarioVersion, calcLibVersion: scenario.calcLibVersion, ...pickMetrics(metrics), ...sizing };
+  const values = {
+    scenarioVersion,
+    calcLibVersion: scenario.calcLibVersion,
+    grossIncomeAnnualUsd: effective.grossIncomeAnnualUsd,
+    operatingExpensesUsd: effective.operatingExpensesUsd,
+    ...pickMetrics(metrics),
+    ...sizing,
+  };
   const existing = await db.scenarioResult.findUnique({ where: { scenarioId } });
   const unchanged =
     existing != null &&
@@ -158,6 +187,41 @@ export async function setScenarioAssumptions(
       where: { scenarioId_key: { scenarioId, key: e.key } },
       create: { organizationId, scenarioId, key: e.key, ...data },
       update: data,
+    });
+  }
+  await refreshScenarioVersion(organizationId, scenarioId, db);
+}
+
+/** One schedule line to write. */
+export type LineItemEntry = { kind: LineItemKind; category: string; amountAnnualUsd: number; source?: AssumptionSource };
+
+/**
+ * Replace a DRAFT scenario's entire schedule with the given line items (in order),
+ * then refresh its fingerprint. Replace-whole (not per-row upsert) keeps the schedule
+ * a clean deterministic set — position is the array index.
+ */
+export async function setScenarioLineItems(
+  organizationId: string,
+  scenarioId: string,
+  lines: LineItemEntry[],
+  db: Db = prisma,
+): Promise<void> {
+  const scenario = await db.underwritingScenario.findFirstOrThrow({ where: { id: scenarioId, organizationId } });
+  if (scenario.status !== "DRAFT") throw new Error("Cannot modify the schedule on a non-DRAFT scenario");
+
+  await db.scenarioLineItem.deleteMany({ where: { scenarioId } });
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    await db.scenarioLineItem.create({
+      data: {
+        organizationId,
+        scenarioId,
+        kind: l.kind,
+        category: l.category,
+        amountAnnualUsd: new Prisma.Decimal(l.amountAnnualUsd),
+        position: i,
+        source: l.source ?? "MANUAL",
+      },
     });
   }
   await refreshScenarioVersion(organizationId, scenarioId, db);
@@ -249,7 +313,7 @@ export async function saveAnalyzerScenario(
   organizationId: string,
   opportunityId: string,
   manual: { key: AssumptionKey; value: number | null }[],
-  opts: { createdByUserId?: string; analystSummary?: string | null } = {},
+  opts: { createdByUserId?: string; analystSummary?: string | null; lines?: LineItemEntry[] } = {},
 ) {
   return prisma.$transaction(async (tx) => {
     const scenario = await getOrCreateActiveScenarioTx(organizationId, opportunityId, tx, opts);
@@ -259,6 +323,9 @@ export async function saveAnalyzerScenario(
       manual.map((m) => ({ key: m.key, value: m.value, source: "MANUAL" as AssumptionSource })),
       tx,
     );
+    if (opts.lines !== undefined) {
+      await setScenarioLineItems(organizationId, scenario.id, opts.lines, tx);
+    }
     if (opts.analystSummary !== undefined) {
       await tx.underwritingScenario.update({
         where: { id: scenario.id },
@@ -279,7 +346,7 @@ export async function getActiveScenarioResult(organizationId: string, opportunit
   if (!uw || uw.organizationId !== organizationId || !uw.activeScenarioId) return null;
   const scenario = await prisma.underwritingScenario.findFirst({
     where: { id: uw.activeScenarioId, organizationId },
-    include: { result: true, assumptions: true },
+    include: { result: true, assumptions: true, lineItems: { orderBy: { position: "asc" } } },
   });
   return scenario;
 }
@@ -312,7 +379,7 @@ export async function createNextVersion(organizationId: string, scenarioId: stri
   return prisma.$transaction(async (tx) => {
     const source = await tx.underwritingScenario.findFirstOrThrow({
       where: { id: scenarioId, organizationId },
-      include: { assumptions: true },
+      include: { assumptions: true, lineItems: { orderBy: { position: "asc" } } },
     });
     if (source.status !== "LOCKED") throw new Error("Only a LOCKED scenario can be branched into a new version");
     const max = await tx.underwritingScenario.aggregate({
@@ -342,6 +409,19 @@ export async function createNextVersion(organizationId: string, scenarioId: stri
           source: a.source,
           sourceField: a.sourceField,
           sourceAsOf: a.sourceAsOf,
+        },
+      });
+    }
+    for (const l of source.lineItems) {
+      await tx.scenarioLineItem.create({
+        data: {
+          organizationId,
+          scenarioId: next.id,
+          kind: l.kind,
+          category: l.category,
+          amountAnnualUsd: l.amountAnnualUsd,
+          position: l.position,
+          source: l.source,
         },
       });
     }

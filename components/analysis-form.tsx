@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 
 import type { AnalysisFormState } from "@/app/(workspace)/analyzer/actions";
+
+export type ScheduleLineValue = { kind: "INCOME" | "EXPENSE"; category: string; amountAnnualUsd: number };
 
 export type AnalysisFormValues = {
   purchasePriceUsd?: number | null;
@@ -18,8 +20,64 @@ export type AnalysisFormValues = {
   targetLtvPct?: number | null;
   targetLtcPct?: number | null;
   minDscr?: number | null;
+  lines?: ScheduleLineValue[];
   analystSummary?: string | null;
 };
+
+type ScheduleRow = { kind: "INCOME" | "EXPENSE"; category: string; amount: string };
+
+// Optional line-item schedule. When any income (or expense) lines are present they
+// roll up to that total, overriding the single scalar field above. Serialized into a
+// hidden field the server action parses — the UI never computes an authoritative
+// total itself (UW-6); it just captures inputs.
+function ScheduleEditor({ initial }: { initial?: ScheduleLineValue[] }) {
+  const [rows, setRows] = useState<ScheduleRow[]>(
+    (initial ?? []).map((l) => ({ kind: l.kind, category: l.category, amount: String(l.amountAnnualUsd) })),
+  );
+  const serialized = JSON.stringify(
+    rows
+      .map((r) => ({ kind: r.kind, category: r.category.trim(), amountAnnualUsd: Number(r.amount.replace(/[,$\s]/g, "")) }))
+      .filter((r) => r.category.length > 0 && Number.isFinite(r.amountAnnualUsd)),
+  );
+  const add = (kind: "INCOME" | "EXPENSE") => setRows((rs) => [...rs, { kind, category: "", amount: "" }]);
+  const update = (i: number, patch: Partial<ScheduleRow>) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const remove = (i: number) => setRows((rs) => rs.filter((_, j) => j !== i));
+
+  const group = (kind: "INCOME" | "EXPENSE", title: string) => (
+    <div>
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-slate-700">{title}</p>
+        <button type="button" className="btn-ghost text-xs" onClick={() => add(kind)}>
+          + Add line
+        </button>
+      </div>
+      <div className="mt-2 space-y-2">
+        {rows.map((r, i) =>
+          r.kind === kind ? (
+            <div key={i} className="flex items-center gap-2">
+              <input className="input flex-1" placeholder="Category" value={r.category} onChange={(e) => update(i, { category: e.target.value })} />
+              <input className="input w-36" type="number" min="0" step="any" placeholder="Annual USD" value={r.amount} onChange={(e) => update(i, { amount: e.target.value })} />
+              <button type="button" className="px-2 text-lg leading-none text-slate-400 hover:text-rose-500" onClick={() => remove(i)} aria-label="Remove line">
+                ×
+              </button>
+            </div>
+          ) : null,
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <section className="space-y-4">
+      <p className="eyebrow">Income &amp; expense schedule (optional — a schedule overrides the single total above)</p>
+      <input type="hidden" name="scheduleJson" value={serialized} />
+      <div className="grid gap-6 sm:grid-cols-2">
+        {group("INCOME", "Income lines")}
+        {group("EXPENSE", "Expense lines")}
+      </div>
+    </section>
+  );
+}
 
 function num(value: number | null | undefined) {
   return value == null ? "" : String(value);
@@ -87,6 +145,8 @@ export function AnalysisForm({
         <Field label="Gross income / yr (USD)" name="grossIncomeAnnualUsd" value={values?.grossIncomeAnnualUsd} />
         <Field label="Operating expenses / yr (USD)" name="operatingExpensesUsd" value={values?.operatingExpensesUsd} />
       </Section>
+
+      <ScheduleEditor initial={values?.lines} />
 
       <Section title="Debt (optional — enables DSCR & debt yield)">
         <Field label="Loan amount (USD)" name="loanAmountUsd" value={values?.loanAmountUsd} />

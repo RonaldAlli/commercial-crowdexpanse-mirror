@@ -15,10 +15,12 @@
 //   v1 (3a) — model 1 / calc 1 / rules 1: the core kernel + snapshot ownership.
 //   v2 (3b-i) — model 2 (new debt-sizing assumptions exist) / calc 2 (new
 //     deterministic debt-sizing calculation) / rules 1 (unchanged).
+//   v3 (3b-ii) — model 3 (scenario line-item schedules exist) / calc 3 (new
+//     deterministic schedule roll-up feeding NOI) / rules 1 (unchanged).
 import { createHash } from "node:crypto";
 
-export const UNDERWRITING_MODEL_VERSION = 2;
-export const CALCULATION_LIBRARY_VERSION = 2;
+export const UNDERWRITING_MODEL_VERSION = 3;
+export const CALCULATION_LIBRARY_VERSION = 3;
 export const RULESET_VERSION = 1;
 
 export type ModelLineage = {
@@ -36,6 +38,9 @@ export const CURRENT_MODEL_LINEAGE: ModelLineage = {
 /** One assumption as it participates in the fingerprint — a canonical STRING value. */
 export type FingerprintAssumption = { key: string; canonical: string; source: string };
 
+/** One schedule line as it participates in the fingerprint (position excluded — presentation only). */
+export type FingerprintLine = { kind: string; category: string; canonical: string };
+
 /**
  * Deterministic scenario FINGERPRINT: a pure function of the frozen assumption
  * set + a canonical (by-key) ordering + the model lineage — no wall-clock, no
@@ -45,11 +50,22 @@ export type FingerprintAssumption = { key: string; canonical: string; source: st
  * lineage; either flips the fingerprint. Values are canonical decimal strings so
  * that numerically-equal Decimals (e.g. trailing zeros) fingerprint identically.
  */
-export function computeScenarioVersion(assumptions: FingerprintAssumption[], lineage: ModelLineage): string {
-  const sorted = [...assumptions].sort((a, b) => a.key.localeCompare(b.key));
+export function computeScenarioVersion(
+  assumptions: FingerprintAssumption[],
+  lineage: ModelLineage,
+  lines: FingerprintLine[] = [],
+): string {
+  const sortedA = [...assumptions].sort((a, b) => a.key.localeCompare(b.key));
   const rows: string[][] = [];
-  for (const x of sorted) rows.push([x.key, x.canonical, x.source]);
+  for (const x of sortedA) rows.push([x.key, x.canonical, x.source]);
+  // Canonical, position-independent line ordering: reordering a schedule is a
+  // presentation change (UW-8), so it must not flip the fingerprint.
+  const sortedL = [...lines].sort(
+    (a, b) => a.kind.localeCompare(b.kind) || a.category.localeCompare(b.category) || a.canonical.localeCompare(b.canonical),
+  );
+  const lineRows: string[][] = [];
+  for (const l of sortedL) lineRows.push([l.kind, l.category, l.canonical]);
   const { modelVersion, calcLibVersion, rulesetVersion } = lineage;
-  const canonical = JSON.stringify({ model: modelVersion, calc: calcLibVersion, rules: rulesetVersion, a: rows });
+  const canonical = JSON.stringify({ model: modelVersion, calc: calcLibVersion, rules: rulesetVersion, a: rows, s: lineRows });
   return createHash("sha256").update(canonical).digest("hex").slice(0, 32);
 }

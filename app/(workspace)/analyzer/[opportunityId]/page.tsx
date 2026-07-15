@@ -162,6 +162,36 @@ export default async function AnalysisViewPage({ params }: { params: { opportuni
         </article>
       </div>
 
+      {scenario.lineItems.length > 0 ? (
+        <article className="card p-6">
+          <p className="eyebrow">Income &amp; expense schedule</p>
+          <div className="mt-4 grid gap-8 sm:grid-cols-2">
+            {(["INCOME", "EXPENSE"] as const).map((kind) => {
+              const rows = scenario.lineItems.filter((l) => l.kind === kind);
+              if (rows.length === 0) return <div key={kind} />;
+              const total = kind === "INCOME" ? m.grossIncomeAnnualUsd : m.operatingExpensesUsd;
+              return (
+                <div key={kind}>
+                  <p className="text-sm font-medium text-slate-700">{kind === "INCOME" ? "Income" : "Operating expenses"}</p>
+                  <dl className="mt-2 divide-y divide-slate-100">
+                    {rows.map((l) => (
+                      <div key={l.id} className="flex items-center justify-between py-1.5 text-sm">
+                        <dt className="text-slate-500">{l.category}</dt>
+                        <dd className="metric font-medium text-slate-900">{usd(l.amountAnnualUsd.toNumber())}</dd>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between py-1.5 text-sm">
+                      <dt className="font-semibold text-slate-700">Effective total</dt>
+                      <dd className="metric font-semibold text-emerald-600">{usd(total)}</dd>
+                    </div>
+                  </dl>
+                </div>
+              );
+            })}
+          </div>
+        </article>
+      ) : null}
+
       {m.sizedLoanUsd != null ? (
         <article className="card p-6">
           <div className="flex items-center justify-between">

@@ -90,7 +90,7 @@ try {
   const sc1 = await prisma.underwritingScenario.findUnique({ where: { id: scenarioId } });
   assert(typeof sc1.scenarioVersion === "string" && sc1.scenarioVersion.length === 32, "scenario carries a 32-char scenarioVersion");
   assert(result.scenarioVersion === sc1.scenarioVersion, "the result reflects the scenario's current scenarioVersion (not stale)");
-  assert(sc1.modelVersion === 2 && sc1.calcLibVersion === 2 && sc1.rulesetVersion === 1, "model lineage frozen on the scenario (3b-i bump)");
+  assert(sc1.modelVersion === 3 && sc1.calcLibVersion === 3 && sc1.rulesetVersion === 1, "model lineage frozen on the scenario (3b-ii bump)");
 
   console.log("\n[4] ScenarioSeed is a ONE-WAY snapshot — a later Property change never mutates the Scenario:");
   await prisma.property.update({ where: { id: prop.id }, data: { estimatedValueUsd: 5_000_000 } });
@@ -182,6 +182,31 @@ try {
   await rebuildScenarioResult(a.id, sres.scenarioId);
   const sAfter = await prisma.scenarioResult.findUnique({ where: { scenarioId: sres.scenarioId } });
   assert(sAfter.sizedLoanUsd === 750_000 && sAfter.bindingConstraint === "LTV", "sized result reconstructs deterministically from frozen assumptions");
+
+  console.log("\n[11] Income/expense schedules (3b-ii) — roll up to NOI, override scalar, rebuild, revert:");
+  const schedProp = await createPropertyRecord(a.id, op({ name: "Sched", unitCount: UNIT_COUNT, estimatedValueUsd: 1_200_000 }), {});
+  const schedOpp = await mkOpp(a.id, schedProp.id, "Sched deal");
+  const schedLines = [
+    { kind: "INCOME", category: "Base Rent", amountAnnualUsd: 100_000 },
+    { kind: "INCOME", category: "Other Income", amountAnnualUsd: 40_000 },
+    { kind: "EXPENSE", category: "Taxes", amountAnnualUsd: 30_000 },
+    { kind: "EXPENSE", category: "Insurance", amountAnnualUsd: 20_000 },
+  ];
+  // MANUAL carries scalar gross income 120k / opex 40k; the schedule (140k / 50k) overrides.
+  const schedRes = (await saveAnalyzerScenario(a.id, schedOpp.id, MANUAL, { lines: schedLines })).result;
+  assert(schedRes.grossIncomeAnnualUsd === 140_000, "effective gross income = income schedule sum (140k), overriding scalar 120k");
+  assert(schedRes.operatingExpensesUsd === 50_000, "effective opex = expense schedule sum (50k), overriding scalar 40k");
+  assert(schedRes.noiAnnualUsd === 90_000, "NOI = 140k − 50k = 90k, sourced from the schedule");
+  const schedSid = schedRes.scenarioId;
+  assert((await prisma.scenarioLineItem.count({ where: { scenarioId: schedSid } })) === 4, "4 schedule line items persisted");
+  // Rebuild reads the schedule deterministically (never current Property state).
+  await prisma.scenarioResult.delete({ where: { scenarioId: schedSid } });
+  await rebuildScenarioResult(a.id, schedSid);
+  assert((await prisma.scenarioResult.findUnique({ where: { scenarioId: schedSid } })).noiAnnualUsd === 90_000, "schedule-derived NOI reconstructs from persisted line items");
+  // Clearing the schedule reverts to the scalar assumptions (behavior preserved).
+  await saveAnalyzerScenario(a.id, schedOpp.id, MANUAL, { lines: [] });
+  const cleared = (await getActiveScenarioResult(a.id, schedOpp.id)).result;
+  assert(cleared.grossIncomeAnnualUsd === 120_000 && cleared.noiAnnualUsd === 80_000, "clearing the schedule reverts to scalar gross income 120k / NOI 80k");
 } finally {
   console.log("\nCleaning up throwaway orgs (cascade)...");
   for (const id of orgIds) await prisma.organization.delete({ where: { id } }).catch((e) => console.log(`  cleanup warn: ${e.message}`));

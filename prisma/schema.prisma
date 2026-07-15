@@ -847,6 +847,12 @@ enum DebtSizingConstraint {
   DSCR
 }
 
+// A scenario income/expense schedule line (v1.3, Commit 3b-ii).
+enum LineItemKind {
+  INCOME
+  EXPENSE
+}
+
 model Underwriting {
   id               String                 @id @default(cuid())
   organizationId   String
@@ -890,6 +896,7 @@ model UnderwritingScenario {
   lockedAt        DateTime?
   underwriting    Underwriting             @relation(fields: [underwritingId], references: [id], onDelete: Cascade)
   assumptions     UnderwritingAssumption[]
+  lineItems       ScenarioLineItem[]
   result          ScenarioResult?
 
   @@unique([underwritingId, version])
@@ -924,6 +931,10 @@ model ScenarioResult {
   // The scenarioVersion this result was derived from (staleness detection).
   scenarioVersion      String
   calcLibVersion       Int
+  // Effective income/expense used for NOI (v1.3, Commit 3b-ii) — the rolled-up
+  // schedule total when a schedule exists, else the scalar assumption.
+  grossIncomeAnnualUsd Int?
+  operatingExpensesUsd Int?
   noiAnnualUsd         Int?
   allInCostUsd         Int
   capRate              Float?
@@ -946,6 +957,28 @@ model ScenarioResult {
 
   @@index([organizationId])
   @@map("scenario_results")
+}
+
+// One income or expense line on a scenario's schedule (v1.3, Commit 3b-ii). Income
+// lines roll up to the effective gross income and expense lines to the effective
+// operating expenses, feeding the unchanged kernel. Belongs to exactly one Scenario;
+// `source` mirrors assumptions (MANUAL analyst input; SEEDED reserved). `position`
+// is presentation ordering only — it is excluded from the deterministic fingerprint.
+model ScenarioLineItem {
+  id              String               @id @default(cuid())
+  organizationId  String
+  scenarioId      String
+  kind            LineItemKind
+  category        String
+  amountAnnualUsd Decimal
+  position        Int
+  source          AssumptionSource
+  createdAt       DateTime             @default(now())
+  scenario        UnderwritingScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([scenarioId])
+  @@map("scenario_line_items")
 }
 
 model Task {

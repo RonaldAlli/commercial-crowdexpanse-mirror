@@ -70,11 +70,36 @@ export async function saveAnalysis(
     { key: "MIN_DSCR", value: floatOrNull(str("minDscr")) },
   ];
 
+  // Optional income/expense schedule (3b-ii). The client serializes rows to JSON; a
+  // present-but-empty array clears the schedule. Unparseable input leaves it untouched.
+  let lines: { kind: "INCOME" | "EXPENSE"; category: string; amountAnnualUsd: number }[] | undefined;
+  const scheduleRaw = str("scheduleJson");
+  if (scheduleRaw) {
+    try {
+      const parsed: unknown = JSON.parse(scheduleRaw);
+      if (Array.isArray(parsed)) {
+        lines = parsed
+          .filter(
+            (l): l is { kind: "INCOME" | "EXPENSE"; category: string; amountAnnualUsd: number } =>
+              !!l &&
+              (l.kind === "INCOME" || l.kind === "EXPENSE") &&
+              typeof l.category === "string" &&
+              l.category.trim().length > 0 &&
+              Number.isFinite(Number(l.amountAnnualUsd)),
+          )
+          .map((l) => ({ kind: l.kind, category: l.category.trim().slice(0, 120), amountAnnualUsd: Math.round(Number(l.amountAnnualUsd)) }));
+      }
+    } catch {
+      lines = undefined;
+    }
+  }
+
   const existed = (await prisma.underwriting.findUnique({ where: { opportunityId: opportunity.id } })) != null;
 
   const { result } = await saveAnalyzerScenario(user.organizationId, opportunity.id, manual, {
     createdByUserId: user.id,
     analystSummary: orNull(str("analystSummary")),
+    lines,
   });
 
   await prisma.activityLog.create({

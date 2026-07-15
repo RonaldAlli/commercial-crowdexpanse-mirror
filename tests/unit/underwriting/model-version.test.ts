@@ -8,6 +8,7 @@ import {
   RULESET_VERSION,
   computeScenarioVersion,
   type FingerprintAssumption,
+  type FingerprintLine,
   type ModelLineage,
 } from "../../../lib/underwriting/model-version";
 
@@ -18,11 +19,11 @@ const set: FingerprintAssumption[] = [
   { key: "UNIT_COUNT", canonical: "10", source: "SEEDED" },
 ];
 
-test("lineage constants reflect the 3b-i bump and CURRENT_MODEL_LINEAGE mirrors them", () => {
-  assert.equal(UNDERWRITING_MODEL_VERSION, 2);
-  assert.equal(CALCULATION_LIBRARY_VERSION, 2);
+test("lineage constants reflect the 3b-ii bump and CURRENT_MODEL_LINEAGE mirrors them", () => {
+  assert.equal(UNDERWRITING_MODEL_VERSION, 3);
+  assert.equal(CALCULATION_LIBRARY_VERSION, 3);
   assert.equal(RULESET_VERSION, 1);
-  assert.deepEqual(L, { modelVersion: 2, calcLibVersion: 2, rulesetVersion: 1 });
+  assert.deepEqual(L, { modelVersion: 3, calcLibVersion: 3, rulesetVersion: 1 });
 });
 
 test("fingerprint is a 32-char hex string", () => {
@@ -70,6 +71,36 @@ test("an empty assumption set still fingerprints deterministically", () => {
   assert.equal(fp.length, 32);
   assert.equal(computeScenarioVersion([], L), fp);
   assert.notEqual(fp, computeScenarioVersion(set, L));
+});
+
+// --- Schedule line-item participation (3b-ii) -------------------------------
+// Lines crafted to force every tie-break in the canonical comparator: two share
+// kind+category (differ only by amount), one shares kind but not category, one
+// differs by kind. Sorting this set exercises all three `||` operands.
+const lines: FingerprintLine[] = [
+  { kind: "INCOME", category: "Base Rent", canonical: "100000" },
+  { kind: "INCOME", category: "Base Rent", canonical: "50000" },
+  { kind: "INCOME", category: "Other Income", canonical: "40000" },
+  { kind: "EXPENSE", category: "Taxes", canonical: "30000" },
+];
+
+test("adding a schedule flips the fingerprint versus the same assumptions with no schedule", () => {
+  assert.notEqual(computeScenarioVersion(set, L), computeScenarioVersion(set, L, lines));
+});
+
+test("reordering schedule lines does NOT change the fingerprint (canonical, position-independent — UW-8)", () => {
+  const reordered = [lines[3], lines[1], lines[0], lines[2]];
+  assert.equal(computeScenarioVersion(set, L, lines), computeScenarioVersion(set, L, reordered));
+});
+
+test("changing a line AMOUNT (canonical), CATEGORY, or KIND each flips the fingerprint", () => {
+  const base = computeScenarioVersion(set, L, lines);
+  const amount = lines.map((l, i) => (i === 0 ? { ...l, canonical: "100001" } : l));
+  const category = lines.map((l, i) => (i === 2 ? { ...l, category: "Parking" } : l));
+  const kind = lines.map((l, i) => (i === 3 ? { ...l, kind: "INCOME" } : l));
+  assert.notEqual(base, computeScenarioVersion(set, L, amount));
+  assert.notEqual(base, computeScenarioVersion(set, L, category));
+  assert.notEqual(base, computeScenarioVersion(set, L, kind));
 });
 
 test("numerically-equal canonical values fingerprint identically (Decimal normalization contract)", () => {
