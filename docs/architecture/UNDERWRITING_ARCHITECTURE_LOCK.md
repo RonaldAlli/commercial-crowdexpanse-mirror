@@ -106,6 +106,24 @@ slices add their own alongside them.
   others — LTV never reads LTC/DSCR or any future constraint. Selection (the `min`)
   happens strictly afterward, over the independently-computed ceilings.
 
+### Schedule invariants (Commit 3b-ii)
+
+- **IS-1 — Income and expense schedules are independently reproducible.** Gross
+  income is the deterministic sum of the active **income** line items; operating
+  expenses are the deterministic sum of the active **expense** line items. Neither
+  total depends on the other — the two roll-ups are computed separately and never
+  cross-reference.
+- **IS-2 — Schedule presence is explicit.** For each kind independently: a **present**
+  schedule supplies the effective total; an **absent** schedule falls back to the
+  corresponding scalar assumption; an **explicitly cleared** schedule returns that kind
+  to scalar fallback. The engine must never infer schedule presence from a zero total —
+  presence is a property of the line-item set, not of its sum.
+- **IS-3 — Line-item order is presentation only.** Reordering line items changes
+  neither `scenarioVersion`, the effective totals, nor the `ScenarioResult`. Changing a
+  line item's **kind**, **category**, **amount**, or **source** does change the
+  deterministic Scenario meaning (and therefore the fingerprint). The canonical
+  fingerprint sorts by `(kind, category, amount)` and excludes `position`.
+
 ## 5. Commit 3a — Underwriting Model Formalization (headed by this lock)
 
 3a establishes the ownership model without deepening the math:
@@ -130,8 +148,8 @@ reading only frozen assumptions (never current Property state).
 
 3b deepens the financial engine only (never ownership/lifecycle/governance/V1.2), as
 a sequence of deterministic sub-slices, each a pure sibling to `lib/analysis.ts`:
-**3b-i debt sizing (shipped — DS-1/DS-2)** → 3b-ii income/expense schedules → 3b-iii
-cash flow → 3b-iv exit + waterfall → 3b-v sensitivity → 3b-vi findings/risks +
+**3b-i debt sizing (shipped — DS-1/DS-2)** → **3b-ii income/expense schedules (shipped —
+IS-1/IS-2/IS-3)** → 3b-iii cash flow → 3b-iv exit + waterfall → 3b-v sensitivity → 3b-vi findings/risks +
 suggested recommendation (introduces `RULESET_VERSION` behavior). Still separately
 gated and out of scope until reached: the decided Recommendation + `UNDERWRITING_APPROVAL`
 (3d) and offer-memo/LOI export (Documents). Removing the deprecated `DealAnalysis`
