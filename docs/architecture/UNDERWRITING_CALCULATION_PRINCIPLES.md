@@ -35,7 +35,7 @@ Scenario (frozen assumptions + lineage) → pure kernel → metrics / findings /
 Anything else → a calculation input                                                  (never)
 ```
 
-The seven principles below are how this constraint is upheld in practice; if any is
+The nine principles below are how this constraint is upheld in practice; if any is
 ever in tension with convenience, this constraint wins.
 
 ---
@@ -100,6 +100,32 @@ the metrics, never an *input* to them (UW-7, UW-4). No metric may depend on a
 recommendation, and the engine never makes the acquisition/disposition decision. The
 dependency arrow points one way: assumptions → metrics → findings/risks →
 suggested recommendation → (human) decided recommendation.
+
+## Principle 8 — Every projection extends the previous one; it never replaces it
+
+The financial model grows as a **stack of layers, each consuming the one beneath it**
+and adding to it — never rewriting it. Today the stack is `Operating NOI → Debt
+service → Cash flow before tax`; later layers (`→ Terminal value → Equity waterfall →
+IRR → Equity multiple`) attach on top. A new layer reads the settled output below as a
+frozen input and produces a *new* output; it never reaches back and restates an
+earlier result. This is why the operating NOI trajectory is computed once and reused
+identically by every FinancingCase (CF-5), and why capital economics sit *on top of*
+operating economics rather than mixed into them (CF-1/CF-2). The dependency arrow is
+one-way through the whole stack, exactly as it is for assumptions → metrics →
+recommendation (Principle 7). Deepening the math is always **adding a layer**, never
+editing a lower one.
+
+## Principle 9 — Projections are disposable, rebuildable, and deterministic — never authoritative
+
+Every projected surface — `CashFlowYear` today, and every future terminal/exit/
+waterfall/return projection — is a **cache of a pure function**, not a source of
+truth. It is disposable (delete it and it regenerates identically), rebuildable purely
+from frozen assumptions + the layers beneath it + lineage, and deterministic (no clock,
+no randomness, no cross-scenario read). Nothing downstream ever becomes authoritative
+over its inputs: a computed IRR never edits the cash flow it came from; a terminal
+value never edits the operating NOI. The Scenario's frozen assumptions (and each
+case's capital) remain the *only* authoritative facts — every projection above them is
+regenerable and therefore safe to throw away (extends Principle 3 to the whole stack).
 
 ---
 
