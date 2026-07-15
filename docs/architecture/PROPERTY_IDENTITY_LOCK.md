@@ -44,6 +44,15 @@ That difference is the whole design: Property leans on **strong deterministic an
 | **ID-2** | **Typed projected-field model** | Generalize the Property projected-field definition to **one small, explicit typed field-definition map**: `{ key, valueType (integer \| string-anchor), normalizer, projection coercion }`. **No** dynamic-field framework, plugin registration, runtime-configurable schema, or second anchor-projection path. Raw values stay in `Observation` provenance; normalized values are deterministic + versioned. **The entity registry stays dispatch-only**; Property-specific normalization/projection stays in Property intelligence modules. |
 | **ID-3** | **Candidate store** | A **dedicated `PropertyMatchDecision`**; do **not** generalize `OwnerMatchDecision` in 2c. The two domains share the *review concept* but use materially different evidence (Owner: names/aliases/matchKey · Property: FIPS-scoped parcel anchors/normalized address/crosswalk conflicts). Revisit a shared abstraction only once both are proven and their persistence/lifecycle shapes are demonstrably identical. |
 
+### 3.2 2c-i refinements (locked 2026-07-15)
+
+| # | Refinement | Locked resolution |
+|---|---|---|
+| **R1** | **Derived-index watermark** | `PropertyIdentity` carries **`rebuiltFromProjectionAt`** — the **deterministic projection-state watermark** the row reflects (the max `createdAt` of the winning anchor signals it was derived from; null if none). **Not wall-clock** — this keeps the whole row a pure function of the ledger, so it satisfies R2 and the zero-write rebuild (R4). Index/projection drift is detectable by comparing this watermark against the current winning-signal watermark. |
+| **R2** | **Deterministic identity derivation *(new invariant)*** | A rebuild from the same `Property` + accepted ledger + crosswalk produces **byte-for-byte identical** `PropertyIdentity` (anchors + `parcelKey` + `rebuiltFromProjectionAt`). Not "equivalent" — *identical*. Crosswalk history is append-only (R3). |
+| **R3** | **Crosswalk: superseded, never rewritten** | `PropertyExternalIdentifier` mirrors the Signal model: rows are **never edited or deleted**; a remapping **supersedes** the prior row (`state ACTIVE → SUPERSEDED`, `supersededById`) and **inserts a new ACTIVE row** — full history retained. **At most one ACTIVE** row per `(organizationId, provider, providerIdentifier)`, enforced transactionally (as the signal lineage head is). A move is an explicit, audited supersession — never a silent repoint (invariant #6). |
+| **R4** | **Idempotent rebuild *(test)*** | The derived surface is content-idempotent: a **second consecutive `rebuildPropertyIdentity` performs zero writes**. Proven by an executable E2E (Projection → rebuild → rebuild; assert the second is a no-op). |
+
 ---
 
 ## 4. The guarded tiered resolution rule (PI-E, refined)
@@ -82,6 +91,7 @@ Binding, alongside Volume 12 §13 and Midpoint §E:
 9. **Candidate confirmation records a decision; it is not structural merge.**
 10. **Every identity operation is organization-scoped and audited.**
 11. **Parcel split, combination, reassessment, and renumbering are modeled as anchor history or replacement — never mutation of historical evidence.**
+12. **Identity derivation is deterministic (R2).** `rebuildPropertyIdentity(Property, accepted ledger, crosswalk)` is a pure function → byte-for-byte identical `PropertyIdentity` (anchors + `parcelKey` + `rebuiltFromProjectionAt`) on every rebuild; a re-run performs **zero writes** (R4). The crosswalk is append-only with Signal-style supersession (R3) — never rewritten.
 
 ---
 
