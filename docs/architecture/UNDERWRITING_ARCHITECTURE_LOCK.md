@@ -82,6 +82,21 @@ belongs to exactly one Scenario.* Metrics, findings, risks, and the suggested
 recommendation never exist independently of a Scenario — enforced structurally
 (`ScenarioResult` is 1:1 with a Scenario).
 
+### Debt-sizing invariants (Commit 3b-i)
+
+These are calculation-specific locks for the debt-sizing engine; future calculation
+slices add their own alongside them.
+
+- **DS-1 — Every sizing constraint is independently reproducible.** LTV, LTC, and
+  DSCR are each a self-contained deterministic calculation, computable in isolation.
+  The sized loan is nothing more than `min(` the applicable constraints `)` — never a
+  weighted, heuristic, or entangled figure.
+- **DS-2 — Binding-constraint selection is fully explainable.** Every persisted
+  sizing result preserves **each evaluated constraint, each calculated loan amount,
+  and which one bound** (`loanByLtvUsd` / `loanByLtcUsd` / `loanByDscrUsd` /
+  `sizedLoanUsd` / `bindingConstraint`). "Why this loan?" is always answerable from
+  stored explanatory metadata — not re-derived, not a heuristic.
+
 ## 5. Commit 3a — Underwriting Model Formalization (headed by this lock)
 
 3a establishes the ownership model without deepening the math:
@@ -102,9 +117,13 @@ stored `scenarioVersion` == recomputed), zero-write idempotency (Postgres `xmin`
 one-way snapshot (a Property change never mutates a Scenario), and reconstruction
 reading only frozen assumptions (never current Property state).
 
-## 6. Out of scope for 3a (later slices, separately gated)
+## 6. Commit 3b — deepening the math (in progress)
 
-Deeper NOI / cap / debt / cash-flow / sensitivity / risk modeling; findings & risks
-persistence (RULESET_VERSION); the decided Recommendation + `UNDERWRITING_APPROVAL`
-(3d); offer-memo/LOI export (Documents). Removing the deprecated `DealAnalysis` table
-is deferred to a post-acceptance release.
+3b deepens the financial engine only (never ownership/lifecycle/governance/V1.2), as
+a sequence of deterministic sub-slices, each a pure sibling to `lib/analysis.ts`:
+**3b-i debt sizing (shipped — DS-1/DS-2)** → 3b-ii income/expense schedules → 3b-iii
+cash flow → 3b-iv exit + waterfall → 3b-v sensitivity → 3b-vi findings/risks +
+suggested recommendation (introduces `RULESET_VERSION` behavior). Still separately
+gated and out of scope until reached: the decided Recommendation + `UNDERWRITING_APPROVAL`
+(3d) and offer-memo/LOI export (Documents). Removing the deprecated `DealAnalysis`
+table is deferred to a post-acceptance release ([D15](../roadmap/TECHNICAL_DEBT.md)).
