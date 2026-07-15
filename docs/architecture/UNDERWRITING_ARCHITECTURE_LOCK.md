@@ -303,7 +303,7 @@ a sequence of deterministic sub-slices, each a pure sibling to `lib/analysis.ts`
 **3b-i debt sizing (shipped — DS-1…DS-4)** → **3b-ii income/expense schedules (shipped —
 IS-1/IS-2/IS-3)** → **3b-iii cash flow (shipped — CF-1…CF-5)** → **3b-iv exit + waterfall
 (shipped — EX-1…EX-6)** → **3b-v sensitivity (shipped — SE-1…SE-7)** → **3b-vi
-findings/risks + suggested recommendation (in progress — FR-1…FR-6; first `RULESET_VERSION`
+findings/risks + suggested recommendation (shipped — FR-1…FR-6; first `RULESET_VERSION`
 behavior, ruleset 1→2, with the R-A fingerprint separation)**. Still separately
 gated and out of scope until reached: the decided Recommendation + `UNDERWRITING_APPROVAL`
 (3d) and offer-memo/LOI export (Documents). Removing the deprecated `DealAnalysis`
