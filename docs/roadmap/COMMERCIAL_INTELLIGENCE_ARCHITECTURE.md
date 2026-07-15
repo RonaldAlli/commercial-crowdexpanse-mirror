@@ -216,6 +216,40 @@ These define the behavior of the identity subsystem and **do not change** regard
 5. **ExternalIdentifier rows are immutable.** Never edited, reassigned, or deleted — a changed mapping is a new row; old rows are permanent history.
 6. **Identity operations are fully auditable and reversible.** Every link/accept/reject/merge/unmerge is recorded (actor, time, cause) and can be undone with no data loss.
 
+### The identity decision hierarchy *(locked — the four responsibilities are invariant)*
+
+**Projection is a fork.** One lineage feeds **scoring** (decision support, Slice 5); the other feeds **identity** — a distinct chain of four *separate* responsibilities. Each answers a different question, and none may absorb another's job:
+
+```
+   Observation   ── raw captured evidence (immutable)
+       │
+       ▼
+   Signal        ── accepted evidence (immutable; superseded, never mutated)
+       │
+       ▼
+   Projection    ── "What is currently believed?"      → the winning value per field
+       │
+       ▼
+   Identity      ── "What canonical asset does this evidence belong to?"
+       │             the surrogate Property.id IS the identity; anchors are evidence
+       │             for it — a derived, deterministic, fingerprinted PropertyIdentity
+       ▼
+   Crosswalk     ── "Which external systems refer to that asset?"
+       │             immutable, append-only PropertyExternalIdentifier (many provider
+       │             ids → one surrogate), superseded never rewritten
+       ▼
+   Resolution    ── "Should this incoming evidence attach here?"
+                     guarded deterministic resolve-before-create + candidate review —
+                     the FIRST place the system makes an identity DECISION
+```
+
+- **Projection ≠ Identity.** Projection selects a field's current value; Identity says which canonical asset the fields describe. A changed projection may alter an anchor *value* without changing *which asset* it is.
+- **Identity ≠ Crosswalk.** Identity is the internal surrogate; the crosswalk maps external provider ids onto it.
+- **Crosswalk ≠ Resolution.** The crosswalk *records* established mappings; Resolution *decides* whether new evidence attaches to an existing asset or forms a new one.
+- **Recording ≠ Deciding — the boundary.** Layers through **Crosswalk** *record structure* deterministically (Commit 2c-i, headless). **Resolution (2c-ii) is where the system begins making identity decisions**, and therefore carries the same guardrails as Owner Candidate Review: deterministic, proposal-first, human-confirmed except where an authoritative key permits **guarded** auto-resolution (the Tier-1A rule, [PI-E](../architecture/PROPERTY_IDENTITY_LOCK.md)), fully audited and reversible.
+
+The hierarchy is **entity-general** — Owner realizes it through name/alias resolution + merge (§7.2); Property through parcel/address anchors + crosswalk-first resolution (§7.1) — but the four responsibilities are invariant across entities.
+
 ### 7.1 PropertyIdentity
 > **🔒 Detailed lock:** [Property Identity — Architecture Lock](../architecture/PROPERTY_IDENTITY_LOCK.md) (locked 2026-07-15, Slice 2 Commit 2c). The summary below is authoritative; the lock doc holds the full decisions (PI-A…PI-H), the guarded tiered rule, and the Property-identity invariants.
 - **Strong parcel anchor:** `(countyFipsCode + apnNormalized)` — **never APN alone** (a parcel is unique only *within* its jurisdiction). Anchors are **evidence**, never the identity — the surrogate `Property.id` is the identity.
