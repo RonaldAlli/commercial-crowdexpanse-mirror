@@ -99,6 +99,8 @@ These are the invariants the whole substrate depends on. A change here is not a 
 
 ## F. Entry conditions for Commit 2c (Property Identity)
 
+> **✅ Lock complete (2026-07-15):** the fresh architecture lock this section called for has been produced and founder-approved — **[Property Identity — Architecture Lock](./PROPERTY_IDENTITY_LOCK.md)**. It resolves AD7/AD8, states initial stances on AD1/AD2/AD4, and keeps AD3/AD6 gated on Decision F. The questions below record *why* the lock was required.
+
 **2c is materially different from 2a/2b and must NOT begin as "the next coding task."** 2a/2b extended a *proven* mechanism (projection + refresh) to a second entity. 2c introduces a *new* mechanism for that entity — **canonical identity** — where the Owner precedent is a hypothesis (B2), not a template.
 
 A fresh **architecture lock** for 2c must resolve, at minimum:
@@ -133,4 +135,4 @@ A fresh **architecture lock** for 2c must resolve, at minimum:
 
 ---
 
-*Cross-references: design authority [Volume 12](../roadmap/COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md) · process [Engineering Playbook](./ENGINEERING_PLAYBOOK.md) · debt [Volume 7](../roadmap/TECHNICAL_DEBT.md) · release status [Volume 1.2 roadmap](../roadmap/VERSION_1_2.md).*
+*Cross-references: design authority [Volume 12](../roadmap/COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md) · **[Property Identity — Architecture Lock](./PROPERTY_IDENTITY_LOCK.md)** · process [Engineering Playbook](./ENGINEERING_PLAYBOOK.md) · debt [Volume 7](../roadmap/TECHNICAL_DEBT.md) · release status [Volume 1.2 roadmap](../roadmap/VERSION_1_2.md).*

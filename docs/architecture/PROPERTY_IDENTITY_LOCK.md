@@ -1,0 +1,100 @@
+# Property Identity — Architecture Lock
+
+> **Status:** 🔒 **LOCKED 2026-07-15** (founder-approved with refinements to PI-E and PI-G). Binding for **Slice 2 Commit 2c** and all later Property identity work.
+>
+> **Authority:** this document is the detailed lock for **Property canonical identity**. It *extends* [Volume 12 §7.1 (PropertyIdentity)](../roadmap/COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md#71-propertyidentity) and is **subordinate to** Volume 12's canonical invariants (§13) and the six identity invariants (§7), plus the frozen invariants in the [V1.2 Midpoint Architecture Status §E](./V1_2_ARCHITECTURE_STATUS.md). Nothing here weakens the ledger, precedence, projection purity, reconstruction, or the surrogate-id philosophy.
+>
+> **Why a fresh lock:** Slice 2 Commits 2a/2b *extended a proven mechanism* (projection + refresh) to a second entity. 2c introduces a **new mechanism for that entity — canonical identity** — where the Owner precedent is a *hypothesis, not a template* (Midpoint §B2). This lock records the decisions that make Property identity a first-class design in its own right.
+
+---
+
+## 1. Reframe — Property identity is spatial/parcel resolution, not name resolution
+
+Owner identity resolves **legal persons**: names are fuzzy, alias-heavy, never authoritative → *fuzzy candidate review + reversible structural merge*, auto-anchoring nothing (Volume 12 §7.2). Property identity resolves a **physical asset** that carries **government-assigned quasi-keys** — a parcel number (APN) authoritative *within its jurisdiction*, a normalizable postal address, and (later) a geocode.
+
+That difference is the whole design: Property leans on **strong deterministic anchors + an immutable crosswalk + resolve-before-create**, not on fuzzy matching + merge. **But a government parcel id is strong *evidence*, not proof of identity** — data-entry error, county reassessment, and parcel split/renumber all mean the key is not infallible. Deterministic resolution is therefore **guarded** (unique + conflict-free), never unconditional.
+
+---
+
+## 2. The model
+
+- **Anchor values** — `apnNormalized`, `countyFipsCode`, `addressNormalized` (and, later, geocode) — ride the **existing `Observation → Signal → Projection` ledger** as projected fields with provenance. Multi-source disagreement and precedence are handled by the proven substrate; **no new disagreement mechanism** is introduced.
+- **Derived identity surface** — a thin, indexed **`PropertyIdentity`** layer plus an immutable **`PropertyExternalIdentifier`** crosswalk (`(organizationId, provider, providerIdentifier) → Property.id`). This surface **accelerates matching and resolve-before-create but is not an independent source of truth**: it is *derived and rebuildable* from the canonical `Property`, the accepted ledger evidence, and the immutable crosswalk records.
+
+---
+
+## 3. Locked decisions (PI-A … PI-H)
+
+| # | Decision | Locked resolution |
+|---|---|---|
+| **PI-A** | **Hybrid identity model** | Canonical anchors remain **ledger-backed projected facts with provenance**. `PropertyIdentity` + `PropertyExternalIdentifier` are an **indexed resolution surface, not independent canonical truth**. **Invariant:** the identity index is **derived and rebuildable** from the canonical `Property`, accepted ledger evidence, and immutable external-identifier crosswalk records. **No unreconstructable second identity store.** |
+| **PI-B** | **Parcel anchor** | Strong parcel key = **`countyFipsCode` + `apnNormalized`** — *never APN alone*. Normalization is **deterministic and versioned**; the **raw submitted APN is preserved in provenance** (never discard punctuation/formatting without retaining the raw value); jurisdiction agreement is required for a parcel match. |
+| **PI-C** | **Address normalization** | **Minimal deterministic normalizer only:** case + whitespace, directional tokens, street-suffix standardization, unit extraction/normalization, postal-code normalization. Output is **candidate evidence, not certified deliverability** and not the Property identity. **CASS/USPS-grade hygiene is gated on an approved external source.** |
+| **PI-D** | **Geocode** | **Excluded from the 2c skeleton.** When later introduced it must carry provider/source, coordinates, precision/match-level, `asOf`, `adapterVersion`, and the original address input — and remains **source-attributed proposal evidence, never the canonical identity key.** |
+| **PI-E** | **Matching discipline** | **Guarded, tiered `deterministic resolve-before-create`** (see §4) — **not** unconditional parcel attachment. An exact parcel match resolves automatically only when unique and conflict-free; otherwise it becomes a review candidate. Resolve-before-create **prevents duplicate creation; it does not change the surrogate identity and does not merge.** |
+| **PI-F** | **Merge vs. crosswalk** | **Crosswalk-first.** **No structural Property merge in 2c.** Use resolve-before-create + immutable provider crosswalks + candidate review for ambiguity. Property merge is **carried Architectural Debt (AD1/AD2)**; **trigger:** real production evidence of duplicate canonical surrogates that cannot be corrected safely through resolution or crosswalk reassignment. |
+| **PI-G** | **Multi-source disagreement** | Projection determines the **displayed** current canonical anchor, **but identity resolution must also inspect whether conflicting active strong-anchor evidence exists.** No conflict → the winning parcel projection may participate in Tier 1A. Conflict → **automatic resolution is blocked and a review candidate is created.** All competing evidence stays immutable in the ledger; a change to the winning anchor **deterministically rebuilds** the identity index. **Precedence must never hide an identity conflict.** |
+| **PI-H** | **Scope** | **Headless-first, then UI** (see §6 sub-commits). External parcel ingestion, licensed/public sources, geocoding, richer enrichment, fuzzy matching, and structural Property merge remain **separately gated.** |
+
+---
+
+## 4. The guarded tiered resolution rule (PI-E, refined)
+
+| Tier | Trigger | Behavior |
+|---|---|---|
+| **1A** | Exact `(countyFipsCode, apnNormalized)` match **and all guards hold** | **Deterministic resolve-before-create** → resolve to the existing `Property`. |
+| **1B** | Exact parcel anchor but **multiple matches, conflicting strong-anchor evidence, or a conflicting crosswalk mapping** | **Human-review candidate.** |
+| **2** | Exact **normalized address within the same jurisdiction**, no reliable parcel anchor | **Proposal-only** (human confirms). |
+| **3** | Fuzzy address / geospatial proximity | **Deferred** (needs geocode; Decision F). |
+
+**Tier 1A guards — all must hold, else drop to Tier 1B:**
+1. Exactly **one active canonical Property** matches.
+2. The **organization matches**.
+3. **No conflicting active strong-anchor evidence** exists (PI-G).
+4. **No supplied immutable external identifier** already maps to a *different* Property.
+5. The resolution is recorded in an **auditable resolution record**.
+6. The result is **reversible or explicitly overrideable** by an authorized user.
+
+Resolve-before-create **prevents duplicate creation only**; it never redefines the surrogate identity and never performs a merge.
+
+---
+
+## 5. Locked Property-identity invariants
+
+Binding, alongside Volume 12 §13 and Midpoint §E:
+
+1. **`Property.id` is the canonical identity; anchors are evidence** that *resolve to* it.
+2. **The identity index is derived and rebuildable** (from `Property` + accepted ledger evidence + immutable crosswalk).
+3. **Raw and normalized anchor values are both preserved.**
+4. **Normalization is deterministic and versioned.**
+5. **External identifiers are immutable and uniquely scoped** by `(organization, provider, providerIdentifier)`.
+6. **A provider identifier cannot silently move** from one Property to another (a change is a new immutable row; the old one persists).
+7. **Conflicting strong anchors disable deterministic resolution** (→ review candidate).
+8. **Resolve-before-create never physically deletes or merges** Properties.
+9. **Candidate confirmation records a decision; it is not structural merge.**
+10. **Every identity operation is organization-scoped and audited.**
+11. **Parcel split, combination, reassessment, and renumbering are modeled as anchor history or replacement — never mutation of historical evidence.**
+
+---
+
+## 6. Scope — sub-commits (PI-H) and the buildable-now boundary
+
+**Commit 2c is headless-first:**
+
+- **2c-i** — anchor projections (`apnNormalized`, `countyFipsCode`, `addressNormalized` as ledger-backed projected fields with raw preserved), deterministic **versioned normalizers** (APN + address), the **derived `PropertyIdentity` resolution surface**, the immutable **`PropertyExternalIdentifier` crosswalk** schema, plus **reconstruction + migration**. *(Headless — no resolution behavior yet.)*
+- **2c-ii** — **guarded resolve-before-create** (the Tier 1A guards) + **deterministic candidate generation** (Tier 1B / Tier 2).
+- **2c-iii** — **candidate-review + identity-resolution UI** (a thin consumer, mirroring the Owner candidate-review pattern where it genuinely fits — *not* by assumption).
+
+**Buildable now (USER_ENTERED skeleton, no Decision F):** the anchor structures + crosswalk, the `(FIPS, APN)` key + deterministic address/APN normalizers, resolve-before-create at manual entry, Tier 1A guarded resolution + Tier 1B/Tier 2 candidates, and the review surface.
+
+**Gated separately (Decision F / later slices):** licensed/public parcel + assessment ingestion, geocoding, address hygiene at CASS quality, richer signals, fuzzy matching, and structural Property merge.
+
+---
+
+## 7. Relationship to Architectural Debt
+
+This lock **resolves** [AD7](./V1_2_ARCHITECTURE_STATUS.md#g-architectural-debt--intentionally-unresolved-design-questions) (anchors live in the ledger, with a *derived* rebuildable index) and **AD8** (guarded deterministic resolution on the parcel key, *not* proposal-only-everything and *not* unconditional auto-anchor). It states an **initial stance** on **AD1/AD2** (crosswalk-first; merge deferred with a trigger) and **AD4** (disagreement via the ledger + a conflict guard) — these remain carried debt until production evidence tests them. **AD3** (canonical address model) and **AD6** (licensing that changes architecture) stay gated on Decision F.
+
+---
+
+*Cross-references: design authority [Volume 12 §7.1, §13](../roadmap/COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md) · checkpoint [V1.2 Midpoint Architecture Status](./V1_2_ARCHITECTURE_STATUS.md) · process [Engineering Playbook](./ENGINEERING_PLAYBOOK.md) · roadmap [Version 1.2](../roadmap/VERSION_1_2.md).*

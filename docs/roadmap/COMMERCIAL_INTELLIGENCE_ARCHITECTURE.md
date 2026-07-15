@@ -217,9 +217,11 @@ These define the behavior of the identity subsystem and **do not change** regard
 6. **Identity operations are fully auditable and reversible.** Every link/accept/reject/merge/unmerge is recorded (actor, time, cause) and can be undone with no data loss.
 
 ### 7.1 PropertyIdentity
-- **Canonical match key:** `(jurisdiction FIPS + APN/parcel number)` when available — the most stable real-world anchor — else `(normalized address + geocode lat/long)`.
-- **Anchors:** APN/parcel, county FIPS, normalized USPS address, geocode. All provider-independent.
-- **Resolution:** parcel+FIPS is near-unique; address/geocode is the fallback with a normalization + proximity match. Multiple provider parcel ids map via the crosswalk.
+> **🔒 Detailed lock:** [Property Identity — Architecture Lock](../architecture/PROPERTY_IDENTITY_LOCK.md) (locked 2026-07-15, Slice 2 Commit 2c). The summary below is authoritative; the lock doc holds the full decisions (PI-A…PI-H), the guarded tiered rule, and the Property-identity invariants.
+- **Strong parcel anchor:** `(countyFipsCode + apnNormalized)` — **never APN alone** (a parcel is unique only *within* its jurisdiction). Anchors are **evidence**, never the identity — the surrogate `Property.id` is the identity.
+- **Anchors (evidence):** APN/parcel, county FIPS, deterministically-**normalized** address (minimal in-house normalizer; CASS-grade hygiene gated on Decision F), geocode (**deferred** — Decision F). Both **raw and normalized** values are preserved; normalization is **deterministic + versioned**.
+- **Storage (PI-A, hybrid):** canonical anchor *values* ride the `Observation → Signal → Projection` ledger (provenance + precedence for free); a **derived, rebuildable** `PropertyIdentity` index + immutable `PropertyExternalIdentifier` crosswalk provide the matching surface — **not** an independent source of truth.
+- **Resolution (PI-E, guarded):** exact `(FIPS, APN)` uses **deterministic resolve-before-create** *only* when unique + conflict-free (one active match, org match, no conflicting strong-anchor evidence, no external-id already mapped elsewhere, audited, reversible); otherwise a **review candidate**. Address-within-jurisdiction is proposal-only; fuzzy/geospatial is deferred. **No structural Property merge in 2c** (crosswalk-first; merge is carried Architectural Debt). Resolve-before-create prevents duplicate *creation*; it never changes the surrogate identity and never merges.
 
 ### 7.2 OwnerIdentity *(the hard case — entity resolution, not a single key)*
 Owners are messy: legal entities (LLCs/trusts) and individuals, with aliases, name changes, and layered ownership. There is **no single natural key**, so OwnerIdentity is designed as a **resolvable, mergeable identity**:
@@ -367,4 +369,18 @@ Locked 2026-07-14. These are binding for all 1.2 work; changing one requires an 
 | **S1-6** | User overrides | **Sticky pins** — a user override is never silently overwritten by provider updates; only explicit user action removes the pin. |
 | **S1-7** | CSV import | **Deferred** — do not let ingestion distract from proving the architecture. |
 
-**Next step:** Commit 1a planning (Owner + identity schema foundation) — **planning only.** No implementation until 1a is planned, approved, and run under the standard lifecycle.
+### Slice 2 Property-identity decisions (locked 2026-07-15)
+Full lock: **[Property Identity — Architecture Lock](../architecture/PROPERTY_IDENTITY_LOCK.md)**. Binding for Commit 2c and later Property identity work.
+
+| # | Decision | Resolution |
+|---|---|---|
+| **PI-A** | Identity model | **Hybrid** — canonical anchors are ledger-backed projected facts with provenance; `PropertyIdentity` + `PropertyExternalIdentifier` are a **derived, rebuildable** resolution surface, **not** independent truth. No unreconstructable second identity store. |
+| **PI-B** | Parcel anchor | **`countyFipsCode` + `apnNormalized`** — never APN alone; deterministic + versioned normalization; raw APN preserved; jurisdiction agreement required. |
+| **PI-C** | Address normalization | **Minimal deterministic normalizer** (case/whitespace, directionals, suffixes, unit extraction, postal code) → candidate evidence, not deliverability. CASS-grade gated on Decision F. |
+| **PI-D** | Geocode | **Excluded from the 2c skeleton**; when added, source-attributed + precision-qualified **proposal evidence**, never the identity key. |
+| **PI-E** | Matching discipline | **Guarded tiered `deterministic resolve-before-create`** (not unconditional auto-attachment): exact `(FIPS, APN)` resolves only when unique + conflict-free + audited + reversible (Tier 1A guards); else review candidate (1B); address-in-jurisdiction is proposal-only (2); fuzzy/geospatial deferred (3). Prevents duplicate creation; never changes surrogate identity; never merges. |
+| **PI-F** | Merge vs. crosswalk | **Crosswalk-first; no structural Property merge in 2c.** Property merge is Architectural Debt (AD1/AD2), trigger = production evidence of duplicate surrogates unfixable by resolution/crosswalk reassignment. |
+| **PI-G** | Multi-source disagreement | Projection sets the *displayed* anchor, but resolution **also inspects for conflicting active strong-anchor evidence**: conflict → block auto-resolution + create candidate; all evidence retained; anchor change → deterministic index rebuild. Precedence must never hide an identity conflict. |
+| **PI-H** | Scope | **Headless-first** — 2c-i (anchors + normalizers + derived index + crosswalk + reconstruction/migration) → 2c-ii (guarded resolve-before-create + candidate generation) → 2c-iii (review/resolution UI). External ingestion, geocoding, richer data, fuzzy matching, and merge separately gated. |
+
+**Property-identity invariants (locked 2026-07-15)** — full list in the [lock doc §5](../architecture/PROPERTY_IDENTITY_LOCK.md#5-locked-property-identity-invariants): `Property.id` is identity (anchors are evidence); the index is derived + rebuildable; raw + normalized both preserved; normalization deterministic + versioned; external identifiers immutable + uniquely `(org, provider, providerId)`-scoped and never silently repointed; conflicting strong anchors disable deterministic resolution; resolve-before-create never deletes/merges; candidate confirmation ≠ structural merge; every identity op org-scoped + audited; parcel split/combine/reassess/renumber preserve historical evidence.
