@@ -49,6 +49,22 @@ Each decision records **who, when, and (where it matters) why**; privileged acti
 
 ---
 
+## Two UI invariants (presentation layer)
+
+These make the governing constraint concrete for the pixels a person actually sees.
+
+**UI-1 — The UI never derives facts the engine has not already derived.** Presentation **may** filter, paginate, group, and sort. Presentation **may not** reinterpret evidence, infer a different `basis`, collapse competing candidates, hide authoritative conflicts, or compute a different resolution outcome. Anything shown as an identity fact must have been produced by the engine; the UI only arranges it.
+
+**UI-2 — Every user-visible identity conclusion is traceable.** From any displayed conclusion a person can navigate — without losing provenance — the full chain:
+
+```
+Conclusion → Resolution → Identity → Projection → Winning Signal → Observation
+```
+
+No identity conclusion may become disconnected from its underlying evidence. (The Property identity detail page realizes this directly: a resolution's `basis` links to the resolution audit, the identity anchors, their field provenance — projected value → winning signal → signal history — and the competing candidates, none of which are hidden.)
+
+---
+
 ## What this binds
 
 | Review workflow | Realization |
