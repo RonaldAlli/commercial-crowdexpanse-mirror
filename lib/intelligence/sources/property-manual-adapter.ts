@@ -6,7 +6,7 @@
 // candidate. No DB, no ProjectionService, no permission checks (Volume 12 — pure
 // adapters). Scope: refreshes EXISTING Properties, only the projected fields
 // (yearBuilt, squareFeet) — proves the pipeline, not field breadth.
-import { isPropertyProjectedField, normalizePropertyValue, type PropertyProjectedField } from "@/lib/intelligence/property-fields";
+import { isPropertyProjectedField, normalizePropertyValue, propertyFieldType, type PropertyProjectedField } from "@/lib/intelligence/property-fields";
 import type { CandidateObservation, RawRecord, RefreshContext, RefreshInput, SourceAdapter } from "@/lib/intelligence/sources/types";
 
 /** Bump when this adapter's map/validation logic changes (recorded on every observation). */
@@ -33,11 +33,16 @@ export const propertyManualAdapter: SourceAdapter = {
     }
     const normalized = normalizePropertyValue(fieldKey as PropertyProjectedField, valueRaw);
     if (normalized === null) {
-      const expects = fieldKey === "yearBuilt" ? "a year between 1600 and 2100" : "a non-negative integer";
+      const expects =
+        propertyFieldType(fieldKey as PropertyProjectedField) === "integer"
+          ? fieldKey === "yearBuilt"
+            ? "a year between 1600 and 2100"
+            : "a non-negative integer"
+          : "a valid normalizable value";
       return [{ ...base, rejected: { reason: `field "${fieldKey}" requires ${expects}` } }];
     }
-    // Store the canonical numeric string in both raw + normalized so the projection
-    // parses cleanly (e.g. "1,998" → "1998"); there is no lossy display form for a number.
-    return [{ ...base, valueRaw: normalized, valueNormalized: normalized }];
+    // Preserve the TRUE raw submission in valueRaw (invariant #3, e.g. "123-45-678"
+    // or "1,998") and store the deterministic normalized value the projection reads.
+    return [{ ...base, valueNormalized: normalized }];
   },
 };

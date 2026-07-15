@@ -34,6 +34,7 @@ const CRITICAL = [
   "lib/intelligence/owner-duplicates.ts",
   "lib/intelligence/owner-merge-suggest.ts",
   "lib/intelligence/property-fields.ts",
+  "lib/intelligence/property-normalizers.ts",
 ];
 const TRACKED = [
   ...CRITICAL,

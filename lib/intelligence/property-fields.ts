@@ -1,31 +1,76 @@
-// Commercial Intelligence (v1.2, Commit 2a-ii) — the projected Property field
-// list + value normalization, as a PURE module (no Prisma). Mirrors owner-fields:
-// pure consumers (the Property SourceAdapter validating which fields it may emit)
-// import the canonical field set without pulling the DB-coupled projection writer.
+// Commercial Intelligence (v1.2, Commit 2c-i) — the projected Property field model
+// as ONE explicit, static, compile-time typed map (Decision ID-2). PURE (no Prisma).
 //
-// Decision (Slice 2 walking skeleton): only the smallest immutable physical-facts
-// set is projected from the ledger first — `yearBuilt` and `squareFeet`. `unitCount`
-// stays operational (it is edited more often and is a weak proxy for the richer
-// "unit mix" that gets its own modeling later). Financial columns stay operational.
-export const PROPERTY_PROJECTED_FIELDS = ["yearBuilt", "squareFeet"] as const;
-export type PropertyProjectedField = (typeof PROPERTY_PROJECTED_FIELDS)[number];
+// Each field declares a value TYPE and a deterministic NORMALIZER; the projection
+// writer (property-projection) coerces the normalized value to the typed column.
+// This generalizes the 2a integer-only model to string ANCHOR fields WITHOUT a
+// dynamic/plugin/runtime-configurable framework and WITHOUT a second projection
+// path — Property-specific behavior stays here + in the Property projection module;
+// the entity registry stays dispatch-only.
+//
+// Projected fields:
+//   yearBuilt / squareFeet      integer      (immutable physical facts)
+//   apnNormalized               string-anchor (parcel number, jurisdiction-scoped)
+//   countyFipsCode              string-anchor (county FIPS)
+//   addressNormalized           string-anchor (deterministically normalized address)
+// Raw submitted values are preserved in Observation provenance; the normalized
+// value is the deterministic, versioned projection value.
+import { normalizeAddress, normalizeApn, normalizeFips } from "@/lib/intelligence/property-normalizers";
+
+export type PropertyFieldType = "integer" | "string-anchor";
+export type PropertyProjectedField = "yearBuilt" | "squareFeet" | "apnNormalized" | "countyFipsCode" | "addressNormalized";
+
+interface PropertyFieldDef {
+  type: PropertyFieldType;
+  /** Deterministic canonicalizer: raw → normalized string, or null when invalid. */
+  normalize: (raw: string) => string | null;
+}
+
+/** A bounded non-negative-integer normalizer (canonical form = the parsed integer as text). */
+function normalizeInteger(bounds: { min?: number; max?: number }) {
+  return (raw: string): string | null => {
+    const cleaned = raw.replace(/[,\s]/g, "");
+    if (!/^\d+$/.test(cleaned)) return null; // digits only ⇒ non-negative integer
+    const n = Number.parseInt(cleaned, 10);
+    if (bounds.min !== undefined && n < bounds.min) return null;
+    if (bounds.max !== undefined && n > bounds.max) return null;
+    return String(n);
+  };
+}
+
+/** The single, explicit, static field-definition map (Decision ID-2 — no runtime registration). */
+export const PROPERTY_FIELDS: Record<PropertyProjectedField, PropertyFieldDef> = {
+  yearBuilt: { type: "integer", normalize: normalizeInteger({ min: 1600, max: 2100 }) },
+  squareFeet: { type: "integer", normalize: normalizeInteger({ min: 0 }) },
+  apnNormalized: { type: "string-anchor", normalize: normalizeApn },
+  countyFipsCode: { type: "string-anchor", normalize: normalizeFips },
+  addressNormalized: { type: "string-anchor", normalize: normalizeAddress },
+};
+
+export const PROPERTY_PROJECTED_FIELDS = Object.keys(PROPERTY_FIELDS) as PropertyProjectedField[];
+/** The projected fields that are identity anchors (string-anchor typed). */
+export const PROPERTY_ANCHOR_FIELDS = PROPERTY_PROJECTED_FIELDS.filter((k) => PROPERTY_FIELDS[k].type === "string-anchor");
 
 /** Type guard: is `fieldKey` a projected Property field? */
 export function isPropertyProjectedField(fieldKey: string): fieldKey is PropertyProjectedField {
-  return (PROPERTY_PROJECTED_FIELDS as readonly string[]).includes(fieldKey);
+  return Object.prototype.hasOwnProperty.call(PROPERTY_FIELDS, fieldKey);
+}
+
+/** Is `fieldKey` a projected string-anchor field (contributes to PropertyIdentity)? */
+export function isPropertyAnchorField(fieldKey: string): boolean {
+  return isPropertyProjectedField(fieldKey) && PROPERTY_FIELDS[fieldKey].type === "string-anchor";
+}
+
+/** The declared value type of a projected field. */
+export function propertyFieldType(fieldKey: PropertyProjectedField): PropertyFieldType {
+  return PROPERTY_FIELDS[fieldKey].type;
 }
 
 /**
- * Normalize a raw projected-Property value to a canonical non-negative-integer
- * string, or null when invalid. Both projected fields are integer columns, so the
- * canonical form is the parsed integer as text; `yearBuilt` is additionally bounded
- * to a plausible range (deterministic bounds — no wall-clock). Pure: the adapter's
- * map() and the domain writer use this to validate + canonicalize before the ledger.
+ * Normalize a raw projected-Property value to its canonical form (or null when
+ * invalid), dispatching to the field's deterministic normalizer. Pure: the adapter
+ * and the domain writer use this to validate + canonicalize before the ledger.
  */
 export function normalizePropertyValue(fieldKey: PropertyProjectedField, raw: string): string | null {
-  const cleaned = raw.replace(/[,\s]/g, "");
-  if (!/^\d+$/.test(cleaned)) return null; // digits only ⇒ always a non-negative integer
-  const n = Number.parseInt(cleaned, 10);
-  if (fieldKey === "yearBuilt" && (n < 1600 || n > 2100)) return null;
-  return String(n);
+  return PROPERTY_FIELDS[fieldKey].normalize(raw);
 }

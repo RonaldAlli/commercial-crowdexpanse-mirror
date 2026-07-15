@@ -26,6 +26,10 @@ export type Resource =
   // merge/unmerge is a distinct ADMIN-only check added in Commit 1a-2.
   | "OWNER"
   | "OWNER_IDENTITY"
+  // PROPERTY_IDENTITY = high-risk canonical Property identity resolution + crosswalk
+  // decisions (v1.2, Commit 2c). Distinct from ordinary PROPERTY write: recording an
+  // anchor value is PROPERTY; resolving identity / editing the crosswalk is this.
+  | "PROPERTY_IDENTITY"
   // Ingestion (v1.2, Commit 1c). REFRESH = triggering a source refresh / viewing
   // the refresh audit trail. Write = run a refresh; read = view job history.
   | "REFRESH";
@@ -55,6 +59,8 @@ const MATRIX: Record<Resource, Capability> = {
   OWNER: { write: [ADMIN, ACQUISITIONS], read: [ANALYST, DISPOSITIONS] },
   // Identity resolution is a high-risk MANAGE operation — no read-only tier.
   OWNER_IDENTITY: { write: [ADMIN, ACQUISITIONS], read: [] },
+  // Property identity resolution mirrors OWNER_IDENTITY's high-risk posture.
+  PROPERTY_IDENTITY: { write: [ADMIN, ACQUISITIONS], read: [] },
   // Refresh mirrors OWNER: acquisitions run ingestion; everyone can read the trail.
   REFRESH: { write: [ADMIN, ACQUISITIONS], read: [ANALYST, DISPOSITIONS] },
 };

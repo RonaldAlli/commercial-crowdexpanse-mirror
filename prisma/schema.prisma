@@ -575,6 +575,10 @@ model Property {
   noiAnnualUsd   Int?
   capRate        Float?
   status         String?
+  // v1.2 Commit 2c-i: ledger-backed projected identity ANCHORS (evidence, not identity).
+  apnNormalized     String?
+  countyFipsCode    String?
+  addressNormalized String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -585,11 +589,61 @@ model Property {
   documents      Document[]
   notes          Note[]
   activities     ActivityLog[]
+  identity       PropertyIdentity?
+  externalIdentifiers PropertyExternalIdentifier[]
 
   @@index([organizationId])
   @@index([sellerId])
   @@index([ownerId])
   @@map("properties")
+}
+
+// v1.2 Commit 2c-i — the DERIVED, rebuildable Property identity surface (PI-A).
+// NOT a source of truth: every column is derived purely from the accepted anchor
+// signals in the ledger by rebuildPropertyIdentity (deterministic, invariant #12).
+// `rebuiltFromProjectionAt` is the deterministic projection watermark (max winning
+// anchor-signal createdAt), never wall-clock. One row per property.
+model PropertyIdentity {
+  id                     String    @id @default(cuid())
+  organizationId         String
+  propertyId             String    @unique
+  countyFipsCode         String?
+  apnNormalized          String?
+  addressNormalized      String?
+  parcelKey              String? // "${countyFipsCode}|${apnNormalized}" — only when both present
+  identityVersion        String // deterministic fingerprint of the winning anchor set + normalizer versions
+  rebuiltFromProjectionAt DateTime?
+  property               Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, parcelKey])
+  @@index([organizationId, addressNormalized])
+  @@map("property_identities")
+}
+
+enum ExternalIdentifierState {
+  ACTIVE
+  SUPERSEDED
+}
+
+// v1.2 Commit 2c-i — the immutable external-identifier crosswalk (R3). Append-only
+// with Signal-style supersession: rows are never edited or deleted; a remap
+// supersedes the prior ACTIVE row and inserts a new one. At most one ACTIVE row per
+// (organizationId, provider, providerIdentifier), enforced transactionally.
+model PropertyExternalIdentifier {
+  id                 String                  @id @default(cuid())
+  organizationId     String
+  propertyId         String
+  provider           String
+  providerIdentifier String
+  asOf               DateTime?
+  state              ExternalIdentifierState @default(ACTIVE)
+  supersededById     String?
+  createdAt          DateTime                @default(now())
+  property           Property                @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, provider, providerIdentifier])
+  @@index([organizationId, propertyId])
+  @@map("property_external_identifiers")
 }
 
 model Opportunity {

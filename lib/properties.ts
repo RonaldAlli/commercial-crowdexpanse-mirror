@@ -21,7 +21,8 @@ import type { AssetType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { acceptObservationAsSignalTx, appendSignal, recordObservation } from "@/lib/intelligence/provenance";
 import { recomputePropertyField } from "@/lib/intelligence/property-projection";
-import { PROPERTY_PROJECTED_FIELDS, type PropertyProjectedField } from "@/lib/intelligence/property-fields";
+import { rebuildPropertyIdentity } from "@/lib/intelligence/property-identity";
+import { PROPERTY_PROJECTED_FIELDS, isPropertyAnchorField, normalizePropertyValue, type PropertyProjectedField } from "@/lib/intelligence/property-fields";
 
 /** The Property columns written as ordinary (non-projected) operational data. */
 export interface PropertyOperationalPayload {
@@ -43,8 +44,12 @@ export interface PropertyOperationalPayload {
   capRate: number | null;
 }
 
-/** The ledger-backed projected fields, supplied as parsed integers (or null). */
-export type PropertyProjectedValues = Partial<Record<PropertyProjectedField, number | null>>;
+/**
+ * The ledger-backed projected fields, supplied as RAW inputs (string or number, or
+ * null to skip). Integers may be passed as numbers; anchors as raw strings — the
+ * domain writer normalizes deterministically and preserves the raw in the ledger.
+ */
+export type PropertyProjectedValues = Partial<Record<PropertyProjectedField, string | number | null>>;
 
 interface WriteOpts {
   actorUserId?: string;
@@ -62,23 +67,30 @@ async function setPropertyProjectedFieldTx(
   organizationId: string,
   propertyId: string,
   fieldKey: PropertyProjectedField,
-  value: number | null | undefined,
+  rawInput: string | number | null | undefined,
   opts: WriteOpts,
 ) {
-  if (value === null || value === undefined) return;
+  if (rawInput === null || rawInput === undefined) return;
+  const raw = String(rawInput);
+  const normalized = normalizePropertyValue(fieldKey, raw);
+  if (normalized === null) return; // invalid input records nothing (domain callers pass validated data)
   const current = await tx.property.findFirst({
     where: { id: propertyId, organizationId },
-    select: { yearBuilt: true, squareFeet: true },
+    select: { yearBuilt: true, squareFeet: true, apnNormalized: true, countyFipsCode: true, addressNormalized: true },
   });
-  if (current && current[fieldKey] === value) return; // unchanged — no new signal
+  if (current) {
+    const col = (current as Record<string, unknown>)[fieldKey];
+    const currentNormalized = col === null || col === undefined ? null : String(col);
+    if (currentNormalized === normalized) return; // unchanged — no new signal
+  }
   const obs = await recordObservation(
     organizationId,
     {
       entityType: "PROPERTY",
       entityId: propertyId,
       fieldKey,
-      valueRaw: String(value),
-      valueNormalized: String(value),
+      valueRaw: raw, // preserve the true raw submission (invariant #3)
+      valueNormalized: normalized,
       sourceCategory: "USER_ENTERED",
       sourceId: opts.actorUserId ?? "user",
       asOf: new Date(),
@@ -106,6 +118,7 @@ export async function createPropertyRecord(
     for (const fieldKey of PROPERTY_PROJECTED_FIELDS) {
       await setPropertyProjectedFieldTx(tx, organizationId, property.id, fieldKey, projected[fieldKey], { ...opts, method: opts.method ?? "create" });
     }
+    await rebuildPropertyIdentity(organizationId, property.id, tx); // every property has a derived identity row
     return tx.property.findUniqueOrThrow({ where: { id: property.id } });
   });
 }
@@ -128,6 +141,7 @@ export async function updatePropertyRecord(
     for (const fieldKey of PROPERTY_PROJECTED_FIELDS) {
       await setPropertyProjectedFieldTx(tx, organizationId, existing.id, fieldKey, projected[fieldKey], opts);
     }
+    await rebuildPropertyIdentity(organizationId, existing.id, tx);
     return tx.property.findUniqueOrThrow({ where: { id: existing.id } });
   });
 }
@@ -149,7 +163,11 @@ export async function backfillPropertyGenesisSignals(organizationId: string) {
   for (const p of properties) {
     let touched = false;
     for (const fieldKey of PROPERTY_PROJECTED_FIELDS) {
-      const value = p[fieldKey];
+      // Anchors (APN/FIPS/address) have no legacy column source and are NOT
+      // synthesized during genesis (Decision C) — only explicit observations
+      // create anchor lineage. Backfill covers the integer projected columns.
+      if (isPropertyAnchorField(fieldKey)) continue;
+      const value = (p as Record<string, unknown>)[fieldKey];
       if (value === null || value === undefined) continue;
       const has = await prisma.intelligenceSignal.findFirst({
         where: { organizationId, entityType: "PROPERTY", entityId: p.id, fieldKey },
@@ -169,6 +187,7 @@ export async function backfillPropertyGenesisSignals(organizationId: string) {
       });
       touched = true;
     }
+    await rebuildPropertyIdentity(organizationId, p.id); // ensure the derived identity row exists (all-null anchors → all-null row)
     if (touched) backfilled += 1;
   }
   return { properties: properties.length, backfilled };
