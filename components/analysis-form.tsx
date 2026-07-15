@@ -15,6 +15,9 @@ export type AnalysisFormValues = {
   loanAmountUsd?: number | null;
   interestRatePct?: number | null;
   amortizationYears?: number | null;
+  targetLtvPct?: number | null;
+  targetLtcPct?: number | null;
+  minDscr?: number | null;
   analystSummary?: string | null;
 };
 
@@ -89,6 +92,12 @@ export function AnalysisForm({
         <Field label="Loan amount (USD)" name="loanAmountUsd" value={values?.loanAmountUsd} />
         <Field label="Interest rate (%)" name="interestRatePct" value={values?.interestRatePct} step="any" />
         <Field label="Amortization (years)" name="amortizationYears" value={values?.amortizationYears} />
+      </Section>
+
+      <Section title="Debt sizing (optional — sizes the loan by LTV / LTC / DSCR)">
+        <Field label="Target LTV (%)" name="targetLtvPct" value={values?.targetLtvPct} step="any" hint="Loan ≤ this % of estimated value" />
+        <Field label="Target LTC (%)" name="targetLtcPct" value={values?.targetLtcPct} step="any" hint="Loan ≤ this % of all-in cost" />
+        <Field label="Min DSCR" name="minDscr" value={values?.minDscr} step="any" hint="Loan sized so NOI ÷ debt service ≥ this" />
       </Section>
 
       <section className="space-y-4">

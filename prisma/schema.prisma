@@ -833,6 +833,18 @@ enum AssumptionKey {
   AMORTIZATION_YEARS
   UNIT_COUNT
   ESTIMATED_VALUE
+  // Debt-sizing constraints (v1.3, Commit 3b-i). Optional analyst inputs — not
+  // kernel inputs; consumed only by the pure debt-sizing calculation.
+  TARGET_LTV_PCT
+  TARGET_LTC_PCT
+  MIN_DSCR
+}
+
+// Which constraint bound the sized loan (v1.3, Commit 3b-i).
+enum DebtSizingConstraint {
+  LTV
+  LTC
+  DSCR
 }
 
 model Underwriting {
@@ -906,9 +918,9 @@ model UnderwritingAssumption {
 }
 
 model ScenarioResult {
-  id                   String               @id @default(cuid())
+  id                   String                @id @default(cuid())
   organizationId       String
-  scenarioId           String               @unique
+  scenarioId           String                @unique
   // The scenarioVersion this result was derived from (staleness detection).
   scenarioVersion      String
   calcLibVersion       Int
@@ -923,7 +935,14 @@ model ScenarioResult {
   dscr                 Float?
   debtYieldPct         Float?
   spreadUsd            Int?
-  scenario             UnderwritingScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  // Debt sizing (v1.3, Commit 3b-i) — derived, deterministic loan sizing by
+  // constraint. Null when no sizing constraints are provided.
+  loanByLtvUsd         Int?
+  loanByLtcUsd         Int?
+  loanByDscrUsd        Int?
+  sizedLoanUsd         Int?
+  bindingConstraint    DebtSizingConstraint?
+  scenario             UnderwritingScenario  @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
   @@map("scenario_results")

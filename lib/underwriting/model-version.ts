@@ -9,11 +9,16 @@
 //   • RULESET_VERSION              — the findings/risk ruleset (arrives in 3c;
 //     declared now so lineage is complete and a later bump needs no migration).
 // Bumping any one lets a consumer distinguish an assumption change from a
-// calculation-model change (UW-2/UW-3). All start at 1.
+// calculation-model change (UW-2/UW-3).
+//
+// Lineage history:
+//   v1 (3a) — model 1 / calc 1 / rules 1: the core kernel + snapshot ownership.
+//   v2 (3b-i) — model 2 (new debt-sizing assumptions exist) / calc 2 (new
+//     deterministic debt-sizing calculation) / rules 1 (unchanged).
 import { createHash } from "node:crypto";
 
-export const UNDERWRITING_MODEL_VERSION = 1;
-export const CALCULATION_LIBRARY_VERSION = 1;
+export const UNDERWRITING_MODEL_VERSION = 2;
+export const CALCULATION_LIBRARY_VERSION = 2;
 export const RULESET_VERSION = 1;
 
 export type ModelLineage = {

@@ -23,7 +23,12 @@ export const ASSUMPTION_KEYS = [
   "ESTIMATED_VALUE",
 ] as const;
 
-export type AssumptionKey = (typeof ASSUMPTION_KEYS)[number];
+// Debt-sizing constraints (v1.3, Commit 3b-i). Valid assumptions, but NOT kernel
+// inputs — they are consumed only by the pure debt-sizing calculation, so they are
+// deliberately kept out of ASSUMPTION_KEYS (which totally determines AnalysisInputs).
+export const SIZING_ASSUMPTION_KEYS = ["TARGET_LTV_PCT", "TARGET_LTC_PCT", "MIN_DSCR"] as const;
+
+export type AssumptionKey = (typeof ASSUMPTION_KEYS)[number] | (typeof SIZING_ASSUMPTION_KEYS)[number];
 
 /** The keys sourced from the analyst's form (MANUAL). */
 export const MANUAL_ASSUMPTION_KEYS: AssumptionKey[] = [
@@ -89,4 +94,10 @@ export function validateAssumptions(rows: Pick<ResolvedAssumption, "key" | "valu
     return "Purchase price is required and must be greater than zero.";
   }
   return null;
+}
+
+/** Read a single assumption's numeric value by key (null when absent). */
+export function assumptionValue(rows: Pick<ResolvedAssumption, "key" | "value">[], key: AssumptionKey): number | null {
+  const row = rows.find((r) => r.key === key);
+  return row ? row.value : null;
 }

@@ -11,6 +11,7 @@ import { assertTestDatabase } from "./e2e-guard.mjs";
 import { prisma } from "../lib/prisma.ts";
 import { createPropertyRecord } from "../lib/properties.ts";
 import { computeAnalysis } from "../lib/analysis.ts";
+import { sizeDebt } from "../lib/underwriting/debt-sizing.ts";
 import {
   saveAnalyzerScenario,
   rebuildScenarioResult,
@@ -76,6 +77,7 @@ try {
   assert(result.capRate === expected.capRate && result.capRate === 8, "cap rate matches the kernel");
   assert(result.dscr === expected.dscr && result.pricePerUnitUsd === expected.pricePerUnitUsd, "dscr + price/unit match the kernel");
   assert(result.spreadUsd === expected.spreadUsd && result.spreadUsd === 125_000, "spread uses the SEEDED estimated value");
+  assert(result.sizedLoanUsd === null && result.bindingConstraint === null, "no debt-sizing constraints ⇒ null sizing (3a behavior preserved)");
 
   console.log("\n[2] Assumption provenance — 8 MANUAL + 2 SEEDED, seeds carry field/asOf:");
   const rows = await resolveScenarioAssumptions(scenarioId);
@@ -88,7 +90,7 @@ try {
   const sc1 = await prisma.underwritingScenario.findUnique({ where: { id: scenarioId } });
   assert(typeof sc1.scenarioVersion === "string" && sc1.scenarioVersion.length === 32, "scenario carries a 32-char scenarioVersion");
   assert(result.scenarioVersion === sc1.scenarioVersion, "the result reflects the scenario's current scenarioVersion (not stale)");
-  assert(sc1.modelVersion === 1 && sc1.calcLibVersion === 1 && sc1.rulesetVersion === 1, "model lineage frozen on the scenario");
+  assert(sc1.modelVersion === 2 && sc1.calcLibVersion === 2 && sc1.rulesetVersion === 1, "model lineage frozen on the scenario (3b-i bump)");
 
   console.log("\n[4] ScenarioSeed is a ONE-WAY snapshot — a later Property change never mutates the Scenario:");
   await prisma.property.update({ where: { id: prop.id }, data: { estimatedValueUsd: 5_000_000 } });
@@ -155,6 +157,31 @@ try {
   assert((await prisma.underwriting.count({ where: { organizationId: b.id } })) === 0, "org B has no underwritings");
   assert((await prisma.scenarioResult.count({ where: { organizationId: b.id } })) === 0, "org B has no scenario results");
   await throws(() => saveAnalyzerScenario(b.id, opp.id, MANUAL), "org B cannot underwrite org A's opportunity (cross-org rejected)");
+
+  console.log("\n[10] Debt sizing (3b-i) — deterministic sizing by LTV/LTC/DSCR, binding constraint, rebuilds:");
+  const sp = await createPropertyRecord(a.id, op({ name: "Sizing", unitCount: UNIT_COUNT, estimatedValueUsd: 1_000_000 }), {});
+  const sopp = await mkOpp(a.id, sp.id, "Sizing deal");
+  const sizingManual = [
+    ...MANUAL.filter((m) => m.key !== "GROSS_INCOME" && m.key !== "OPERATING_EXPENSES"),
+    { key: "GROSS_INCOME", value: 130_000 },
+    { key: "OPERATING_EXPENSES", value: 30_000 },
+    { key: "TARGET_LTV_PCT", value: 75 },
+    { key: "TARGET_LTC_PCT", value: 80 },
+    { key: "MIN_DSCR", value: 1.25 },
+  ];
+  const sres = (await saveAnalyzerScenario(a.id, sopp.id, sizingManual)).result;
+  // Cross-check against the pure kernel: NOI 100k, allInCost = 1.075M, estValue 1M (seeded).
+  const km = computeAnalysis({ purchasePriceUsd: 1_000_000, renovationBudgetUsd: 50_000, closingCostsUsd: 25_000, grossIncomeAnnualUsd: 130_000, operatingExpensesUsd: 30_000, loanAmountUsd: 750_000, interestRatePct: 6, amortizationYears: 30, unitCount: UNIT_COUNT, estimatedValueUsd: 1_000_000 });
+  const expSizing = sizeDebt({ estimatedValueUsd: 1_000_000, allInCostUsd: km.allInCostUsd, noiAnnualUsd: km.noiAnnualUsd, interestRatePct: 6, amortizationYears: 30, targetLtvPct: 75, targetLtcPct: 80, minDscr: 1.25 });
+  assert(sres.loanByLtvUsd === 750_000, "loan by LTV = 75% of estimated value (1M) = 750k");
+  assert(sres.loanByLtcUsd === expSizing.loanByLtcUsd && sres.loanByLtcUsd === 860_000, "loan by LTC = 80% of all-in cost (1.075M) = 860k");
+  assert(sres.loanByDscrUsd === expSizing.loanByDscrUsd, "loan by DSCR matches the pure sizing module");
+  assert(sres.sizedLoanUsd === 750_000 && sres.bindingConstraint === "LTV", "sized loan = min = LTV-bound 750k");
+  // Rebuild is deterministic for the sized result too (reads only frozen assumptions).
+  await prisma.scenarioResult.delete({ where: { scenarioId: sres.scenarioId } });
+  await rebuildScenarioResult(a.id, sres.scenarioId);
+  const sAfter = await prisma.scenarioResult.findUnique({ where: { scenarioId: sres.scenarioId } });
+  assert(sAfter.sizedLoanUsd === 750_000 && sAfter.bindingConstraint === "LTV", "sized result reconstructs deterministically from frozen assumptions");
 } finally {
   console.log("\nCleaning up throwaway orgs (cascade)...");
   for (const id of orgIds) await prisma.organization.delete({ where: { id } }).catch((e) => console.log(`  cleanup warn: ${e.message}`));

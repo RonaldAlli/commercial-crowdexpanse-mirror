@@ -61,6 +61,9 @@ export default async function EditAnalysisPage({ params }: { params: { opportuni
                   loanAmountUsd: val("LOAN_AMOUNT"),
                   interestRatePct: val("INTEREST_RATE"),
                   amortizationYears: val("AMORTIZATION_YEARS"),
+                  targetLtvPct: val("TARGET_LTV_PCT"),
+                  targetLtcPct: val("TARGET_LTC_PCT"),
+                  minDscr: val("MIN_DSCR"),
                   analystSummary: scenario?.analystSummary ?? null,
                 }
               : undefined

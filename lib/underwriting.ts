@@ -81,6 +81,12 @@ const RESULT_METRIC_KEYS = [
   "dscr",
   "debtYieldPct",
   "spreadUsd",
+  // Debt sizing (3b-i)
+  "loanByLtvUsd",
+  "loanByLtcUsd",
+  "loanByDscrUsd",
+  "sizedLoanUsd",
+  "bindingConstraint",
 ] as const;
 
 /**
@@ -93,9 +99,9 @@ export async function rebuildScenarioResult(organizationId: string, scenarioId: 
   const invalid = validateAssumptions(assumptions);
   if (invalid) throw new Error(`Cannot derive ScenarioResult: ${invalid}`);
   const scenario = await db.underwritingScenario.findFirstOrThrow({ where: { id: scenarioId, organizationId } });
-  const { scenarioVersion, metrics } = deriveScenarioResult(assumptions, lineageOf(scenario));
+  const { scenarioVersion, metrics, sizing } = deriveScenarioResult(assumptions, lineageOf(scenario));
 
-  const values = { scenarioVersion, calcLibVersion: scenario.calcLibVersion, ...pickMetrics(metrics) };
+  const values = { scenarioVersion, calcLibVersion: scenario.calcLibVersion, ...pickMetrics(metrics), ...sizing };
   const existing = await db.scenarioResult.findUnique({ where: { scenarioId } });
   const unchanged =
     existing != null &&

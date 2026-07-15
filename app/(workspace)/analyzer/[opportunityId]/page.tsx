@@ -161,6 +161,37 @@ export default async function AnalysisViewPage({ params }: { params: { opportuni
           </div>
         </article>
       </div>
+
+      {m.sizedLoanUsd != null ? (
+        <article className="card p-6">
+          <div className="flex items-center justify-between">
+            <p className="eyebrow">Debt sizing</p>
+            <span className="text-xs text-slate-500">
+              Binding constraint: <span className="font-semibold text-slate-900">{m.bindingConstraint}</span>
+            </span>
+          </div>
+          <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { label: "By LTV", value: usd(m.loanByLtvUsd), binding: m.bindingConstraint === "LTV" },
+              { label: "By LTC", value: usd(m.loanByLtcUsd), binding: m.bindingConstraint === "LTC" },
+              { label: "By DSCR", value: usd(m.loanByDscrUsd), binding: m.bindingConstraint === "DSCR" },
+              { label: "Sized loan", value: usd(m.sizedLoanUsd), accent: true },
+            ].map((d) => (
+              <div key={d.label}>
+                <dt className="text-xs text-slate-500">
+                  {d.label}
+                  {d.binding ? <span className="ml-1 text-emerald-600">• binds</span> : null}
+                </dt>
+                <dd className={`metric mt-0.5 text-sm font-semibold ${d.accent ? "text-emerald-600" : "text-slate-900"}`}>{d.value}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-4 text-xs text-slate-400">
+            The sized loan is the smallest amount permitted by the provided constraints. Sizing is a derived suggestion — it is not
+            automatically applied as the modeled loan amount.
+          </p>
+        </article>
+      ) : null}
     </div>
   );
 }

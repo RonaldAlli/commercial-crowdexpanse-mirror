@@ -38,6 +38,7 @@ const CRITICAL = [
   "lib/intelligence/property-resolution.ts",
   "lib/underwriting/model-version.ts",
   "lib/underwriting/assumptions.ts",
+  "lib/underwriting/debt-sizing.ts",
 ];
 const TRACKED = [
   ...CRITICAL,

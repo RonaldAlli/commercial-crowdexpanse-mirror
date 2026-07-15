@@ -64,6 +64,10 @@ export async function saveAnalysis(
     { key: "LOAN_AMOUNT", value: intOrNull(str("loanAmountUsd")) },
     { key: "INTEREST_RATE", value: floatOrNull(str("interestRatePct")) },
     { key: "AMORTIZATION_YEARS", value: intOrNull(str("amortizationYears")) },
+    // Debt-sizing constraints (3b-i) — optional; not kernel inputs.
+    { key: "TARGET_LTV_PCT", value: floatOrNull(str("targetLtvPct")) },
+    { key: "TARGET_LTC_PCT", value: floatOrNull(str("targetLtcPct")) },
+    { key: "MIN_DSCR", value: floatOrNull(str("minDscr")) },
   ];
 
   const existed = (await prisma.underwriting.findUnique({ where: { opportunityId: opportunity.id } })) != null;
