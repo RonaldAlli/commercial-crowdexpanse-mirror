@@ -8,6 +8,19 @@ The engine's job is to be **correct**. A review UI's job is to let a human **int
 
 ---
 
+## The governing constraint — the review UI is never a second decision engine
+
+The engine decides; the UI explains; the human governs. **Every action a review surface offers must map to an already-defined deterministic outcome or governance action** — never to UI-side logic that changes what the engine would conclude. The UI must not introduce hidden heuristics, reordered or reweighted evidence, implicit scoring, convenience shortcuts, or "smart" defaults that alter a deterministic result.
+
+```
+Engine → Explanation → Human Decision → Append-only Governance Event      (always)
+Engine → UI logic → Different Decision                                    (never)
+```
+
+The five principles below are how this single constraint is upheld in practice; if any of them is ever in tension with a UI convenience, this constraint wins.
+
+---
+
 ## Principle 1 — Humans review; the engine classifies
 
 The deterministic classifier owns **classification** (for Property, the finite [Decision Matrix](./PROPERTY_IDENTITY_DECISION_MATRIX.md)). A human never re-runs or hand-edits a classification; they act on the **candidates** and **proposals** the engine surfaced. Review chooses among engine-produced options — it does not invent a new outcome outside the engine's model.
