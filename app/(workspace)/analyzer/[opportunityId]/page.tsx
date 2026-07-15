@@ -93,6 +93,20 @@ export default async function AnalysisViewPage({ params }: { params: { opportuni
     { label: "Avg DSCR", cell: (c) => (c.result?.avgDscr != null ? `${c.result.avgDscr}x` : "—") },
     { label: "Cumulative cash flow", cell: (c) => usd(c.result?.cumulativeCashFlowUsd ?? null) },
   ];
+  // Exit valuation + equity returns (3b-iv), per case. Shown only when modeled.
+  const hasExit = cases.some((c) => c.result?.grossExitValueUsd != null);
+  const exitRows: { label: string; cell: (c: (typeof cases)[number]) => string; accent?: boolean }[] = [
+    { label: "Terminal NOI", cell: (c) => usd(c.result?.terminalNoiUsd ?? null) },
+    { label: "Exit cap rate", cell: (c) => pct(c.result?.exitCapRatePct ?? null) },
+    { label: "Gross exit value", cell: (c) => usd(c.result?.grossExitValueUsd ?? null) },
+    { label: "Selling costs", cell: (c) => usd(c.result?.sellingCostsUsd ?? null) },
+    { label: "Debt payoff", cell: (c) => usd(c.result?.debtPayoffUsd ?? null) },
+    { label: "Net sale proceeds", cell: (c) => usd(c.result?.netSaleProceedsUsd ?? null) },
+    { label: "Contributed equity", cell: (c) => usd(c.result?.contributedEquityUsd ?? null) },
+    { label: "Equity multiple", cell: (c) => (c.result?.equityMultiple != null ? `${c.result.equityMultiple}x` : "—"), accent: true },
+    { label: "Levered IRR", cell: (c) => pct(c.result?.leveredIrrPct ?? null), accent: true },
+    { label: "Total profit", cell: (c) => usd(c.result?.totalProfitUsd ?? null), accent: true },
+  ];
 
   const metrics: { label: string; value: string; accent?: boolean }[] = [
     { label: "NOI", value: usd(m.noiAnnualUsd) },
@@ -278,6 +292,76 @@ export default async function AnalysisViewPage({ params }: { params: { opportuni
                             <td className="metric px-3 py-1.5 text-slate-900">{usd(y.debtServiceUsd)}</td>
                             <td className="metric px-3 py-1.5 font-medium text-emerald-600">{usd(y.cashFlowBeforeTaxUsd)}</td>
                             <td className="metric px-3 py-1.5 text-slate-900">{y.dscr != null ? `${y.dscr}x` : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </article>
+      ) : null}
+
+      {hasExit ? (
+        <article className="card p-6">
+          <p className="eyebrow">Exit &amp; equity returns</p>
+          <p className="mt-1 text-xs text-slate-400">
+            Terminal value capitalizes the exit-year NOI at the exit cap rate; each case nets its own amortized debt payoff. Returns
+            are derived from the equity cash-flow series — operating cash flow only (no tax, refinance, or promote).
+          </p>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[560px] text-sm">
+              <thead>
+                <tr className="text-left text-xs text-slate-500">
+                  <th className="py-2 pr-4 font-medium">Metric</th>
+                  {cases.map((c) => (
+                    <th key={c.id} className="px-3 py-2 font-medium text-slate-700">{c.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {exitRows.map((row) => (
+                  <tr key={row.label}>
+                    <td className="py-2 pr-4 text-xs text-slate-500">{row.label}</td>
+                    {cases.map((c) => (
+                      <td key={c.id} className={`metric px-3 py-2 ${row.accent ? "font-semibold text-emerald-600" : "text-slate-900"}`}>
+                        {row.cell(c)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </article>
+      ) : null}
+
+      {cases.some((c) => c.equityCashFlow.length > 0) ? (
+        <article className="card p-6">
+          <p className="eyebrow">Equity cash-flow series</p>
+          <p className="mt-1 text-xs text-slate-400">Year 0 is the equity contribution; the final year combines operating cash flow and net sale proceeds.</p>
+          <div className="mt-4 space-y-6">
+            {cases
+              .filter((c) => c.equityCashFlow.length > 0)
+              .map((c) => (
+                <div key={c.id}>
+                  <p className="text-sm font-medium text-slate-700">{c.label}</p>
+                  <div className="mt-2 overflow-x-auto">
+                    <table className="w-full min-w-[480px] text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-slate-500">
+                          <th className="py-1.5 pr-4 font-medium">Year</th>
+                          <th className="px-3 py-1.5 font-medium">Equity cash flow</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {c.equityCashFlow.map((y) => (
+                          <tr key={y.year}>
+                            <td className="py-1.5 pr-4 text-slate-500">{y.year === 0 ? "0 (equity in)" : y.year}</td>
+                            <td className={`metric px-3 py-1.5 ${y.equityCashFlowUsd < 0 ? "text-rose-600" : "font-medium text-emerald-600"}`}>
+                              {usd(y.equityCashFlowUsd)}
+                            </td>
                           </tr>
                         ))}
                       </tbody>

@@ -66,6 +66,9 @@ export async function saveAnalysis(
     { key: "INCOME_GROWTH_PCT", value: floatOrNull(str("incomeGrowthPct")) },
     { key: "EXPENSE_GROWTH_PCT", value: floatOrNull(str("expenseGrowthPct")) },
     { key: "HOLD_YEARS", value: intOrNull(str("holdYears")) },
+    // Exit assumptions (3b-iv) — operating, financing-independent.
+    { key: "EXIT_CAP_RATE_PCT", value: floatOrNull(str("exitCapRatePct")) },
+    { key: "SELLING_COSTS_PCT", value: floatOrNull(str("sellingCostsPct")) },
   ];
 
   // Optional income/expense schedule (3b-ii). The client serializes rows to JSON; a

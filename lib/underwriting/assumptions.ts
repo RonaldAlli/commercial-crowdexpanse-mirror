@@ -31,7 +31,14 @@ export const SIZING_ASSUMPTION_KEYS = ["TARGET_LTV_PCT", "TARGET_LTC_PCT", "MIN_
 // Projection assumptions (v1.3, Commit 3b-iii). OPERATING, financing-independent
 // (CF-5): they shape the shared multi-year NOI trajectory, never the debt. Not
 // kernel inputs — consumed only by the pure cash-flow projection.
-export const PROJECTION_ASSUMPTION_KEYS = ["INCOME_GROWTH_PCT", "EXPENSE_GROWTH_PCT", "HOLD_YEARS"] as const;
+export const PROJECTION_ASSUMPTION_KEYS = [
+  "INCOME_GROWTH_PCT",
+  "EXPENSE_GROWTH_PCT",
+  "HOLD_YEARS",
+  // Exit assumptions (v1.3, Commit 3b-iv) — operating, financing-independent.
+  "EXIT_CAP_RATE_PCT",
+  "SELLING_COSTS_PCT",
+] as const;
 
 export type AssumptionKey =
   | (typeof ASSUMPTION_KEYS)[number]
@@ -60,6 +67,8 @@ export const MANUAL_ASSUMPTION_KEYS: AssumptionKey[] = [
   "INCOME_GROWTH_PCT",
   "EXPENSE_GROWTH_PCT",
   "HOLD_YEARS",
+  "EXIT_CAP_RATE_PCT",
+  "SELLING_COSTS_PCT",
 ];
 
 /** The keys snapshotted from the Version 1.2 platform at scenario creation (SEEDED / ScenarioSeed). */

@@ -11,6 +11,7 @@
 import { computeAnalysis, type AnalysisInputs } from "@/lib/analysis";
 import { projectNoi, projectCashFlow, summarizeCashFlow, type CashFlowYearRow, type CashFlowSummary } from "./cash-flow";
 import { sizeDebt, type DebtSizingResult } from "./debt-sizing";
+import { remainingLoanBalance, projectExit, computeEquityCashFlows, computeReturns } from "./exit";
 
 /** The frozen operating context a FinancingCase consumes (CF-5) — never mutated. */
 export type FinancingCaseInput = {
@@ -21,6 +22,9 @@ export type FinancingCaseInput = {
   incomeGrowthPct: number | null;
   expenseGrowthPct: number | null;
   holdYears: number | null;
+  // Exit assumptions (operating, financing-independent — 3b-iv).
+  exitCapRatePct: number | null;
+  sellingCostsPct: number | null;
   // Capital assumptions OWNED by this case (CF-1).
   loanAmountUsd: number | null;
   interestRatePct: number | null;
@@ -30,6 +34,22 @@ export type FinancingCaseInput = {
   minDscr: number | null;
 };
 
+/** The exit + returns layer for one case (3b-iv), or null when no exit is modeled. */
+export type DerivedExit = {
+  terminalNoiUsd: number;
+  exitCapRatePct: number;
+  sellingCostsPct: number | null;
+  grossExitValueUsd: number;
+  sellingCostsUsd: number;
+  debtPayoffUsd: number;
+  netSaleProceedsUsd: number;
+  contributedEquityUsd: number;
+  equityMultiple: number | null;
+  leveredIrrPct: number | null;
+  totalProfitUsd: number;
+  equityCashFlow: number[]; // year 0..N
+};
+
 export type DerivedFinancingCase = {
   annualDebtServiceUsd: number | null;
   dscr: number | null;
@@ -37,6 +57,7 @@ export type DerivedFinancingCase = {
   sizing: DebtSizingResult;
   cashFlow: CashFlowYearRow[];
   summary: CashFlowSummary;
+  exit: DerivedExit | null;
 };
 
 /**
@@ -77,6 +98,39 @@ export function deriveFinancingCase(i: FinancingCaseInput): DerivedFinancingCase
   const cashFlow = projectCashFlow(noiSeries, m.annualDebtServiceUsd);
   const summary = summarizeCashFlow(cashFlow);
 
+  // Exit layer (3b-iv): extends the cash flow (EX-1). Modeled only when there is a
+  // hold projection AND a positive exit cap rate — otherwise no exit (like "no
+  // schedule → scalar"). Reads the settled NOI trajectory + debt as frozen inputs.
+  let exit: DerivedExit | null = null;
+  if (cashFlow.length > 0 && i.exitCapRatePct != null && i.exitCapRatePct > 0) {
+    const exitYear = cashFlow.length; // exit at the end of the hold period
+    const terminalNoiUsd = cashFlow[exitYear - 1].noiUsd; // trailing exit-year NOI (EX-2)
+    // Equity invested = all-in cost net of the case's debt (all-cash ⇒ full cost).
+    const contributedEquityUsd = Math.max(0, m.allInCostUsd - (i.loanAmountUsd ?? 0));
+    const debtPayoffUsd = remainingLoanBalance(i.loanAmountUsd, i.interestRatePct, i.amortizationYears, exitYear);
+    const valuation = projectExit({ terminalNoiUsd, exitCapRatePct: i.exitCapRatePct, sellingCostsPct: i.sellingCostsPct, debtPayoffUsd });
+    const equityCashFlow = computeEquityCashFlows({
+      contributedEquityUsd,
+      annualCashFlowsBeforeTax: cashFlow.map((y) => y.cashFlowBeforeTaxUsd),
+      netSaleProceedsUsd: valuation.netSaleProceedsUsd,
+    });
+    const returns = computeReturns(equityCashFlow, contributedEquityUsd);
+    exit = {
+      terminalNoiUsd,
+      exitCapRatePct: i.exitCapRatePct,
+      sellingCostsPct: i.sellingCostsPct,
+      grossExitValueUsd: valuation.grossExitValueUsd,
+      sellingCostsUsd: valuation.sellingCostsUsd,
+      debtPayoffUsd: valuation.debtPayoffUsd,
+      netSaleProceedsUsd: valuation.netSaleProceedsUsd,
+      contributedEquityUsd,
+      equityMultiple: returns.equityMultiple,
+      leveredIrrPct: returns.leveredIrrPct,
+      totalProfitUsd: returns.totalProfitUsd,
+      equityCashFlow,
+    };
+  }
+
   return {
     annualDebtServiceUsd: m.annualDebtServiceUsd,
     dscr: m.dscr,
@@ -84,5 +138,6 @@ export function deriveFinancingCase(i: FinancingCaseInput): DerivedFinancingCase
     sizing,
     cashFlow,
     summary,
+    exit,
   };
 }

@@ -20,10 +20,13 @@
 //   v4 (3b-iii) — model 4 (FinancingCase capital structures + projection
 //     assumptions exist; capital relocated off the Scenario) / calc 4 (new
 //     deterministic multi-year cash-flow projection) / rules 1 (unchanged).
+//   v5 (3b-iv) — model 5 (exit assumptions + exit valuation / equity cash-flow /
+//     return-metric projection layers exist) / calc 5 (new deterministic exit
+//     valuation, amortized debt payoff, equity returns incl. IRR) / rules 1.
 import { createHash } from "node:crypto";
 
-export const UNDERWRITING_MODEL_VERSION = 4;
-export const CALCULATION_LIBRARY_VERSION = 4;
+export const UNDERWRITING_MODEL_VERSION = 5;
+export const CALCULATION_LIBRARY_VERSION = 5;
 export const RULESET_VERSION = 1;
 
 export type ModelLineage = {

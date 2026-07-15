@@ -247,6 +247,18 @@ const FCR_METRIC_KEYS = [
   "projectionYears",
   "avgDscr",
   "cumulativeCashFlowUsd",
+  // Exit + returns (3b-iv)
+  "terminalNoiUsd",
+  "exitCapRatePct",
+  "sellingCostsPct",
+  "grossExitValueUsd",
+  "sellingCostsUsd",
+  "debtPayoffUsd",
+  "netSaleProceedsUsd",
+  "contributedEquityUsd",
+  "equityMultiple",
+  "leveredIrrPct",
+  "totalProfitUsd",
 ] as const;
 
 /**
@@ -276,6 +288,8 @@ export async function rebuildFinancingCase(organizationId: string, financingCase
     incomeGrowthPct: assumptionValue(assumptions, "INCOME_GROWTH_PCT"),
     expenseGrowthPct: assumptionValue(assumptions, "EXPENSE_GROWTH_PCT"),
     holdYears: assumptionValue(assumptions, "HOLD_YEARS"),
+    exitCapRatePct: assumptionValue(assumptions, "EXIT_CAP_RATE_PCT"),
+    sellingCostsPct: assumptionValue(assumptions, "SELLING_COSTS_PCT"),
     loanAmountUsd: cap("LOAN_AMOUNT"),
     interestRatePct: cap("INTEREST_RATE"),
     amortizationYears: cap("AMORTIZATION_YEARS"),
@@ -304,6 +318,18 @@ export async function rebuildFinancingCase(organizationId: string, financingCase
     projectionYears: derived.summary.projectionYears > 0 ? derived.summary.projectionYears : null,
     avgDscr: derived.summary.avgDscr,
     cumulativeCashFlowUsd: derived.summary.cumulativeCashFlowUsd,
+    // Exit + returns (3b-iv) — all null when no exit is modeled.
+    terminalNoiUsd: derived.exit?.terminalNoiUsd ?? null,
+    exitCapRatePct: derived.exit?.exitCapRatePct ?? null,
+    sellingCostsPct: derived.exit?.sellingCostsPct ?? null,
+    grossExitValueUsd: derived.exit?.grossExitValueUsd ?? null,
+    sellingCostsUsd: derived.exit?.sellingCostsUsd ?? null,
+    debtPayoffUsd: derived.exit?.debtPayoffUsd ?? null,
+    netSaleProceedsUsd: derived.exit?.netSaleProceedsUsd ?? null,
+    contributedEquityUsd: derived.exit?.contributedEquityUsd ?? null,
+    equityMultiple: derived.exit?.equityMultiple ?? null,
+    leveredIrrPct: derived.exit?.leveredIrrPct ?? null,
+    totalProfitUsd: derived.exit?.totalProfitUsd ?? null,
   };
 
   // Content-idempotent result upsert.
@@ -350,6 +376,23 @@ export async function rebuildFinancingCase(organizationId: string, financingCase
           cashFlowBeforeTaxUsd: r.cashFlowBeforeTaxUsd,
           dscr: r.dscr,
         },
+      });
+    }
+  }
+
+  // Equity cash-flow series (3b-iv): disposable + rebuildable like the cash flow.
+  // Year index = array position (0 = the negative equity contribution). Empty when
+  // no exit is modeled. Zero-write when unchanged.
+  const equitySeries = derived.exit?.equityCashFlow ?? [];
+  const existingEquity = await db.equityCashFlowYear.findMany({ where: { financingCaseId }, orderBy: { year: "asc" } });
+  const equityUnchanged =
+    existingEquity.length === equitySeries.length &&
+    equitySeries.every((v, idx) => existingEquity[idx] != null && existingEquity[idx].year === idx && existingEquity[idx].equityCashFlowUsd === v);
+  if (!equityUnchanged) {
+    await db.equityCashFlowYear.deleteMany({ where: { financingCaseId } });
+    for (let year = 0; year < equitySeries.length; year++) {
+      await db.equityCashFlowYear.create({
+        data: { organizationId, financingCaseId, year, equityCashFlowUsd: equitySeries[year] },
       });
     }
   }
@@ -530,7 +573,12 @@ export async function getActiveScenarioResult(organizationId: string, opportunit
       lineItems: { orderBy: { position: "asc" } },
       financingCases: {
         orderBy: { position: "asc" },
-        include: { result: true, capitalAssumptions: true, cashFlow: { orderBy: { year: "asc" } } },
+        include: {
+          result: true,
+          capitalAssumptions: true,
+          cashFlow: { orderBy: { year: "asc" } },
+          equityCashFlow: { orderBy: { year: "asc" } },
+        },
       },
     },
   });

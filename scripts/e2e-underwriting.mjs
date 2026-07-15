@@ -94,7 +94,7 @@ try {
   const sc1 = await prisma.underwritingScenario.findUnique({ where: { id: scenarioId } });
   assert(typeof sc1.scenarioVersion === "string" && sc1.scenarioVersion.length === 32, "scenario carries a 32-char scenarioVersion");
   assert(result.scenarioVersion === sc1.scenarioVersion, "the result reflects the scenario's current scenarioVersion (not stale)");
-  assert(sc1.modelVersion === 4 && sc1.calcLibVersion === 4 && sc1.rulesetVersion === 1, "model lineage frozen on the scenario (3b-iii bump)");
+  assert(sc1.modelVersion === 5 && sc1.calcLibVersion === 5 && sc1.rulesetVersion === 1, "model lineage frozen on the scenario (3b-iv bump)");
 
   console.log("\n[4] ScenarioSeed is a ONE-WAY snapshot — a later Property change never mutates the Scenario:");
   await prisma.property.update({ where: { id: prop.id }, data: { estimatedValueUsd: 5_000_000 } });
@@ -258,6 +258,66 @@ try {
   assert(cf2.result.noiAnnualUsd === 120_000, "operating NOI updated to 120k after the income edit");
   assert(cf2.financingCases.length === 2, "cases preserved (only refreshed) when financingCases is omitted (CF-4)");
   assert(cf2.financingCases[0].cashFlow[0].noiUsd === 120_000, "each case's cash flow reflects the new operating NOI (CF-4/CF-5)");
+
+  console.log("\n[13] Exit valuation + equity returns (3b-iv, EX-1…EX-6):");
+  const exProp = await createPropertyRecord(a.id, op({ name: "Exit", unitCount: UNIT_COUNT, estimatedValueUsd: 1_000_000 }), {});
+  const exOpp = await mkOpp(a.id, exProp.id, "Exit deal");
+  const exOperating = [
+    { key: "PURCHASE_PRICE", value: 1_000_000 },
+    { key: "GROSS_INCOME", value: 130_000 },
+    { key: "OPERATING_EXPENSES", value: 30_000 },
+    { key: "INCOME_GROWTH_PCT", value: 0 },
+    { key: "EXPENSE_GROWTH_PCT", value: 0 },
+    { key: "HOLD_YEARS", value: 5 },
+    { key: "EXIT_CAP_RATE_PCT", value: 8 },
+    { key: "SELLING_COSTS_PCT", value: 2 },
+  ];
+  const exCases = [
+    { label: "Debt", capital: [{ key: "LOAN_AMOUNT", value: 750_000 }, { key: "INTEREST_RATE", value: 6 }, { key: "AMORTIZATION_YEARS", value: 30 }] },
+    { label: "All cash", capital: [] },
+  ];
+  await saveAnalyzerScenario(a.id, exOpp.id, exOperating, { financingCases: exCases });
+  const ex = await getActiveScenarioResult(a.id, exOpp.id);
+  const dCase = ex.financingCases[0];
+  const cCase = ex.financingCases[1];
+  const dr = dCase.result;
+  const cr = cCase.result;
+  const rnd = (n) => Math.round(n * 100) / 100;
+  // NOI 100k, hold 5, 0 growth ⇒ terminal NOI 100k; gross exit = 100k / 8% = 1.25M.
+  assert(dr.terminalNoiUsd === 100_000 && dr.grossExitValueUsd === 1_250_000, "terminal value = exit-year NOI capitalized at the exit cap rate (EX-2)");
+  assert(dr.sellingCostsUsd === 25_000, "selling costs = 2% of gross exit value");
+  assert(dr.debtPayoffUsd > 690_000 && dr.debtPayoffUsd < 710_000, "amortized debt payoff at exit (~698k after 5 of 30 yrs, real amortization — EX-3)");
+  assert(dr.netSaleProceedsUsd === rnd(1_250_000 - 25_000 - dr.debtPayoffUsd), "net sale proceeds = gross − selling − payoff");
+  assert(dr.contributedEquityUsd === 250_000, "contributed equity = all-in cost (1.0M) − loan (750k)");
+  assert(dr.equityMultiple > 1 && dr.leveredIrrPct > 0, "levered deal is profitable (multiple > 1, IRR > 0)");
+  // All-cash case: no debt payoff, equity = full cost.
+  assert(cr.debtPayoffUsd === 0 && cr.contributedEquityUsd === 1_000_000, "all-cash: no debt payoff, equity = all-in cost");
+  assert(cr.netSaleProceedsUsd === 1_225_000, "all-cash net sale proceeds = gross − selling (1.225M)");
+  // EX-1: the exit layer never changed the operating or cash-flow layers beneath it.
+  assert(ex.result.noiAnnualUsd === 100_000, "EX-1: operating NOI unchanged by the exit layer");
+  assert(dCase.cashFlow[0].noiUsd === 100_000 && dCase.cashFlow.length === 5, "EX-1: the 5-year cash flow beneath is unchanged");
+  // Equity cash-flow series persisted (year 0..5) with EX-5 no-double-count.
+  assert(dCase.equityCashFlow.length === 6, "equity series persisted: year 0..5 (EX-4)");
+  assert(dCase.equityCashFlow[0].equityCashFlowUsd === -250_000, "year 0 = −contributed equity");
+  assert(dCase.equityCashFlow[5].equityCashFlowUsd === rnd(dCase.cashFlow[4].cashFlowBeforeTaxUsd + dr.netSaleProceedsUsd), "EX-5: final year = operating CF + sale, counted once");
+  assert(dCase.equityCashFlow[1].equityCashFlowUsd === dCase.cashFlow[0].cashFlowBeforeTaxUsd, "years 1..N−1 are the plain operating cash flow");
+  // Reconstruction + zero-write idempotency (EX-2/EX-3).
+  const fcrXmin = async (id) => (await prisma.$queryRaw`SELECT xmin::text AS xmin FROM financing_case_results WHERE "financingCaseId" = ${id}`)[0]?.xmin;
+  await prisma.equityCashFlowYear.deleteMany({ where: { financingCaseId: dCase.id } });
+  await prisma.financingCaseResult.delete({ where: { financingCaseId: dCase.id } });
+  await rebuildFinancingCase(a.id, dCase.id);
+  const rebuilt = await prisma.financingCaseResult.findUnique({ where: { financingCaseId: dCase.id } });
+  assert(rebuilt.terminalNoiUsd === 100_000 && rebuilt.netSaleProceedsUsd === dr.netSaleProceedsUsd && rebuilt.equityMultiple === dr.equityMultiple, "exit + returns reconstruct deterministically from frozen inputs");
+  assert((await prisma.equityCashFlowYear.count({ where: { financingCaseId: dCase.id } })) === 6, "equity series rebuilt (year 0..5)");
+  const exZ = await fcrXmin(dCase.id);
+  await rebuildFinancingCase(a.id, dCase.id);
+  assert((await fcrXmin(dCase.id)) === exZ, "a no-op rebuild of the exit/returns result performs ZERO writes (xmin unchanged)");
+  // Fingerprint sensitivity: an exit assumption feeds the FinancingCase fingerprint.
+  const fpBefore = dCase.financingCaseVersion;
+  await saveAnalyzerScenario(a.id, exOpp.id, exOperating.map((m) => (m.key === "EXIT_CAP_RATE_PCT" ? { ...m, value: 6 } : m)));
+  const ex2 = await getActiveScenarioResult(a.id, exOpp.id);
+  assert(ex2.financingCases[0].financingCaseVersion !== fpBefore, "changing an exit assumption flips the FinancingCase fingerprint");
+  assert(ex2.financingCases[0].result.grossExitValueUsd === rnd(100_000 / 0.06), "a lower exit cap rate reprices the terminal value (6% ⇒ 1.667M)");
 } finally {
   console.log("\nCleaning up throwaway orgs (cascade)...");
   for (const id of orgIds) await prisma.organization.delete({ where: { id } }).catch((e) => console.log(`  cleanup warn: ${e.message}`));

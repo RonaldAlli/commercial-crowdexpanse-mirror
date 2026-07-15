@@ -20,11 +20,11 @@ const set: FingerprintAssumption[] = [
   { key: "UNIT_COUNT", canonical: "10", source: "SEEDED" },
 ];
 
-test("lineage constants reflect the 3b-iii bump and CURRENT_MODEL_LINEAGE mirrors them", () => {
-  assert.equal(UNDERWRITING_MODEL_VERSION, 4);
-  assert.equal(CALCULATION_LIBRARY_VERSION, 4);
+test("lineage constants reflect the 3b-iv bump and CURRENT_MODEL_LINEAGE mirrors them", () => {
+  assert.equal(UNDERWRITING_MODEL_VERSION, 5);
+  assert.equal(CALCULATION_LIBRARY_VERSION, 5);
   assert.equal(RULESET_VERSION, 1);
-  assert.deepEqual(L, { modelVersion: 4, calcLibVersion: 4, rulesetVersion: 1 });
+  assert.deepEqual(L, { modelVersion: 5, calcLibVersion: 5, rulesetVersion: 1 });
 });
 
 test("fingerprint is a 32-char hex string", () => {

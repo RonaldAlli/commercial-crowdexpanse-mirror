@@ -844,6 +844,11 @@ enum AssumptionKey {
   INCOME_GROWTH_PCT
   EXPENSE_GROWTH_PCT
   HOLD_YEARS
+  // Exit assumptions (v1.3, Commit 3b-iv). OPERATING (market/transaction, financing-
+  // independent): the terminal valuation is the same regardless of capital structure;
+  // each case then nets its own debt payoff. The exit year is the hold period.
+  EXIT_CAP_RATE_PCT
+  SELLING_COSTS_PCT
 }
 
 // Which constraint bound the sized loan (v1.3, Commit 3b-i).
@@ -1000,6 +1005,7 @@ model FinancingCase {
   capitalAssumptions FinancingAssumption[]
   result             FinancingCaseResult?
   cashFlow           CashFlowYear[]
+  equityCashFlow     EquityCashFlowYear[]
 
   @@index([organizationId])
   @@index([scenarioId])
@@ -1044,14 +1050,47 @@ model FinancingCaseResult {
   loanByDscrUsd        Int?
   sizedLoanUsd         Int?
   bindingConstraint    DebtSizingConstraint?
-  // Multi-year operating cash-flow aggregates for this case.
+  // Multi-year operating cash-flow aggregates for this case. cumulativeCashFlowUsd
+  // is the cumulative operating equity cash flow (levered CF before tax over the hold).
   projectionYears      Int?
   avgDscr              Float?
   cumulativeCashFlowUsd Int?
+  // Exit valuation + returns (v1.3, Commit 3b-iv). Null when no exit is modeled (no
+  // hold period or no exit cap rate). The EX-2 set is fully persisted so the terminal
+  // value is independently reproducible; returns are pure functions of the equity
+  // cash-flow series (EX-4). All operating cash flow only — no tax/refinance/promote.
+  terminalNoiUsd       Float?
+  exitCapRatePct       Float?
+  sellingCostsPct      Float?
+  grossExitValueUsd    Float?
+  sellingCostsUsd      Float?
+  debtPayoffUsd        Float?
+  netSaleProceedsUsd   Float?
+  contributedEquityUsd Float?
+  equityMultiple       Float?
+  leveredIrrPct        Float?
+  totalProfitUsd       Float?
   financingCase        FinancingCase         @relation(fields: [financingCaseId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
   @@map("financing_case_results")
+}
+
+// One entry in a FinancingCase's equity cash-flow series (v1.3, Commit 3b-iv).
+// Year 0 is the negative initial equity contribution; years 1..N are the equity
+// distributions (the final year combines operating cash flow + net sale proceeds,
+// counted once — EX-5). Disposable + rebuildable like CashFlowYear (EX-4).
+model EquityCashFlowYear {
+  id                String        @id @default(cuid())
+  organizationId    String
+  financingCaseId   String
+  year              Int
+  equityCashFlowUsd Float
+  financingCase     FinancingCase @relation(fields: [financingCaseId], references: [id], onDelete: Cascade)
+
+  @@unique([financingCaseId, year])
+  @@index([organizationId])
+  @@map("equity_cash_flow_years")
 }
 
 // One year of a FinancingCase's operating cash-flow projection (v1.3, Commit

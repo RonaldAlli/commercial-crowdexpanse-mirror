@@ -66,6 +66,8 @@ export default async function EditAnalysisPage({ params }: { params: { opportuni
                   incomeGrowthPct: val("INCOME_GROWTH_PCT"),
                   expenseGrowthPct: val("EXPENSE_GROWTH_PCT"),
                   holdYears: val("HOLD_YEARS"),
+                  exitCapRatePct: val("EXIT_CAP_RATE_PCT"),
+                  sellingCostsPct: val("SELLING_COSTS_PCT"),
                   lines: (scenario?.lineItems ?? []).map((l) => ({
                     kind: l.kind,
                     category: l.category,

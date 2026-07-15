@@ -30,6 +30,9 @@ export type AnalysisFormValues = {
   incomeGrowthPct?: number | null;
   expenseGrowthPct?: number | null;
   holdYears?: number | null;
+  // Exit assumptions (operating, 3b-iv).
+  exitCapRatePct?: number | null;
+  sellingCostsPct?: number | null;
   lines?: ScheduleLineValue[];
   financingCases?: FinancingCaseValue[];
   analystSummary?: string | null;
@@ -246,10 +249,12 @@ export function AnalysisForm({
 
       <ScheduleEditor initial={values?.lines} />
 
-      <Section title="Projection (optional — drives the multi-year cash flow)">
+      <Section title="Projection & exit (optional — drives multi-year cash flow + returns)">
         <Field label="Income growth / yr (%)" name="incomeGrowthPct" value={values?.incomeGrowthPct} step="any" hint="Grows the NOI trajectory" />
         <Field label="Expense growth / yr (%)" name="expenseGrowthPct" value={values?.expenseGrowthPct} step="any" hint="Grows operating expenses" />
-        <Field label="Hold period (years)" name="holdYears" value={values?.holdYears} hint="Years of cash flow to project" />
+        <Field label="Hold period (years)" name="holdYears" value={values?.holdYears} hint="Years of cash flow to project; also the exit year" />
+        <Field label="Exit cap rate (%)" name="exitCapRatePct" value={values?.exitCapRatePct} step="any" hint="Capitalizes exit-year NOI into terminal value" />
+        <Field label="Selling costs (%)" name="sellingCostsPct" value={values?.sellingCostsPct} step="any" hint="Deducted from gross exit value" />
       </Section>
 
       <FinancingEditor initial={values?.financingCases} />

@@ -159,6 +159,40 @@ Operating cash flow only (3b-iii): terminal value, exit valuation, refinance,
 equity waterfall, IRR, and equity multiple are out of scope and remain future
 sub-slices.
 
+### Exit-valuation invariants (Commit 3b-iv)
+
+3b-iv adds the next projection layer on top of the per-case cash flow:
+`… → CashFlowYear → Exit Valuation → Equity Cash Flows → Return Metrics`. Exit
+*assumptions* (`EXIT_CAP_RATE_PCT`, `SELLING_COSTS_PCT`) are **operating** (Scenario-
+owned, financing-independent), so they enter `scenarioVersion` and therefore every
+case's `financingCaseVersion`; the exit *outputs* are **per-FinancingCase**. The exit
+year is the hold period; terminal NOI is the exit-year projected NOI (trailing). A
+**basic** single-holder waterfall only (return of contributed equity, then remaining
+profit to the one holder) — no promote, preferred, catch-up, or multiple partners.
+
+- **EX-1 — Exit valuation extends the existing cash-flow projection.** It reads the
+  settled operating NOI, debt service, and operating cash flow as frozen inputs and
+  never changes them (Principle 8).
+- **EX-2 — Terminal value is independently reproducible.** The system persists the
+  full set — terminal NOI, exit cap rate, gross exit value, selling costs, debt
+  payoff, net sale proceeds — so the valuation is explainable from stored inputs and
+  intermediate values.
+- **EX-3 — Debt payoff is derived from the FinancingCase's frozen loan terms + exit
+  timing** via the true amortization remaining-balance formula (never a shortcut when
+  the amortization inputs exist). It never reads current lender or Property state.
+- **EX-4 — Equity returns are pure functions of the complete equity cash-flow
+  series.** Equity multiple and levered IRR are OUTPUTS only — they never become
+  inputs to another calculation.
+- **EX-5 — The final year is not double-counted.** The exit-year equity cash flow
+  combines that year's operating cash flow with the net sale proceeds exactly once;
+  operating cash flow is never counted both in the annual stream and again at exit.
+- **EX-6 — Exit and return projections belong to exactly one FinancingCase.** They
+  never exist independently of their case.
+
+Scope excludes (future slices): refinancing, multi-tier promotes, preferred returns,
+catch-ups, multiple equity partners, tax/depreciation/capital-gains, sensitivity
+matrices, findings/risk flags, and approval workflow.
+
 ## 5. Commit 3a — Underwriting Model Formalization (headed by this lock)
 
 3a establishes the ownership model without deepening the math:
