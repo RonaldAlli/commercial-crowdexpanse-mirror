@@ -1,7 +1,12 @@
 # Version 1.3 — Commercial Underwriting
 
 > **Theme:** Deepen the Deal Analyzer into full financial modeling.
-> **Status:** 🟡 Foundation exists — `lib/analysis.ts` + `DealAnalysis` already compute core metrics.
+> **Status:** 🟢 In progress — architecture locked ([Underwriting Architecture Lock](../architecture/UNDERWRITING_ARCHITECTURE_LOCK.md)); **Commit 3a (Underwriting Model Formalization) is LIVE**.
+
+## Architecture & progress
+The deterministic architecture is locked in the [Underwriting Architecture Lock](../architecture/UNDERWRITING_ARCHITECTURE_LOCK.md) (decisions U-A…U-L, invariants UW-1…UW-9): underwriting is a **read-only consumer** of Version 1.2, not a second source of truth.
+
+- **Commit 3a — Underwriting Model Formalization — ✅ LIVE (2026-07-15).** Establishes ownership + determinism **without deepening the math**: the canonical `Underwriting → Scenario → Assumption → ScenarioResult` model, model lineage (`UNDERWRITING_MODEL_VERSION`/`CALCULATION_LIBRARY_VERSION`/`RULESET_VERSION`), a deterministic `scenarioVersion` fingerprint, the one-way ScenarioSeed snapshot (a Scenario never changes because the Property changes), a rebuildable/content-idempotent `ScenarioResult` (1:1 with a Scenario), the `DRAFT → LOCKED → SUPERSEDED` lifecycle, an `UNDERWRITING` RBAC resource, and a **behavior-preserving** analyzer repoint. `lib/analysis.ts` is unchanged. `DealAnalysis` is retained deprecated with an idempotent backfill ([D15](./TECHNICAL_DEBT.md)). Additive migration (prod 13→14). The scope below is the *math-deepening* work still ahead.
 
 ## Goal
 Give analysts a trustworthy, auditable underwriting model that turns property + market data into a go/no-go and an offer. Build on the existing Analyzer, not a rewrite.
