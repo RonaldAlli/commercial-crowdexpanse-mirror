@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { UserRole } from "@prisma/client";
 
-import { can, type Action, type Resource } from "../../../lib/permissions";
+import { can, canWaiveClosingItem, type Action, type Resource } from "../../../lib/permissions";
 
 const { ADMIN, ACQUISITIONS, ANALYST, DISPOSITIONS } = UserRole;
 const WRITE: Action[] = ["CREATE", "UPDATE", "DELETE", "MANAGE"];
@@ -27,6 +27,7 @@ const writeMatrix: Record<Resource, UserRole[]> = {
   REFRESH: [ADMIN, ACQUISITIONS],
   UNDERWRITING: [ADMIN, ANALYST],
   UNDERWRITING_APPROVAL: [ADMIN, ACQUISITIONS, DISPOSITIONS],
+  CLOSING: [ADMIN, ACQUISITIONS, DISPOSITIONS],
 };
 
 const ALL_ROLES = [ADMIN, ACQUISITIONS, ANALYST, DISPOSITIONS];
@@ -79,6 +80,22 @@ test("UNDERWRITING_APPROVAL enforces separation of duties (AP-5): analyst author
   for (const role of [ACQUISITIONS, DISPOSITIONS]) {
     assert.equal(can(role, "CREATE", "UNDERWRITING_APPROVAL"), true);
     assert.equal(can(role, "CREATE", "UNDERWRITING"), false);
+  }
+});
+
+test("CLOSING: analyst reads but cannot manage the checklist; waiving is stricter still (CC-5)", () => {
+  // Acquisitions/dispositions/admin manage closing items; analyst is read-only.
+  for (const role of [ADMIN, ACQUISITIONS, DISPOSITIONS]) {
+    assert.equal(can(role, "UPDATE", "CLOSING"), true);
+  }
+  assert.equal(can(ANALYST, "UPDATE", "CLOSING"), false);
+  assert.equal(can(ANALYST, "READ", "CLOSING"), true);
+
+  // Waiving a REQUIRED item overrides the PAID gate — ADMIN only, a distinct check
+  // above ordinary CLOSING write (separation of duties, CC-5).
+  assert.equal(canWaiveClosingItem(ADMIN), true);
+  for (const role of [ACQUISITIONS, ANALYST, DISPOSITIONS]) {
+    assert.equal(canWaiveClosingItem(role), false);
   }
 });
 

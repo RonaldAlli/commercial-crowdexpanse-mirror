@@ -39,7 +39,10 @@ export type Resource =
   // UNDERWRITING_APPROVAL (v1.3, Commit 3d) = recording the DECIDED recommendation on a
   // LOCKED scenario. Deliberately SEPARATE from UNDERWRITING authoring (separation of
   // duties, AP-5): an analyst may author a scenario but not decide it.
-  | "UNDERWRITING_APPROVAL";
+  | "UNDERWRITING_APPROVAL"
+  // Closing Center (v1.4, CC-D) = managing an opportunity's closing checklist / DD items.
+  // Waiving a REQUIRED item is a stricter ADMIN-only check (canWaiveClosingItem), CC-5.
+  | "CLOSING";
 
 export type Action = "CREATE" | "READ" | "UPDATE" | "DELETE" | "MANAGE";
 
@@ -80,6 +83,9 @@ const MATRIX: Record<Resource, Capability> = {
   // ADMIN + ACQUISITIONS + DISPOSITIONS decide; ANALYST authors but only READS the
   // decision (separation of duties, AP-5). Read = all four (write ∪ [ANALYST]).
   UNDERWRITING_APPROVAL: { write: [ADMIN, ACQUISITIONS, DISPOSITIONS], read: [ANALYST] },
+  // Closing work is owned by the acquisition/disposition/admin roles; analysts read.
+  // Waiving a REQUIRED item is a distinct ADMIN-only check (canWaiveClosingItem, CC-5).
+  CLOSING: { write: [ADMIN, ACQUISITIONS, DISPOSITIONS], read: [ANALYST] },
 };
 
 /** Can `role` perform `action` on `resource`? Pipeline movement is separate — see canMoveStage. */
@@ -117,6 +123,13 @@ export function canMergeOwners(role: UserRole): boolean {
 // distinct check, like canMergeOwners). Confirm/dismiss are the lower bar
 // OWNER_IDENTITY MANAGE (ADMIN + ACQUISITIONS); explicit reopen is ADMIN only.
 export function canReopenMatchDecision(role: UserRole): boolean {
+  return role === ADMIN;
+}
+
+// Waiving a REQUIRED closing checklist item overrides a gate to PAID, so it is the
+// strictest closing action: ADMIN only (a distinct check, like canMergeOwners) — CC-5.
+// Ordinary item work (complete / N-A / reopen / owner / due date) is CLOSING write.
+export function canWaiveClosingItem(role: UserRole): boolean {
   return role === ADMIN;
 }
 

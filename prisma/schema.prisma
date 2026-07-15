@@ -64,6 +64,34 @@ enum DocumentOrigin {
   GENERATED
 }
 
+// Closing Center (v1.4). A closing checklist item's category — Due Diligence ships
+// first; later slices add the others. See the Closing Center Architecture Lock (CC-A).
+enum ChecklistItemCategory {
+  DUE_DILIGENCE
+  ESCROW
+  FINANCING
+  ASSIGNMENT
+  LEGAL
+  OTHER
+}
+
+// Item lifecycle (CC-B). A REQUIRED item satisfies the PAID gate when COMPLETE or
+// WAIVED; NOT_APPLICABLE is excluded from the gate.
+enum ChecklistItemStatus {
+  PENDING
+  COMPLETE
+  WAIVED
+  NOT_APPLICABLE
+}
+
+// How an item is satisfied (CC-G) — declared as data, never hardcoded logic.
+enum CompletionEvidenceType {
+  NONE
+  DOCUMENT
+  TASK
+  MANUAL
+}
+
 enum MatchStatus {
   NEW
   REVIEWING
@@ -205,11 +233,11 @@ model User {
 }
 
 model Organization {
-  id                     String                  @id @default(cuid())
+  id                     String                     @id @default(cuid())
   name                   String
-  slug                   String                  @unique
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
+  slug                   String                     @unique
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
   users                  User[]
   sellers                Seller[]
   buyers                 Buyer[]
@@ -233,6 +261,8 @@ model Organization {
   propertyResolutions    PropertyResolution[]
   propertyMatchDecisions PropertyMatchDecision[]
   underwritings          Underwriting[]
+  closingTemplates       ClosingChecklistTemplate[]
+  closingChecklists      ClosingChecklist[]
 
   @@map("organizations")
 }
@@ -746,25 +776,26 @@ model PropertyMatchDecision {
 }
 
 model Opportunity {
-  id               String           @id @default(cuid())
+  id               String            @id @default(cuid())
   organizationId   String
   propertyId       String
   sellerId         String?
   title            String
-  stage            OpportunityStage @default(LEAD)
+  stage            OpportunityStage  @default(LEAD)
   source           String?
   priority         String?
   targetCloseDate  DateTime?
   contractValueUsd Int?
   assignmentFeeUsd Int?
   summary          String?
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  property         Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  seller           Seller?          @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property         Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  seller           Seller?           @relation(fields: [sellerId], references: [id], onDelete: SetNull)
   analysis         DealAnalysis?
   underwriting     Underwriting?
+  closingChecklist ClosingChecklist?
   tasks            Task[]
   notes            Note[]
   documents        Document[]
@@ -1381,6 +1412,95 @@ model Document {
   @@unique([sourceScenarioId, documentType, generationSequence])
   @@index([organizationId])
   @@map("documents")
+}
+
+// Closing Center (v1.4) — the versioned SOURCE of checklist requirements (CC-G/CC-9).
+// Templates are org-scoped and never hardcoded; instantiating a checklist SNAPSHOTS a
+// template's items (CC-10), so later template edits never rewrite an active deal.
+model ClosingChecklistTemplate {
+  id             String                         @id @default(cuid())
+  organizationId String
+  name           String
+  version        Int                            @default(1)
+  isActive       Boolean                        @default(true)
+  isDefault      Boolean                        @default(false)
+  createdAt      DateTime                       @default(now())
+  updatedAt      DateTime                       @updatedAt
+  organization   Organization                   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  items          ClosingChecklistTemplateItem[]
+  instances      ClosingChecklist[]
+
+  @@index([organizationId])
+  @@map("closing_checklist_templates")
+}
+
+model ClosingChecklistTemplateItem {
+  id                     String                   @id @default(cuid())
+  organizationId         String
+  templateId             String
+  category               ChecklistItemCategory
+  label                  String
+  description            String?
+  required               Boolean                  @default(true)
+  completionEvidenceType CompletionEvidenceType   @default(MANUAL)
+  position               Int
+  createdAt              DateTime                 @default(now())
+  template               ClosingChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([templateId])
+  @@map("closing_checklist_template_items")
+}
+
+// The instantiated, per-Opportunity checklist (CC-A, 1:1 with an Opportunity). It records
+// the template + version it was snapshotted from (CC-10) and is thereafter independent.
+model ClosingChecklist {
+  id               String                    @id @default(cuid())
+  organizationId   String
+  opportunityId    String                    @unique
+  sourceTemplateId String?
+  templateVersion  Int?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  organization     Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity      Opportunity               @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  sourceTemplate   ClosingChecklistTemplate? @relation(fields: [sourceTemplateId], references: [id], onDelete: SetNull)
+  items            ClosingChecklistItem[]
+
+  @@index([organizationId])
+  @@map("closing_checklists")
+}
+
+// One required-business-state item on an instantiated checklist (CC-A/CC-B). Operational
+// and mutable; every state change is audited. Owner/completedBy/waivedBy and evidence
+// references are plain scalars (no FK) — mirrors the codebase idiom for cross-domain ids.
+model ClosingChecklistItem {
+  id                     String                 @id @default(cuid())
+  organizationId         String
+  checklistId            String
+  category               ChecklistItemCategory
+  label                  String
+  description            String?
+  required               Boolean                @default(true)
+  completionEvidenceType CompletionEvidenceType @default(MANUAL)
+  position               Int
+  status                 ChecklistItemStatus    @default(PENDING)
+  ownerId                String?
+  dueDate                DateTime?
+  completedById          String?
+  completedAt            DateTime?
+  waivedById             String?
+  waivedAt               DateTime?
+  waiverReason           String?
+  evidenceDocumentId     String?
+  evidenceTaskId         String?
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  checklist              ClosingChecklist       @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([checklistId])
+  @@map("closing_checklist_items")
 }
 
 model BuyerMatch {

@@ -47,6 +47,9 @@ const CRITICAL = [
   // Offer-memo generation — the pure snapshot assembler + deterministic HTML renderer
   // (no Prisma/clock/randomness). Determinism + escaping are load-bearing (OM-F/OM-12).
   "lib/documents/offer-memo.ts",
+  // Closing Center — the pure PAID-gate predicate + progress/transition helpers
+  // (no Prisma/clock). The gate is load-bearing (CC-2/CC-3).
+  "lib/closing.ts",
 ];
 const TRACKED = [
   ...CRITICAL,

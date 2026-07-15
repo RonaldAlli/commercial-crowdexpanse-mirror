@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";
 import { authorize, authorizeStageMove, checkAuthorized, checkStageMove, GENERIC_DENIAL } from "@/lib/authorize";
+import { isOpportunityClosingReady } from "@/lib/closing-service";
 import { prisma } from "@/lib/prisma";
 import { stageLabel } from "@/lib/opportunity-options";
 
@@ -232,6 +233,15 @@ export async function moveOpportunityStage(id: string, formData: FormData) {
     sellerId: existing.sellerId ?? undefined,
     propertyId: existing.propertyId,
   });
+
+  // Closing gate (v1.4, CC-2): an opportunity cannot reach PAID until its closing
+  // checklist is satisfied. This COMPOSES WITH the role gate above (never replaces it)
+  // and is enforced server-side; if not ready the move is a no-op (the UI also hides
+  // the PAID option). Human workflow only — it never touches the underwriting engine.
+  if (nextStage === "PAID" && !(await isOpportunityClosingReady(user.organizationId, existing.id))) {
+    revalidatePath(`/opportunities/${existing.id}`);
+    return;
+  }
 
   await prisma.opportunity.update({
     where: { id: existing.id },

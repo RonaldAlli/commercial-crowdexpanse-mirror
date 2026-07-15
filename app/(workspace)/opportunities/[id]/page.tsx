@@ -8,9 +8,13 @@ import { PageHeader } from "@/components/page-header";
 import { StageSelect } from "@/components/stage-select";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { GenerateMatchesButton, MatchRowControls } from "@/components/match-controls";
+import { ClosingChecklist, StartClosingChecklistButton, type ChecklistItemView } from "@/components/closing-checklist";
 import { requireUser } from "@/lib/auth";
-import { can, canMoveStage } from "@/lib/permissions";
+import { can, canMoveStage, canWaiveClosingItem } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { closingProgress } from "@/lib/closing";
+import { getClosingChecklist } from "@/lib/closing-service";
+import { checklistCategoryLabel } from "@/lib/closing-options";
 import { matchStatusLabel, matchStatusTone } from "@/lib/match-options";
 import { STAGE_OPTIONS, stageLabel } from "@/lib/opportunity-options";
 import { titleCase } from "@/lib/property-options";
@@ -45,6 +49,47 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
     orderBy: [{ score: "desc" }, { createdAt: "desc" }],
   });
 
+  // Closing Center (v1.4). Read-only here — we never instantiate on view; a
+  // CLOSING-write user starts the checklist explicitly (StartClosingChecklistButton).
+  const closing = await getClosingChecklist(user.organizationId, opportunity.id);
+  const canWriteClosing = can(user.role, "UPDATE", "CLOSING");
+  const canWaiveClosing = canWaiveClosingItem(user.role);
+  const [closingMembers, closingDocuments] = closing
+    ? await Promise.all([
+        prisma.user.findMany({
+          where: { organizationId: user.organizationId, lifecycleState: "ACTIVE" },
+          select: { id: true, name: true },
+          orderBy: { name: "asc" },
+        }),
+        prisma.document.findMany({
+          where: { organizationId: user.organizationId, opportunityId: opportunity.id },
+          select: { id: true, title: true },
+          orderBy: { createdAt: "desc" },
+        }),
+      ])
+    : [[], []];
+
+  // Group items by category (DD-only in slice 1) and map to the client view shape.
+  const closingItemsByCategory = new Map<string, ChecklistItemView[]>();
+  for (const it of closing?.items ?? []) {
+    const view: ChecklistItemView = {
+      id: it.id,
+      label: it.label,
+      description: it.description,
+      required: it.required,
+      status: it.status,
+      ownerId: it.ownerId,
+      dueDate: it.dueDate ? it.dueDate.toISOString().slice(0, 10) : null,
+      waiverReason: it.waiverReason,
+      evidenceDocumentId: it.evidenceDocumentId,
+      completionEvidenceType: it.completionEvidenceType,
+    };
+    const bucket = closingItemsByCategory.get(it.category) ?? [];
+    bucket.push(view);
+    closingItemsByCategory.set(it.category, bucket);
+  }
+  const closingStats = closing ? closingProgress(closing.items) : null;
+
   const terms: { label: string; value: string | null }[] = [
     { label: "Source", value: opportunity.source },
     { label: "Priority", value: opportunity.priority },
@@ -55,10 +100,18 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
 
   const deleteOpportunityBound = deleteOpportunity.bind(null, opportunity.id);
 
+  // The PAID move is additionally gated by the closing checklist (CC-2). The server
+  // enforces this regardless; here we hide the option until every required item is
+  // satisfied so the control matches what will actually be accepted. No checklist yet
+  // ⇒ not offered (attempting it server-side would instantiate one and block).
+  const closingReady = closingStats?.ready ?? false;
+
   // Only the stages this role may move to from the current stage (plus the
   // current stage itself, which stays selected). Server re-checks on submit.
   const moveableStages = STAGE_OPTIONS.filter(
-    (s) => s.value === opportunity.stage || canMoveStage(user.role, opportunity.stage, s.value),
+    (s) =>
+      s.value === opportunity.stage ||
+      (canMoveStage(user.role, opportunity.stage, s.value) && (s.value !== "PAID" || closingReady)),
   );
   const canRemoveMatch = can(user.role, "DELETE", "BUYER_MATCH");
 
@@ -115,6 +168,54 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">{opportunity.summary}</p>
               </div>
             ) : null}
+          </article>
+
+          <article className="card">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+              <div>
+                <h2 className="text-base font-semibold text-slate-900">Closing Checklist</h2>
+                <p className="text-xs text-slate-500">
+                  Due-diligence items that must be satisfied before this opportunity can move to Paid.
+                </p>
+              </div>
+              {closingStats ? (
+                <Badge tone={closingStats.ready ? "success" : "warning"} dot>
+                  {closingStats.ready
+                    ? "Ready to close"
+                    : `${closingStats.requiredSatisfied}/${closingStats.requiredTotal} required`}
+                </Badge>
+              ) : null}
+            </div>
+            {closing ? (
+              <div className="divide-y divide-slate-100">
+                {Array.from(closingItemsByCategory.entries()).map(([category, items]) => (
+                  <div key={category}>
+                    <p className="eyebrow px-5 pt-4">{checklistCategoryLabel(category)}</p>
+                    <ClosingChecklist
+                      opportunityId={opportunity.id}
+                      items={items}
+                      members={closingMembers}
+                      documents={closingDocuments}
+                      canWrite={canWriteClosing}
+                      canWaive={canWaiveClosing}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="px-5 py-6">
+                {canWriteClosing ? (
+                  <div className="flex flex-col items-start gap-2">
+                    <p className="text-sm text-slate-500">
+                      No closing checklist yet. Start one from your organization’s standard template.
+                    </p>
+                    <StartClosingChecklistButton opportunityId={opportunity.id} />
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500">No closing checklist has been started for this opportunity.</p>
+                )}
+              </div>
+            )}
           </article>
         </div>
 
