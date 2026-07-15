@@ -936,6 +936,29 @@ export async function getActiveScenarioResult(organizationId: string, opportunit
   return scenario;
 }
 
+/**
+ * Read EVERY scenario version of an opportunity's underwriting for side-by-side comparison
+ * (v1.3, Commit 3e). This is a pure READ over independently-computed results — never a
+ * computation that entangles them (Calculation Principle 5): each version's metrics,
+ * suggested recommendation, and current decision are loaded exactly as already persisted,
+ * so comparing v1 and v2 never changes either. Ordered by version; the primary financing
+ * case (position 0) supplies the headline financing/exit figures, mirroring the detail view.
+ */
+export async function getScenarioComparison(organizationId: string, opportunityId: string) {
+  const uw = await prisma.underwriting.findUnique({ where: { opportunityId } });
+  if (!uw || uw.organizationId !== organizationId) return [];
+  return prisma.underwritingScenario.findMany({
+    where: { underwritingId: uw.id, organizationId },
+    orderBy: { version: "asc" },
+    include: {
+      result: true,
+      recommendation: true,
+      decisions: { orderBy: { sequence: "desc" }, take: 1 },
+      financingCases: { orderBy: { position: "asc" }, take: 1, include: { result: true } },
+    },
+  });
+}
+
 /** DRAFT → LOCKED: freeze the scenario after ensuring its fingerprint + result are current. */
 export async function lockScenario(organizationId: string, scenarioId: string, opts: { actorUserId?: string } = {}) {
   return prisma.$transaction(async (tx) => {

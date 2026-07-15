@@ -27,6 +27,7 @@ import {
   rebuildSensitivity,
   rebuildFindings,
   getActiveScenarioResult,
+  getScenarioComparison,
   resolveScenarioAssumptions,
   backfillUnderwritingFromDealAnalysis,
 } from "../lib/underwriting.ts";
@@ -493,6 +494,32 @@ try {
   const dV2 = await createNextVersion(a.id, dScenarioId);
   assert((await prisma.underwritingDecision.count({ where: { scenarioId: dV2.id } })) === 0, "AP-6: decisions do NOT propagate to a new scenario version");
   assert((await prisma.underwritingDecision.count({ where: { scenarioId: dScenarioId } })) === 2, "the superseded scenario keeps its complete decision history");
+
+  console.log("\n[17] Scenario comparison (3e — a read over independently-computed results, Principle 5):");
+  const cProp = await createPropertyRecord(a.id, op({ name: "Compare", unitCount: UNIT_COUNT, estimatedValueUsd: 1_300_000 }), {});
+  const cOpp = await mkOpp(a.id, cProp.id, "Compare deal");
+  const { scenarioId: cV1 } = await saveAnalyzerScenario(a.id, cOpp.id, [
+    { key: "PURCHASE_PRICE", value: 1_000_000 },
+    { key: "GROSS_INCOME", value: 130_000 },
+    { key: "OPERATING_EXPENSES", value: 30_000 },
+  ], { financingCases: [{ label: "Base", capital: [{ key: "LOAN_AMOUNT", value: 750_000 }, { key: "INTEREST_RATE", value: 6 }, { key: "AMORTIZATION_YEARS", value: 30 }] }] });
+  const v1Noi = (await getActiveScenarioResult(a.id, cOpp.id)).result.noiAnnualUsd;
+  assert(v1Noi === 100_000, "v1 operating NOI = 100k");
+  await lockScenario(a.id, cV1);
+  const cV2 = await createNextVersion(a.id, cV1);
+  // Change an input on v2 only.
+  await saveAnalyzerScenario(a.id, cOpp.id, [
+    { key: "PURCHASE_PRICE", value: 1_000_000 },
+    { key: "GROSS_INCOME", value: 160_000 },
+    { key: "OPERATING_EXPENSES", value: 30_000 },
+  ]);
+  const comp = await getScenarioComparison(a.id, cOpp.id);
+  assert(comp.length === 2 && comp[0].version === 1 && comp[1].version === 2 && comp[1].id === cV2.id, "comparison lists both versions ordered by version");
+  assert(comp[0].status === "SUPERSEDED" && comp[1].status === "DRAFT", "v1 is SUPERSEDED, v2 is the active DRAFT");
+  assert(comp[0].result.noiAnnualUsd === 100_000 && comp[1].result.noiAnnualUsd === 130_000, "each version is computed independently from its own frozen assumptions (v1=100k, v2=130k)");
+  assert(comp[0].result.noiAnnualUsd === v1Noi, "Principle 5: v1's metrics are unchanged by v2 — comparison never entangles them");
+  assert(comp[0].financingCases.length === 1 && comp[1].financingCases.length === 1 && comp[1].financingCases[0].result != null, "each version surfaces its primary financing case + result");
+  assert(comp[0].recommendation != null && comp[1].recommendation != null, "each version surfaces its own suggested recommendation");
 } finally {
   console.log("\nCleaning up throwaway orgs (cascade)...");
   for (const id of orgIds) await prisma.organization.delete({ where: { id } }).catch((e) => console.log(`  cleanup warn: ${e.message}`));

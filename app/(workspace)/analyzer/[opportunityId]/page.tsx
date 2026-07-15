@@ -214,6 +214,9 @@ export default async function AnalysisViewPage({ params }: { params: { opportuni
             <Link className="btn-ghost" href={`/opportunities/${opportunity.id}`}>
               Opportunity
             </Link>
+            <Link className="btn-ghost" href={`/analyzer/${opportunity.id}/compare`}>
+              Compare versions
+            </Link>
             {can(user.role, "UPDATE", "UNDERWRITING") ? (
               <Link className="btn-primary" href={`/analyzer/${opportunity.id}/edit`}>
                 <Icon name="notes" className="h-4 w-4" />
