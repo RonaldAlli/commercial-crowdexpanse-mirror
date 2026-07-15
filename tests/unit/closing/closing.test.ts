@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   isClosingReady,
   blockingItems,
+  closingBlockMessage,
   closingProgress,
   isValidStatusTransition,
   DEFAULT_CLOSING_TEMPLATE,
@@ -11,6 +12,7 @@ import {
 } from "../../../lib/closing";
 
 const item = (required: boolean, status: GateItem["status"]): GateItem => ({ required, status });
+const labeled = (label: string, required: boolean, status: GateItem["status"]) => ({ label, required, status });
 
 // --- the gate predicate (CC-2/CC-C) ------------------------------------------
 test("an empty checklist is ready (nothing required blocks)", () => {
@@ -52,6 +54,27 @@ test("closingProgress counts required satisfaction and readiness", () => {
 
   const done = [item(true, "COMPLETE"), item(false, "PENDING")];
   assert.deepEqual(closingProgress(done), { requiredTotal: 1, requiredSatisfied: 1, ready: true });
+});
+
+// --- explanatory block message (refinement: explain why PAID is blocked) -----
+test("closingBlockMessage is null when nothing required is outstanding (ready)", () => {
+  assert.equal(closingBlockMessage([]), null);
+  assert.equal(closingBlockMessage([labeled("Title", true, "COMPLETE"), labeled("Env", false, "PENDING")]), null);
+});
+
+test("closingBlockMessage lists exactly the outstanding required item labels", () => {
+  const msg = closingBlockMessage([
+    labeled("Title search", true, "PENDING"),
+    labeled("Inspection", true, "COMPLETE"),
+    labeled("Financials", true, "PENDING"),
+    labeled("Environmental", false, "PENDING"), // optional — never listed
+  ]);
+  assert.equal(msg, "Cannot move to Paid — 2 required items outstanding: Title search, Financials");
+});
+
+test("closingBlockMessage uses the singular noun for a single outstanding item", () => {
+  const msg = closingBlockMessage([labeled("Legal review", true, "PENDING")]);
+  assert.equal(msg, "Cannot move to Paid — 1 required item outstanding: Legal review");
 });
 
 // --- transition guard (CC-5) -------------------------------------------------

@@ -12,7 +12,7 @@ import { ClosingChecklist, StartClosingChecklistButton, type ChecklistItemView }
 import { requireUser } from "@/lib/auth";
 import { can, canMoveStage, canWaiveClosingItem } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { closingProgress } from "@/lib/closing";
+import { blockingItems, closingProgress } from "@/lib/closing";
 import { getClosingChecklist } from "@/lib/closing-service";
 import { checklistCategoryLabel } from "@/lib/closing-options";
 import { matchStatusLabel, matchStatusTone } from "@/lib/match-options";
@@ -89,6 +89,9 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
     closingItemsByCategory.set(it.category, bucket);
   }
   const closingStats = closing ? closingProgress(closing.items) : null;
+  // The required items still blocking a move to Paid — surfaced so the gate explains
+  // itself rather than silently hiding the option (server enforcement is unchanged).
+  const closingBlockers = closing && !closingStats?.ready ? blockingItems(closing.items).map((i) => i.label) : [];
 
   const terms: { label: string; value: string | null }[] = [
     { label: "Source", value: opportunity.source },
@@ -186,6 +189,22 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
                 </Badge>
               ) : null}
             </div>
+            {closing && closingBlockers.length > 0 ? (
+              <div className="border-b border-amber-100 bg-amber-50 px-5 py-4">
+                <p className="text-sm font-semibold text-amber-900">Cannot move to Paid yet</p>
+                <p className="mt-0.5 text-xs text-amber-800">
+                  {closingBlockers.length} required {closingBlockers.length === 1 ? "item" : "items"} outstanding:
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {closingBlockers.map((label) => (
+                    <li key={label} className="flex items-center gap-2 text-xs text-amber-900">
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                      {label}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             {closing ? (
               <div className="divide-y divide-slate-100">
                 {Array.from(closingItemsByCategory.entries()).map(([category, items]) => (

@@ -8,7 +8,9 @@ export function StageSelect({
   stages,
   className = "",
 }: {
-  action: (formData: FormData) => Promise<void>;
+  // The action may return an explanatory `{ error }` (e.g. a blocked PAID move); the
+  // select fires it via requestSubmit and ignores the result, so accept either.
+  action: (formData: FormData) => Promise<{ error?: string } | void>;
   current: string;
   stages: { value: string; label: string }[];
   className?: string;
@@ -16,7 +18,9 @@ export function StageSelect({
   const ref = useRef<HTMLFormElement>(null);
 
   return (
-    <form ref={ref} action={action}>
+    // Adapt to the form-action shape (Promise<void>): the select-driven move ignores any
+    // returned reason (e.g. a blocked PAID move) — the detail page surfaces that proactively.
+    <form ref={ref} action={async (formData) => { await action(formData); }}>
       <select
         name="stage"
         defaultValue={current}

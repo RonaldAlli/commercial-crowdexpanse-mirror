@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";
 import { authorize, authorizeStageMove, checkAuthorized, checkStageMove, GENERIC_DENIAL } from "@/lib/authorize";
-import { isOpportunityClosingReady } from "@/lib/closing-service";
+import { getClosingGateStatus } from "@/lib/closing-service";
 import { prisma } from "@/lib/prisma";
 import { stageLabel } from "@/lib/opportunity-options";
 
@@ -210,8 +210,12 @@ export async function updateOpportunity(
   redirect(`/opportunities/${opportunity.id}`);
 }
 
-/** Inline stage move (pipeline board / detail). Logs opportunity.stage_changed only. */
-export async function moveOpportunityStage(id: string, formData: FormData) {
+/**
+ * Inline stage move (pipeline board / detail). Logs opportunity.stage_changed only.
+ * Returns an explanatory `{ error }` when the closing gate blocks a PAID move so the
+ * enforcement path itself carries the reason; a bare `return` (undefined) otherwise.
+ */
+export async function moveOpportunityStage(id: string, formData: FormData): Promise<{ error: string } | undefined> {
   const user = await requireUser();
   const nextStage = String(formData.get("stage") ?? "").trim();
 
@@ -236,11 +240,15 @@ export async function moveOpportunityStage(id: string, formData: FormData) {
 
   // Closing gate (v1.4, CC-2): an opportunity cannot reach PAID until its closing
   // checklist is satisfied. This COMPOSES WITH the role gate above (never replaces it)
-  // and is enforced server-side; if not ready the move is a no-op (the UI also hides
-  // the PAID option). Human workflow only — it never touches the underwriting engine.
-  if (nextStage === "PAID" && !(await isOpportunityClosingReady(user.organizationId, existing.id))) {
-    revalidatePath(`/opportunities/${existing.id}`);
-    return;
+  // and is enforced server-side; if not ready the move is a no-op — but we return the
+  // explanatory reason (which required items remain) rather than failing silently.
+  // Human workflow only — it never touches the underwriting engine.
+  if (nextStage === "PAID") {
+    const gate = await getClosingGateStatus(user.organizationId, existing.id);
+    if (!gate.ready) {
+      revalidatePath(`/opportunities/${existing.id}`);
+      return { error: gate.message ?? "The closing checklist must be satisfied before moving to Paid." };
+    }
   }
 
   await prisma.opportunity.update({

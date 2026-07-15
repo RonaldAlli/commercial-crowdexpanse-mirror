@@ -1,7 +1,11 @@
 # Version 1.4 — Closing Center
 
 > **Theme:** Carry underwritten, matched deals through due diligence to a closed assignment.
-> **Status:** 🔴 Planned. Depends on Opportunities pipeline (done), Buyer Matching (done), Documents (present), Underwriting (1.3).
+> **Status:** 🟡 In progress. Depends on Opportunities pipeline (done), Buyer Matching (done), Documents (present), Underwriting (1.3). Architecture ratified — see [`CLOSING_CENTER_ARCHITECTURE_LOCK.md`](../architecture/CLOSING_CENTER_ARCHITECTURE_LOCK.md).
+
+## Delivery status
+- **Slice 1 — Closing Foundation + Due Diligence + PAID gate:** ✅ built, awaiting founder review on branch `feat/closing-foundation-dd` (not merged/released). Delivers the domain model (template → snapshot → checklist → items), the `DUE_DILIGENCE` category, the `CLOSING` RBAC resource, the pure `isClosingReady` PAID gate composed with `canMoveStage`, and a blocked-gate explanation that lists the outstanding required items.
+- **Slices 2–n:** Escrow → Financing → Assignments → Transaction dashboard, each separately gated and reviewed.
 
 ## Goal
 Everything after "under contract" in one place: the last mile from `UNDER_CONTRACT` → `BUYER_MATCHED` → `CLOSING` → `PAID` becomes a managed, checklist-driven process instead of ad-hoc.
@@ -25,6 +29,9 @@ A gating checklist that must be satisfied to move an opportunity to `PAID`; bloc
 
 ### 6. Transaction Management
 A closing dashboard: all deals in-flight past `UNDER_CONTRACT`, their blockers, dates, and responsible parties.
+
+### 7. Closing visibility on lists (founder refinement)
+Surface closing progress **on the Opportunity list/board** — e.g. a `Closing 3 / 7` badge and a `Ready to Close` / `Not Ready` state — so closing status is visible without opening each opportunity. Reuses the pure `closingProgress` / `blockingItems` helpers already shipped in slice 1; deferred past slice 1 (a read-only projection over existing checklist state, no new model). The per-opportunity **explanation of a blocked PAID move** (which required items remain) shipped with slice 1; this item generalizes that visibility to the list.
 
 ## Architecture notes
 - New child entities (DD items, escrow record, closing checklist) hang off `Opportunity`, org-scoped.

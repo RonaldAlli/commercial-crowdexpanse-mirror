@@ -7,7 +7,7 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import { DEFAULT_CLOSING_TEMPLATE, isClosingReady, isValidStatusTransition } from "@/lib/closing";
+import { DEFAULT_CLOSING_TEMPLATE, isClosingReady, blockingItems, closingBlockMessage, isValidStatusTransition } from "@/lib/closing";
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -109,6 +109,24 @@ export async function getClosingChecklist(organizationId: string, opportunityId:
 export async function isOpportunityClosingReady(organizationId: string, opportunityId: string): Promise<boolean> {
   const checklist = await ensureClosingChecklist(organizationId, opportunityId);
   return isClosingReady(checklist.items);
+}
+
+/**
+ * The gate WITH its reason: readiness plus the outstanding required-item labels and a
+ * ready-made explanatory message. Materializes the checklist exactly as the gate does, so
+ * the boolean, the labels, and the message are always mutually consistent. The stage-move
+ * action uses this to explain a blocked PAID transition; the UI uses it to list what's left.
+ */
+export async function getClosingGateStatus(
+  organizationId: string,
+  opportunityId: string,
+): Promise<{ ready: boolean; blockingLabels: string[]; message: string | null }> {
+  const checklist = await ensureClosingChecklist(organizationId, opportunityId);
+  return {
+    ready: isClosingReady(checklist.items),
+    blockingLabels: blockingItems(checklist.items).map((i) => i.label),
+    message: closingBlockMessage(checklist.items),
+  };
 }
 
 /** Fetch an item scoped to the org, with the parent opportunityId for auditing. */

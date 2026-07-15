@@ -22,6 +22,19 @@ export function blockingItems<T extends GateItem>(items: T[]): T[] {
   return items.filter((i) => i.required && i.status !== "COMPLETE" && i.status !== "WAIVED");
 }
 
+/**
+ * A human-readable explanation of WHY the PAID gate is blocked — the labels of the
+ * required items still outstanding — or `null` when the checklist is ready. Built on
+ * blockingItems() so the message can never disagree with the gate. Pure; used by the
+ * server action (the enforcement path carries its own reason) and the detail UI.
+ */
+export function closingBlockMessage<T extends GateItem & { label: string }>(items: T[]): string | null {
+  const outstanding = blockingItems(items).map((i) => i.label);
+  if (outstanding.length === 0) return null;
+  const noun = outstanding.length === 1 ? "item" : "items";
+  return `Cannot move to Paid — ${outstanding.length} required ${noun} outstanding: ${outstanding.join(", ")}`;
+}
+
 /** Progress summary for the UI: how many required items are satisfied. */
 export function closingProgress(items: GateItem[]): { requiredTotal: number; requiredSatisfied: number; ready: boolean } {
   const required = items.filter((i) => i.required);

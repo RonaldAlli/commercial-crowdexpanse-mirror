@@ -19,13 +19,14 @@ import { UserRole } from "@prisma/client";
 
 import { prisma } from "../lib/prisma.ts";
 import { createPropertyRecord } from "../lib/properties.ts";
-import { DEFAULT_CLOSING_TEMPLATE, isClosingReady, closingProgress } from "../lib/closing.ts";
+import { DEFAULT_CLOSING_TEMPLATE, isClosingReady, closingProgress, closingBlockMessage } from "../lib/closing.ts";
 import { canWaiveClosingItem } from "../lib/permissions.ts";
 import {
   getOrSeedActiveTemplate,
   ensureClosingChecklist,
   getClosingChecklist,
   isOpportunityClosingReady,
+  getClosingGateStatus,
   completeChecklistItem,
   reopenChecklistItem,
   markItemNotApplicable,
@@ -103,6 +104,23 @@ try {
   const done = await completeChecklistItem(a.id, last.id, actor.id);
   assert(done.status === "COMPLETE" && done.completedById === actor.id && done.completedAt !== null, "completion records who + when (CC-B)");
   assert((await isOpportunityClosingReady(a.id, opp.id)) === true, "ready once every required item is COMPLETE");
+
+  console.log("\n[3b] A blocked PAID gate EXPLAINS which required items remain (refinement):");
+  const gOpp = await mkOpp(a.id, (await mkProp(a.id, "Gate Asset")).id, "Gate Deal");
+  const gStatus0 = await getClosingGateStatus(a.id, gOpp.id);
+  const gRequired = (await getClosingChecklist(a.id, gOpp.id)).items.filter((i) => i.required);
+  assert(gStatus0.ready === false, "a fresh checklist is NOT ready — the transition to PAID stays blocked");
+  assert(gStatus0.blockingLabels.length === gRequired.length && gRequired.every((i) => gStatus0.blockingLabels.includes(i.label)), "the explanation names every outstanding required item by label");
+  assert(gStatus0.message !== null && gStatus0.message.startsWith("Cannot move to Paid") && gRequired.every((i) => gStatus0.message.includes(i.label)), "the explanatory MESSAGE appears while the transition is blocked, listing the outstanding required items");
+  assert(closingBlockMessage((await getClosingChecklist(a.id, gOpp.id)).items) === gStatus0.message, "the gate's message == the pure closingBlockMessage over the same items (single source of truth)");
+  // Satisfy one required item — the gate stays blocked, and that item drops OUT of the explanation.
+  await completeChecklistItem(a.id, gRequired[0].id, actor.id);
+  const gStatus1 = await getClosingGateStatus(a.id, gOpp.id);
+  assert(gStatus1.ready === false && !gStatus1.blockingLabels.includes(gRequired[0].label), "still blocked, but a completed required item no longer appears in the explanation");
+  // Satisfy the rest — the explanation clears exactly as the gate opens.
+  for (const it of gRequired.slice(1)) await completeChecklistItem(a.id, it.id, actor.id);
+  const gStatus2 = await getClosingGateStatus(a.id, gOpp.id);
+  assert(gStatus2.ready === true && gStatus2.blockingLabels.length === 0 && gStatus2.message === null, "once every required item is satisfied the gate opens and the explanatory message is null");
 
   console.log("\n[4] Reopen re-blocks; WAIVE (with reason) re-satisfies (CC-2/CC-5):");
   const reopened = await reopenChecklistItem(a.id, last.id, actor.id);
