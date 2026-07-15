@@ -22,6 +22,8 @@ import {
   lockScenario,
   createNextVersion,
   setScenarioAssumptions,
+  setSensitivityAnalysis,
+  rebuildSensitivity,
   getActiveScenarioResult,
   resolveScenarioAssumptions,
   backfillUnderwritingFromDealAnalysis,
@@ -94,7 +96,7 @@ try {
   const sc1 = await prisma.underwritingScenario.findUnique({ where: { id: scenarioId } });
   assert(typeof sc1.scenarioVersion === "string" && sc1.scenarioVersion.length === 32, "scenario carries a 32-char scenarioVersion");
   assert(result.scenarioVersion === sc1.scenarioVersion, "the result reflects the scenario's current scenarioVersion (not stale)");
-  assert(sc1.modelVersion === 5 && sc1.calcLibVersion === 5 && sc1.rulesetVersion === 1, "model lineage frozen on the scenario (3b-iv bump)");
+  assert(sc1.modelVersion === 6 && sc1.calcLibVersion === 6 && sc1.rulesetVersion === 1, "model lineage frozen on the scenario (3b-v bump)");
 
   console.log("\n[4] ScenarioSeed is a ONE-WAY snapshot — a later Property change never mutates the Scenario:");
   await prisma.property.update({ where: { id: prop.id }, data: { estimatedValueUsd: 5_000_000 } });
@@ -318,6 +320,88 @@ try {
   const ex2 = await getActiveScenarioResult(a.id, exOpp.id);
   assert(ex2.financingCases[0].financingCaseVersion !== fpBefore, "changing an exit assumption flips the FinancingCase fingerprint");
   assert(ex2.financingCases[0].result.grossExitValueUsd === rnd(100_000 / 0.06), "a lower exit cap rate reprices the terminal value (6% ⇒ 1.667M)");
+
+  console.log("\n[14] Sensitivity matrices (3b-v, SE-1…SE-7):");
+  const seProp = await createPropertyRecord(a.id, op({ name: "Sensitivity", unitCount: UNIT_COUNT, estimatedValueUsd: 1_000_000 }), {});
+  const seOpp = await mkOpp(a.id, seProp.id, "Sensitivity deal");
+  const seOperating = [
+    { key: "PURCHASE_PRICE", value: 1_000_000 },
+    { key: "GROSS_INCOME", value: 130_000 },
+    { key: "OPERATING_EXPENSES", value: 30_000 },
+    { key: "INCOME_GROWTH_PCT", value: 0 },
+    { key: "EXPENSE_GROWTH_PCT", value: 0 },
+    { key: "HOLD_YEARS", value: 5 },
+    { key: "EXIT_CAP_RATE_PCT", value: 8 },
+    { key: "SELLING_COSTS_PCT", value: 2 },
+  ];
+  // Two-axis grid on the levered case. x = exit cap 6..10 (→ 6,7,8,9,10; baseline 8 lands on it);
+  // y = interest 5..7 (→ 5,6,7; baseline 6 lands on it). One axis is operating, one is capital.
+  const seSpec = { targetMetric: "LEVERED_IRR_PCT", xKey: "EXIT_CAP_RATE_PCT", xMin: 6, xMax: 10, xSteps: 5, yKey: "INTEREST_RATE", yMin: 5, yMax: 7, ySteps: 3 };
+  const seCases = [
+    { label: "Debt", capital: [{ key: "LOAN_AMOUNT", value: 750_000 }, { key: "INTEREST_RATE", value: 6 }, { key: "AMORTIZATION_YEARS", value: 30 }], sensitivity: seSpec },
+  ];
+  await saveAnalyzerScenario(a.id, seOpp.id, seOperating, { financingCases: seCases });
+  const se = await getActiveScenarioResult(a.id, seOpp.id);
+  const seCase = se.financingCases[0];
+  const an = seCase.sensitivity;
+  assert(an != null && an.cells.length === 15, "sensitivity grid persisted: 5 × 3 = 15 cells");
+  assert(an.xKey === "EXIT_CAP_RATE_PCT" && an.yKey === "INTEREST_RATE" && an.targetMetric === "LEVERED_IRR_PCT", "spec persisted (both axes + target metric)");
+  const xs = [...new Set(an.cells.map((c) => c.xValue))].sort((p, q) => p - q);
+  const ys = [...new Set(an.cells.map((c) => c.yValue))].sort((p, q) => p - q);
+  assert(JSON.stringify(xs) === JSON.stringify([6, 7, 8, 9, 10]) && JSON.stringify(ys) === JSON.stringify([5, 6, 7]), "SE-5: axes are deterministic evenly-spaced values");
+  // SE-6: exactly one baseline cell, at the frozen (exit 8%, interest 6%) intersection.
+  const seBase = an.cells.filter((c) => c.isBaseline);
+  assert(seBase.length === 1 && seBase[0].xValue === 8 && seBase[0].yValue === 6, "SE-6: exactly one baseline cell, at the frozen (8%, 6%) values");
+  assert(rnd(seBase[0].metricValue) === rnd(seCase.result.leveredIrrPct), "SE-2: the baseline cell reproduces the case's own leveredIrrPct exactly");
+  assert(an.cells.every((c) => typeof c.metricValue === "number"), "every feasible cell carries a derived metric reading");
+  const rowAt6 = an.cells.filter((c) => c.yValue === 6).sort((p, q) => p.xValue - q.xValue);
+  assert(rowAt6[0].metricValue > rowAt6[4].metricValue, "a lower exit cap → higher IRR (6% beats 10% at the same interest rate)");
+  // SE-1: the sensitivity layer never wrote its perturbations back onto the baseline.
+  const seAssumptions = await resolveScenarioAssumptions(se.id);
+  assert(seAssumptions.find((x) => x.key === "EXIT_CAP_RATE_PCT").value === 8, "SE-1: the baseline exit cap is still 8% (perturbations never persisted)");
+  assert(Number(seCase.capitalAssumptions.find((x) => x.key === "INTEREST_RATE").valueNumeric) === 6, "SE-1: the baseline interest rate is still 6% (perturbations never persisted)");
+  assert(se.result.noiAnnualUsd === 100_000, "SE-1: operating NOI unchanged by the sensitivity layer");
+
+  // Reconstruction + zero-write idempotency (SE-4).
+  const cellXmin = async (aid) => (await prisma.$queryRaw`SELECT xmin::text AS xmin FROM sensitivity_cells WHERE "sensitivityAnalysisId" = ${aid} ORDER BY "yIndex","xIndex" LIMIT 1`)[0]?.xmin;
+  await prisma.sensitivityCell.deleteMany({ where: { sensitivityAnalysisId: an.id } });
+  await rebuildSensitivity(a.id, seCase.id);
+  const reAn = await prisma.sensitivityAnalysis.findUnique({ where: { id: an.id }, include: { cells: { orderBy: [{ yIndex: "asc" }, { xIndex: "asc" }] } } });
+  assert(reAn.cells.length === 15 && rnd(reAn.cells.find((c) => c.isBaseline).metricValue) === rnd(seBase[0].metricValue), "cells reconstruct deterministically from frozen inputs");
+  const seZ = await cellXmin(an.id);
+  await rebuildSensitivity(a.id, seCase.id);
+  assert((await cellXmin(an.id)) === seZ, "SE-4: a no-op sensitivity rebuild performs ZERO cell writes (xmin unchanged)");
+
+  // The baseline fingerprint drives the grid: an operating change reflows it (SE-3).
+  const svBefore = reAn.sensitivityVersion;
+  await saveAnalyzerScenario(a.id, seOpp.id, seOperating.map((m) => (m.key === "GROSS_INCOME" ? { ...m, value: 150_000 } : m)));
+  const seAfter = await getActiveScenarioResult(a.id, seOpp.id);
+  assert(seAfter.financingCases[0].sensitivity.sensitivityVersion !== svBefore, "SE-3: a baseline (operating) change reflows the grid + flips the sensitivityVersion");
+
+  // Standalone setter: one-axis (degenerate) analysis, baseline on the axis.
+  await setSensitivityAnalysis(a.id, seCase.id, { targetMetric: "EQUITY_MULTIPLE", xKey: "HOLD_YEARS", xMin: 3, xMax: 7, xSteps: 5, yKey: null, yMin: null, yMax: null, ySteps: null });
+  const oneAxis = await prisma.sensitivityAnalysis.findUnique({ where: { financingCaseId: seCase.id }, include: { cells: { orderBy: [{ yIndex: "asc" }, { xIndex: "asc" }] } } });
+  assert(oneAxis.cells.length === 5 && oneAxis.cells.every((c) => c.yValue === null && c.yIndex === 0), "one-axis analysis: 5 cells, no Y value");
+  assert(oneAxis.cells.filter((c) => c.isBaseline).length === 1 && oneAxis.cells.find((c) => c.isBaseline).xValue === 5, "one-axis baseline marked at the frozen hold (5 yrs)");
+
+  // SE-6: a baseline that does NOT land on the axis is never snapped — no cell marked.
+  await setSensitivityAnalysis(a.id, seCase.id, { targetMetric: "LEVERED_IRR_PCT", xKey: "EXIT_CAP_RATE_PCT", xMin: 6.5, xMax: 9.5, xSteps: 4, yKey: null, yMin: null, yMax: null, ySteps: null });
+  const offGrid = await prisma.sensitivityAnalysis.findUnique({ where: { financingCaseId: seCase.id }, include: { cells: true } });
+  assert(offGrid.cells.filter((c) => c.isBaseline).length === 0, "SE-6: an off-grid baseline (8% not among 6.5/7.5/8.5/9.5) marks NO cell");
+
+  // Validation + lifecycle guards.
+  await throws(() => setSensitivityAnalysis(a.id, seCase.id, { ...seSpec, xKey: "UNIT_COUNT" }), "an axis outside the allow-list is rejected");
+  await setSensitivityAnalysis(a.id, seCase.id, null);
+  assert((await prisma.sensitivityAnalysis.findUnique({ where: { financingCaseId: seCase.id } })) === null, "passing a null spec clears the analysis");
+  // Re-establish a spec, then lock: sensitivity edits on a non-DRAFT scenario are rejected; the clone carries it.
+  await setSensitivityAnalysis(a.id, seCase.id, seSpec);
+  const seLocked = await lockScenario(a.id, se.id);
+  await throws(() => setSensitivityAnalysis(a.id, seCase.id, seSpec), "editing a sensitivity analysis on a LOCKED scenario is rejected");
+  const seV2 = await createNextVersion(a.id, seLocked.id);
+  const seV2Active = await getActiveScenarioResult(a.id, seOpp.id);
+  const seV2Case = seV2Active.financingCases[0];
+  assert(seV2Active.id === seV2.id && seV2Case.sensitivity != null && seV2Case.sensitivity.cells.length === 15, "createNextVersion clones the sensitivity spec and rebuilds its 15 cells");
+  assert(seV2Case.sensitivity.cells.filter((c) => c.isBaseline).length === 1, "the cloned grid re-marks its baseline cell");
 } finally {
   console.log("\nCleaning up throwaway orgs (cascade)...");
   for (const id of orgIds) await prisma.organization.delete({ where: { id } }).catch((e) => console.log(`  cleanup warn: ${e.message}`));

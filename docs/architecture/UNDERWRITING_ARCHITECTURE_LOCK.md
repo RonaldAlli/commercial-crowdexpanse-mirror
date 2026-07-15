@@ -190,8 +190,47 @@ profit to the one holder) — no promote, preferred, catch-up, or multiple partn
   never exist independently of their case.
 
 Scope excludes (future slices): refinancing, multi-tier promotes, preferred returns,
-catch-ups, multiple equity partners, tax/depreciation/capital-gains, sensitivity
-matrices, findings/risk flags, and approval workflow.
+catch-ups, multiple equity partners, tax/depreciation/capital-gains, and approval
+workflow. (Sensitivity matrices arrive in 3b-v below; findings/risk flags in 3b-vi.)
+
+### Sensitivity invariants (Commit 3b-v)
+
+3b-v adds a **consumer** layer, not another calculator (Principles 10–11): a
+per-FinancingCase `SensitivityAnalysis` re-derives a chosen metric over a deterministic
+grid of perturbed inputs and stores only the resulting `SensitivityCell` readings.
+Ownership: the spec (metric + one or two axes over a fixed assumption allow-list) and
+its derived cells hang off ONE baseline case; the axes are evenly-spaced (≤ 11 values
+each, ≤ 121 cells); the target metric is one of a fixed allow-list (default levered
+IRR). `sensitivityVersion = f(financingCaseVersion, canonical spec, model lineage)`;
+model lineage bumps **v5 → v6**; the new pure module is `lib/underwriting/sensitivity.ts`
+(`lib/analysis.ts` unchanged). Overrides are applied to an in-memory COPY of the frozen
+assumptions and are **never persisted**.
+
+- **SE-1 — Sensitivity never mutates its baseline.** No cell, axis, or rebuild writes
+  back to the Scenario, its FinancingCases, their assumptions, or any persisted
+  deterministic result. The dependency arrow is one-way: base → sensitivity.
+- **SE-2 — Each SensitivityAnalysis has exactly one immutable baseline FinancingCase.**
+  The grid hangs off that case's `financingCaseVersion` (which already folds in the
+  operating scenario + capital + lineage), and the baseline cell reproduces the case's
+  own metric exactly.
+- **SE-3 — Each cell is a pure function** of the frozen Scenario assumptions + the
+  frozen FinancingCase assumptions + the cell's explicit axis overrides + model lineage.
+  It never reads current Property state, another FinancingCase, or another cell.
+- **SE-4 — Cells are disposable and rebuildable, never authoritative inputs.** Delete
+  them and they regenerate identically; a no-op rebuild performs zero writes; nothing
+  downstream treats a cell as a source of truth.
+- **SE-5 — Axis generation is deterministic.** Identical `(min, max, steps)` always
+  yield identical ordered values (evenly spaced across the closed interval).
+- **SE-6 — The baseline cell is marked only when it is exact.** It is identifiable only
+  when the baseline assumption values fall EXACTLY on the generated axes (both axes for
+  a two-axis grid). The system never snaps to the nearest cell and labels it baseline.
+- **SE-7 — Sensitivity is evaluation, not optimization.** It reports outcomes; it never
+  chooses, ranks, recommends, or searches for a "best" cell. Interpretation (findings /
+  risks / recommendation) is deferred to Commit 3b-vi.
+
+Scope excludes (deferred): findings, risks, recommendation bands, optimization, solvers,
+Monte Carlo, probability distributions, more than two axes, and any mutation of baseline
+assumptions.
 
 ## 5. Commit 3a — Underwriting Model Formalization (headed by this lock)
 

@@ -1006,6 +1006,7 @@ model FinancingCase {
   result             FinancingCaseResult?
   cashFlow           CashFlowYear[]
   equityCashFlow     EquityCashFlowYear[]
+  sensitivity        SensitivityAnalysis?
 
   @@index([organizationId])
   @@index([scenarioId])
@@ -1074,6 +1075,66 @@ model FinancingCaseResult {
 
   @@index([organizationId])
   @@map("financing_case_results")
+}
+
+// A sensitivity analysis over ONE FinancingCase (v1.3, Commit 3b-v). A CONSUMER of
+// the engine (Principle 10): it re-derives the case over perturbed inputs and stores
+// the resulting metric per cell — it NEVER mutates the baseline Scenario/case (SE-1)
+// and never optimizes (SE-7). The spec is analyst input; the cells are derived,
+// disposable, and rebuildable (SE-4).
+enum SensitivityMetric {
+  LEVERED_IRR_PCT
+  EQUITY_MULTIPLE
+  TOTAL_PROFIT_USD
+  CAP_RATE
+  DSCR
+}
+
+model SensitivityAnalysis {
+  id                   String            @id @default(cuid())
+  organizationId       String
+  financingCaseId      String            @unique
+  targetMetric         SensitivityMetric
+  // X axis (required). An assumption key from the fixed allow-list + a deterministic
+  // evenly-spaced range (SE-5). Steps 1..11; the full matrix is capped at 121 cells.
+  xKey                 AssumptionKey
+  xMin                 Float
+  xMax                 Float
+  xSteps               Int
+  // Y axis (optional — absent ⇒ a one-axis/degenerate analysis).
+  yKey                 AssumptionKey?
+  yMin                 Float?
+  yMax                 Float?
+  ySteps               Int?
+  // Fingerprint = f(financingCaseVersion, canonical spec, lineage).
+  sensitivityVersion   String
+  calcLibVersion       Int
+  createdAt            DateTime          @default(now())
+  financingCase        FinancingCase     @relation(fields: [financingCaseId], references: [id], onDelete: Cascade)
+  cells                SensitivityCell[]
+
+  @@index([organizationId])
+  @@map("sensitivity_analyses")
+}
+
+// One derived cell of a sensitivity grid. metricValue is the target metric re-derived
+// under this cell's explicit axis overrides (SE-3). isBaseline is true ONLY when the
+// baseline assumption values fall EXACTLY on the generated axes (SE-6) — never snapped.
+model SensitivityCell {
+  id                    String              @id @default(cuid())
+  organizationId        String
+  sensitivityAnalysisId String
+  xIndex                Int
+  yIndex                Int
+  xValue                Float
+  yValue                Float?
+  metricValue           Float?
+  isBaseline            Boolean             @default(false)
+  analysis              SensitivityAnalysis @relation(fields: [sensitivityAnalysisId], references: [id], onDelete: Cascade)
+
+  @@unique([sensitivityAnalysisId, xIndex, yIndex])
+  @@index([organizationId])
+  @@map("sensitivity_cells")
 }
 
 // One entry in a FinancingCase's equity cash-flow series (v1.3, Commit 3b-iv).

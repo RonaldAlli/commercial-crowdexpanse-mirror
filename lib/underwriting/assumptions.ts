@@ -74,6 +74,39 @@ export const MANUAL_ASSUMPTION_KEYS: AssumptionKey[] = [
 /** The keys snapshotted from the Version 1.2 platform at scenario creation (SEEDED / ScenarioSeed). */
 export const SEEDED_ASSUMPTION_KEYS: AssumptionKey[] = ["UNIT_COUNT", "ESTIMATED_VALUE"];
 
+// --- Sensitivity axis allow-list (v1.3, Commit 3b-v — D-C) --------------------
+// The FIXED set of numeric assumptions that may be a sensitivity axis. Deliberately
+// a closed allow-list (no free-form formulas): every axis is a single assumption
+// key whose value the sensitivity layer perturbs IN MEMORY (never persisted — SE-1).
+// Includes the operating manual keys, the seeded numeric snapshot values (varying a
+// snapshot in a what-if is valid — it never writes back), and the capital keys. A
+// key is routed to the operating set or the case's capital set by membership in
+// CAPITAL_ASSUMPTION_KEYS.
+export const SENSITIVITY_AXIS_KEYS: AssumptionKey[] = [
+  "PURCHASE_PRICE",
+  "RENOVATION_BUDGET",
+  "CLOSING_COSTS",
+  "GROSS_INCOME",
+  "OPERATING_EXPENSES",
+  "INCOME_GROWTH_PCT",
+  "EXPENSE_GROWTH_PCT",
+  "HOLD_YEARS",
+  "EXIT_CAP_RATE_PCT",
+  "SELLING_COSTS_PCT",
+  "ESTIMATED_VALUE",
+  "LOAN_AMOUNT",
+  "INTEREST_RATE",
+  "AMORTIZATION_YEARS",
+  "TARGET_LTV_PCT",
+  "TARGET_LTC_PCT",
+  "MIN_DSCR",
+];
+
+/** True iff `key` is a capital assumption (owned by a FinancingCase, not the Scenario). */
+export function isCapitalKey(key: AssumptionKey): boolean {
+  return CAPITAL_ASSUMPTION_KEYS.includes(key);
+}
+
 /** One resolved assumption at the calculation boundary. */
 export type ResolvedAssumption = {
   key: AssumptionKey;

@@ -81,6 +81,19 @@ export default async function EditAnalysisPage({ params }: { params: { opportuni
                     targetLtvPct: capOf(fc, "TARGET_LTV_PCT"),
                     targetLtcPct: capOf(fc, "TARGET_LTC_PCT"),
                     minDscr: capOf(fc, "MIN_DSCR"),
+                    sensitivity: fc.sensitivity
+                      ? {
+                          targetMetric: fc.sensitivity.targetMetric,
+                          xKey: fc.sensitivity.xKey,
+                          xMin: fc.sensitivity.xMin,
+                          xMax: fc.sensitivity.xMax,
+                          xSteps: fc.sensitivity.xSteps,
+                          yKey: fc.sensitivity.yKey,
+                          yMin: fc.sensitivity.yMin,
+                          yMax: fc.sensitivity.yMax,
+                          ySteps: fc.sensitivity.ySteps,
+                        }
+                      : null,
                   })),
                   analystSummary: scenario?.analystSummary ?? null,
                 }

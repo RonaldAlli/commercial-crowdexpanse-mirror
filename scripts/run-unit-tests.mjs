@@ -42,6 +42,7 @@ const CRITICAL = [
   "lib/underwriting/schedule.ts",
   "lib/underwriting/cash-flow.ts",
   "lib/underwriting/exit.ts",
+  "lib/underwriting/sensitivity.ts",
 ];
 const TRACKED = [
   ...CRITICAL,

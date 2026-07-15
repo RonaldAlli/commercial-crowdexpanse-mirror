@@ -23,10 +23,15 @@
 //   v5 (3b-iv) — model 5 (exit assumptions + exit valuation / equity cash-flow /
 //     return-metric projection layers exist) / calc 5 (new deterministic exit
 //     valuation, amortized debt payoff, equity returns incl. IRR) / rules 1.
+//   v6 (3b-v) — model 6 (per-FinancingCase SensitivityAnalysis + SensitivityCell
+//     surfaces exist) / calc 6 (new deterministic sensitivity-grid derivation:
+//     evenly-spaced axis generation + in-memory re-derivation per cell) / rules 1.
+//     Sensitivity is a CONSUMER (Principle 10) — this bump reflects that the model
+//     now HAS a sensitivity surface, not that any deterministic result changed.
 import { createHash } from "node:crypto";
 
-export const UNDERWRITING_MODEL_VERSION = 5;
-export const CALCULATION_LIBRARY_VERSION = 5;
+export const UNDERWRITING_MODEL_VERSION = 6;
+export const CALCULATION_LIBRARY_VERSION = 6;
 export const RULESET_VERSION = 1;
 
 export type ModelLineage = {
@@ -94,5 +99,47 @@ export function computeFinancingCaseVersion(
   for (const x of sorted) rows.push([x.key, x.canonical, x.source]);
   const { modelVersion, calcLibVersion, rulesetVersion } = lineage;
   const canonical = JSON.stringify({ model: modelVersion, calc: calcLibVersion, rules: rulesetVersion, sv: scenarioVersion, c: rows });
+  return createHash("sha256").update(canonical).digest("hex").slice(0, 32);
+}
+
+/** The canonical, presentation-independent shape of a sensitivity spec (SE-5). */
+export type FingerprintSensitivitySpec = {
+  metric: string;
+  xKey: string;
+  xMin: number;
+  xMax: number;
+  xSteps: number;
+  yKey: string | null;
+  yMin: number | null;
+  yMax: number | null;
+  ySteps: number | null;
+};
+
+/**
+ * Deterministic FINGERPRINT for one SensitivityAnalysis (v1.3, Commit 3b-v, SE-3/
+ * D-F). A pure function of the BASELINE financingCaseVersion it consumes (which
+ * already folds in the operating scenario + capital + lineage), the canonical
+ * analysis spec (metric + both axes), and the model lineage. The cells are a total
+ * function of this fingerprint's inputs, so the whole grid is rebuildable and
+ * stable across processes. Because it hangs off financingCaseVersion, the grid
+ * re-fingerprints iff the baseline case OR the spec OR the lineage changes.
+ */
+export function computeSensitivityVersion(
+  financingCaseVersion: string,
+  spec: FingerprintSensitivitySpec,
+  lineage: ModelLineage,
+): string {
+  const { modelVersion, calcLibVersion, rulesetVersion } = lineage;
+  const canonical = JSON.stringify({
+    model: modelVersion,
+    calc: calcLibVersion,
+    rules: rulesetVersion,
+    fcv: financingCaseVersion,
+    spec: {
+      metric: spec.metric,
+      x: [spec.xKey, spec.xMin, spec.xMax, spec.xSteps],
+      y: spec.yKey == null ? null : [spec.yKey, spec.yMin, spec.yMax, spec.ySteps],
+    },
+  });
   return createHash("sha256").update(canonical).digest("hex").slice(0, 32);
 }

@@ -8,6 +8,20 @@ import type { AnalysisFormState } from "@/app/(workspace)/analyzer/actions";
 
 export type ScheduleLineValue = { kind: "INCOME" | "EXPENSE"; category: string; amountAnnualUsd: number };
 
+// One per-case sensitivity spec (v1.3, Commit 3b-v). A what-if grid over the case's
+// frozen baseline — never mutates it (SE-1).
+export type SensitivityValue = {
+  targetMetric: string;
+  xKey: string;
+  xMin: number | null;
+  xMax: number | null;
+  xSteps: number | null;
+  yKey: string | null;
+  yMin: number | null;
+  yMax: number | null;
+  ySteps: number | null;
+};
+
 // One capital structure (v1.3, Commit 3b-iii). Capital lives on the FinancingCase,
 // never the Scenario (CF-1).
 export type FinancingCaseValue = {
@@ -18,7 +32,38 @@ export type FinancingCaseValue = {
   targetLtvPct: number | null;
   targetLtcPct: number | null;
   minDscr: number | null;
+  sensitivity?: SensitivityValue | null;
 };
+
+// The fixed configurator allow-lists (mirror lib/underwriting/sensitivity.ts + the axis
+// allow-list). Kept here as presentation labels; the server re-validates against the
+// authoritative lists (UW-6 — the UI never bypasses the engine's rules).
+const SENSITIVITY_METRIC_OPTIONS = [
+  { value: "LEVERED_IRR_PCT", label: "Levered IRR (%)" },
+  { value: "EQUITY_MULTIPLE", label: "Equity multiple" },
+  { value: "TOTAL_PROFIT_USD", label: "Total profit ($)" },
+  { value: "CAP_RATE", label: "Cap rate" },
+  { value: "DSCR", label: "DSCR" },
+];
+const SENSITIVITY_AXIS_OPTIONS = [
+  { value: "PURCHASE_PRICE", label: "Purchase price" },
+  { value: "RENOVATION_BUDGET", label: "Renovation budget" },
+  { value: "CLOSING_COSTS", label: "Closing costs" },
+  { value: "GROSS_INCOME", label: "Gross income" },
+  { value: "OPERATING_EXPENSES", label: "Operating expenses" },
+  { value: "INCOME_GROWTH_PCT", label: "Income growth (%)" },
+  { value: "EXPENSE_GROWTH_PCT", label: "Expense growth (%)" },
+  { value: "HOLD_YEARS", label: "Hold years" },
+  { value: "EXIT_CAP_RATE_PCT", label: "Exit cap rate (%)" },
+  { value: "SELLING_COSTS_PCT", label: "Selling costs (%)" },
+  { value: "ESTIMATED_VALUE", label: "Estimated value" },
+  { value: "LOAN_AMOUNT", label: "Loan amount" },
+  { value: "INTEREST_RATE", label: "Interest rate (%)" },
+  { value: "AMORTIZATION_YEARS", label: "Amortization (yrs)" },
+  { value: "TARGET_LTV_PCT", label: "Target LTV (%)" },
+  { value: "TARGET_LTC_PCT", label: "Target LTC (%)" },
+  { value: "MIN_DSCR", label: "Min DSCR" },
+];
 
 export type AnalysisFormValues = {
   purchasePriceUsd?: number | null;
@@ -100,11 +145,46 @@ function ScheduleEditor({ initial }: { initial?: ScheduleLineValue[] }) {
   );
 }
 
-type CaseRow = { label: string; loan: string; rate: string; amort: string; ltv: string; ltc: string; dscr: string };
+type CaseRow = {
+  label: string;
+  loan: string;
+  rate: string;
+  amort: string;
+  ltv: string;
+  ltc: string;
+  dscr: string;
+  // Sensitivity (3b-v). seMetric === "" ⇒ no analysis on this case; seYKey === "" ⇒ one axis.
+  seMetric: string;
+  seXKey: string;
+  seXMin: string;
+  seXMax: string;
+  seXSteps: string;
+  seYKey: string;
+  seYMin: string;
+  seYMax: string;
+  seYSteps: string;
+};
+
+function caseRowSensitivity(r: CaseRow): SensitivityValue | null {
+  if (!r.seMetric || !r.seXKey) return null;
+  const hasY = r.seYKey !== "";
+  return {
+    targetMetric: r.seMetric,
+    xKey: r.seXKey,
+    xMin: parseNum(r.seXMin),
+    xMax: parseNum(r.seXMax),
+    xSteps: parseNum(r.seXSteps),
+    yKey: hasY ? r.seYKey : null,
+    yMin: hasY ? parseNum(r.seYMin) : null,
+    yMax: hasY ? parseNum(r.seYMax) : null,
+    ySteps: hasY ? parseNum(r.seYSteps) : null,
+  };
+}
 
 // Capital structure alternatives (v1.3, Commit 3b-iii). Each case owns its own debt
 // terms + sizing constraints and is compared side by side against the same operating
-// NOI. Serialized to a hidden field the server action parses.
+// NOI. As of 3b-v each case can also carry a sensitivity grid. Serialized to a hidden
+// field the server action parses.
 function FinancingEditor({ initial }: { initial?: FinancingCaseValue[] }) {
   const [rows, setRows] = useState<CaseRow[]>(
     (initial ?? []).map((c) => ({
@@ -115,6 +195,15 @@ function FinancingEditor({ initial }: { initial?: FinancingCaseValue[] }) {
       ltv: c.targetLtvPct != null ? String(c.targetLtvPct) : "",
       ltc: c.targetLtcPct != null ? String(c.targetLtcPct) : "",
       dscr: c.minDscr != null ? String(c.minDscr) : "",
+      seMetric: c.sensitivity?.targetMetric ?? "",
+      seXKey: c.sensitivity?.xKey ?? "",
+      seXMin: c.sensitivity?.xMin != null ? String(c.sensitivity.xMin) : "",
+      seXMax: c.sensitivity?.xMax != null ? String(c.sensitivity.xMax) : "",
+      seXSteps: c.sensitivity?.xSteps != null ? String(c.sensitivity.xSteps) : "",
+      seYKey: c.sensitivity?.yKey ?? "",
+      seYMin: c.sensitivity?.yMin != null ? String(c.sensitivity.yMin) : "",
+      seYMax: c.sensitivity?.yMax != null ? String(c.sensitivity.yMax) : "",
+      seYSteps: c.sensitivity?.ySteps != null ? String(c.sensitivity.ySteps) : "",
     })),
   );
   const serialized = JSON.stringify(
@@ -126,9 +215,28 @@ function FinancingEditor({ initial }: { initial?: FinancingCaseValue[] }) {
       targetLtvPct: parseNum(r.ltv),
       targetLtcPct: parseNum(r.ltc),
       minDscr: parseNum(r.dscr),
+      sensitivity: caseRowSensitivity(r),
     })),
   );
-  const add = () => setRows((rs) => [...rs, { label: `Financing ${rs.length + 1}`, loan: "", rate: "", amort: "", ltv: "", ltc: "", dscr: "" }]);
+  const blank = (n: number): CaseRow => ({
+    label: `Financing ${n}`,
+    loan: "",
+    rate: "",
+    amort: "",
+    ltv: "",
+    ltc: "",
+    dscr: "",
+    seMetric: "",
+    seXKey: "",
+    seXMin: "",
+    seXMax: "",
+    seXSteps: "",
+    seYKey: "",
+    seYMin: "",
+    seYMax: "",
+    seYSteps: "",
+  });
+  const add = () => setRows((rs) => [...rs, blank(rs.length + 1)]);
   const update = (i: number, patch: Partial<CaseRow>) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   const remove = (i: number) => setRows((rs) => rs.filter((_, j) => j !== i));
 
@@ -142,6 +250,14 @@ function FinancingEditor({ initial }: { initial?: FinancingCaseValue[] }) {
       value={rows[i][key]}
       onChange={(e) => update(i, { [key]: e.target.value })}
     />
+  );
+
+  const axisFields = (i: number, prefix: "seX" | "seY") => (
+    <div className="grid grid-cols-3 gap-2">
+      <input className="input" type="number" step="any" placeholder="min" value={rows[i][`${prefix}Min` as keyof CaseRow]} onChange={(e) => update(i, { [`${prefix}Min`]: e.target.value })} />
+      <input className="input" type="number" step="any" placeholder="max" value={rows[i][`${prefix}Max` as keyof CaseRow]} onChange={(e) => update(i, { [`${prefix}Max`]: e.target.value })} />
+      <input className="input" type="number" min="1" max="11" step="1" placeholder="steps" value={rows[i][`${prefix}Steps` as keyof CaseRow]} onChange={(e) => update(i, { [`${prefix}Steps`]: e.target.value })} />
+    </div>
   );
 
   return (
@@ -172,6 +288,52 @@ function FinancingEditor({ initial }: { initial?: FinancingCaseValue[] }) {
               {field(i, "ltv", "Target LTV (%)")}
               {field(i, "ltc", "Target LTC (%)")}
               {field(i, "dscr", "Min DSCR")}
+            </div>
+
+            {/* Sensitivity grid (3b-v) — a what-if over this case; never changes the baseline. */}
+            <div className="mt-4 border-t border-dashed border-slate-200 pt-3">
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Sensitivity analysis (optional)</span>
+                <select className="input" value={r.seMetric} onChange={(e) => update(i, { seMetric: e.target.value })}>
+                  <option value="">No sensitivity analysis</option>
+                  {SENSITIVITY_METRIC_OPTIONS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      Target: {m.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {r.seMetric ? (
+                <div className="mt-3 space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div>
+                      <span className="mb-1 block text-xs text-slate-500">X axis</span>
+                      <select className="input" value={r.seXKey} onChange={(e) => update(i, { seXKey: e.target.value })}>
+                        <option value="">Choose an assumption…</option>
+                        {SENSITIVITY_AXIS_OPTIONS.map((k) => (
+                          <option key={k.value} value={k.value}>
+                            {k.label}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="mt-2">{axisFields(i, "seX")}</div>
+                    </div>
+                    <div>
+                      <span className="mb-1 block text-xs text-slate-500">Y axis (optional)</span>
+                      <select className="input" value={r.seYKey} onChange={(e) => update(i, { seYKey: e.target.value })}>
+                        <option value="">One axis only</option>
+                        {SENSITIVITY_AXIS_OPTIONS.filter((k) => k.value !== r.seXKey).map((k) => (
+                          <option key={k.value} value={k.value}>
+                            {k.label}
+                          </option>
+                        ))}
+                      </select>
+                      {r.seYKey ? <div className="mt-2">{axisFields(i, "seY")}</div> : null}
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-400">Up to 11 values per axis (121 cells). The baseline cell is marked only when the current values fall exactly on the axes.</p>
+                </div>
+              ) : null}
             </div>
           </div>
         ))}

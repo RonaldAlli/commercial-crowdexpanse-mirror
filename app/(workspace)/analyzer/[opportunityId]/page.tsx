@@ -21,6 +21,52 @@ function pct(value: number | null) {
   return value == null ? "—" : `${value}%`;
 }
 
+// --- sensitivity presentation (3b-v) -----------------------------------------
+const SENS_METRIC_LABEL: Record<string, string> = {
+  LEVERED_IRR_PCT: "Levered IRR",
+  EQUITY_MULTIPLE: "Equity multiple",
+  TOTAL_PROFIT_USD: "Total profit",
+  CAP_RATE: "Cap rate",
+  DSCR: "DSCR",
+};
+const SENS_AXIS_LABEL: Record<string, string> = {
+  PURCHASE_PRICE: "Purchase price",
+  RENOVATION_BUDGET: "Renovation budget",
+  CLOSING_COSTS: "Closing costs",
+  GROSS_INCOME: "Gross income",
+  OPERATING_EXPENSES: "Operating expenses",
+  INCOME_GROWTH_PCT: "Income growth %",
+  EXPENSE_GROWTH_PCT: "Expense growth %",
+  HOLD_YEARS: "Hold years",
+  EXIT_CAP_RATE_PCT: "Exit cap rate %",
+  SELLING_COSTS_PCT: "Selling costs %",
+  ESTIMATED_VALUE: "Estimated value",
+  LOAN_AMOUNT: "Loan amount",
+  INTEREST_RATE: "Interest rate %",
+  AMORTIZATION_YEARS: "Amortization yrs",
+  TARGET_LTV_PCT: "Target LTV %",
+  TARGET_LTC_PCT: "Target LTC %",
+  MIN_DSCR: "Min DSCR",
+};
+const axisLabel = (k: string | null) => (k == null ? "" : (SENS_AXIS_LABEL[k] ?? k));
+const axisNum = (v: number | null) => (v == null ? "" : new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(v));
+function sensCell(metric: string, v: number | null) {
+  if (v == null) return "—";
+  const r = Math.round(v * 100) / 100;
+  switch (metric) {
+    case "LEVERED_IRR_PCT":
+    case "CAP_RATE":
+      return `${r}%`;
+    case "EQUITY_MULTIPLE":
+    case "DSCR":
+      return `${r}x`;
+    case "TOTAL_PROFIT_USD":
+      return usd(v);
+    default:
+      return String(r);
+  }
+}
+
 export default async function AnalysisViewPage({ params }: { params: { opportunityId: string } }) {
   const user = await requireUser();
 
@@ -369,6 +415,80 @@ export default async function AnalysisViewPage({ params }: { params: { opportuni
                   </div>
                 </div>
               ))}
+          </div>
+        </article>
+      ) : null}
+
+      {cases.some((c) => c.sensitivity && c.sensitivity.cells.length > 0) ? (
+        <article className="card p-6">
+          <p className="eyebrow">Sensitivity</p>
+          <p className="mt-1 text-xs text-slate-400">
+            Each cell re-derives the metric under its axis overrides — a what-if reading over the frozen baseline that never changes
+            it. The baseline cell (▪) is marked only when the current values fall exactly on the axes.
+          </p>
+          <div className="mt-4 space-y-8">
+            {cases
+              .filter((c) => c.sensitivity && c.sensitivity.cells.length > 0)
+              .map((c) => {
+                const s = c.sensitivity!;
+                const hasY = s.yKey != null;
+                const xVals = Array.from(new Set(s.cells.map((cell) => cell.xValue))).sort((p, q) => p - q);
+                const yVals = hasY
+                  ? Array.from(new Set(s.cells.map((cell) => cell.yValue).filter((v): v is number => v != null))).sort((p, q) => p - q)
+                  : [null];
+                const at = (x: number, y: number | null) =>
+                  s.cells.find((cell) => cell.xValue === x && (y == null ? cell.yValue == null : cell.yValue === y));
+                return (
+                  <div key={c.id}>
+                    <p className="text-sm font-medium text-slate-700">
+                      {c.label} — {SENS_METRIC_LABEL[s.targetMetric] ?? s.targetMetric}
+                      <span className="ml-1 text-xs font-normal text-slate-400">
+                        (x: {axisLabel(s.xKey)}
+                        {hasY ? `, y: ${axisLabel(s.yKey)}` : ""})
+                      </span>
+                    </p>
+                    <div className="mt-2 overflow-x-auto">
+                      <table className="text-sm">
+                        <thead>
+                          <tr className="text-xs text-slate-500">
+                            <th className="py-1.5 pr-3 text-left font-medium">{hasY ? `${axisLabel(s.yKey)} ╲ ${axisLabel(s.xKey)}` : axisLabel(s.xKey)}</th>
+                            {xVals.map((x) => (
+                              <th key={x} className="metric px-3 py-1.5 font-medium text-slate-700">
+                                {axisNum(x)}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {yVals.map((y) => (
+                            <tr key={String(y)}>
+                              <td className="metric py-1.5 pr-3 text-xs font-medium text-slate-500">
+                                {y == null ? SENS_METRIC_LABEL[s.targetMetric] ?? s.targetMetric : axisNum(y)}
+                              </td>
+                              {xVals.map((x) => {
+                                const cell = at(x, y);
+                                return (
+                                  <td
+                                    key={x}
+                                    className={`metric px-3 py-1.5 ${
+                                      cell?.isBaseline
+                                        ? "bg-emerald-50 font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200"
+                                        : "text-slate-900"
+                                    }`}
+                                  >
+                                    {cell?.isBaseline ? "▪ " : ""}
+                                    {sensCell(s.targetMetric, cell?.metricValue ?? null)}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         </article>
       ) : null}

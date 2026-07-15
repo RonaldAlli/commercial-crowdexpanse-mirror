@@ -8,6 +8,7 @@ import { checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 import { saveAnalyzerScenario, type FinancingCaseEntry } from "@/lib/underwriting";
 import type { AssumptionKey } from "@/lib/underwriting/assumptions";
+import type { SensitivityMetric, SensitivitySpec } from "@/lib/underwriting/sensitivity";
 
 export type AnalysisFormState = { error?: string } | undefined;
 
@@ -100,6 +101,31 @@ export async function saveAnalysis(
   // all-cash (no capital) — a valid unlevered structure.
   let financingCases: FinancingCaseEntry[] | undefined;
   const capNum = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  // Per-case sensitivity spec (3b-v). Coerced from the serialized case; incomplete
+  // drafts (metric/axis/bounds not all filled) attach no analysis. The service
+  // re-validates against the authoritative allow-lists (UW-6).
+  const parseSensitivity = (raw: unknown): SensitivitySpec | null => {
+    if (!raw || typeof raw !== "object") return null;
+    const s = raw as Record<string, unknown>;
+    if (typeof s.targetMetric !== "string" || !s.targetMetric || typeof s.xKey !== "string" || !s.xKey) return null;
+    const xMin = capNum(s.xMin);
+    const xMax = capNum(s.xMax);
+    const xSteps = capNum(s.xSteps);
+    if (xMin == null || xMax == null || xSteps == null) return null;
+    const hasY = typeof s.yKey === "string" && s.yKey.length > 0;
+    const ySteps = hasY ? capNum(s.ySteps) : null;
+    return {
+      targetMetric: s.targetMetric as SensitivityMetric,
+      xKey: s.xKey as AssumptionKey,
+      xMin,
+      xMax,
+      xSteps: Math.round(xSteps),
+      yKey: hasY ? (s.yKey as AssumptionKey) : null,
+      yMin: hasY ? capNum(s.yMin) : null,
+      yMax: hasY ? capNum(s.yMax) : null,
+      ySteps: ySteps == null ? null : Math.round(ySteps),
+    };
+  };
   const fcRaw = str("financingCasesJson");
   if (fcRaw) {
     try {
@@ -119,6 +145,7 @@ export async function saveAnalysis(
                 { key: "MIN_DSCR" as const, value: capNum(c.minDscr) },
               ] as { key: AssumptionKey; value: number | null }[]
             ).filter((x) => x.value != null),
+            sensitivity: parseSensitivity(c.sensitivity),
           }));
       }
     } catch {
@@ -128,12 +155,19 @@ export async function saveAnalysis(
 
   const existed = (await prisma.underwriting.findUnique({ where: { opportunityId: opportunity.id } })) != null;
 
-  const { result } = await saveAnalyzerScenario(user.organizationId, opportunity.id, manual, {
-    createdByUserId: user.id,
-    analystSummary: orNull(str("analystSummary")),
-    lines,
-    financingCases,
-  });
+  let result;
+  try {
+    ({ result } = await saveAnalyzerScenario(user.organizationId, opportunity.id, manual, {
+      createdByUserId: user.id,
+      analystSummary: orNull(str("analystSummary")),
+      lines,
+      financingCases,
+    }));
+  } catch (e) {
+    // Surface an engine-level validation error (e.g. an invalid sensitivity spec)
+    // as a form message rather than an unhandled crash.
+    return { error: e instanceof Error ? e.message : "Could not save the analysis." };
+  }
 
   await prisma.activityLog.create({
     data: {

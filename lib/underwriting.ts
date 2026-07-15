@@ -22,17 +22,27 @@ import {
   type ResolvedAssumption,
   assumptionValue,
   CAPITAL_ASSUMPTION_KEYS,
+  isCapitalKey,
   validateAssumptions,
 } from "@/lib/underwriting/assumptions";
-import { deriveFinancingCase } from "@/lib/underwriting/financing";
+import { deriveFinancingCase, type DerivedFinancingCase } from "@/lib/underwriting/financing";
 import {
   CURRENT_MODEL_LINEAGE,
   computeFinancingCaseVersion,
   computeScenarioVersion,
+  computeSensitivityVersion,
   type FingerprintAssumption,
   type FingerprintLine,
+  type FingerprintSensitivitySpec,
   type ModelLineage,
 } from "@/lib/underwriting/model-version";
+import {
+  axisValues,
+  buildGrid,
+  validateSensitivitySpec,
+  type SensitivitySpec,
+} from "@/lib/underwriting/sensitivity";
+import type { AnalysisMetrics } from "@/lib/analysis";
 import { deriveScenarioResult } from "@/lib/underwriting/scenario-result";
 import type { ResolvedLine } from "@/lib/underwriting/schedule";
 
@@ -397,7 +407,220 @@ export async function rebuildFinancingCase(organizationId: string, financingCase
     }
   }
 
+  // Sensitivity grid (3b-v): a CONSUMER of this case's now-settled baseline (SE-1).
+  // Rebuilt last so it reads the freshly-computed financingCaseVersion; a no-op when
+  // the case has no analysis.
+  await rebuildSensitivity(organizationId, financingCaseId, db);
+
   return db.financingCaseResult.findUnique({ where: { financingCaseId } });
+}
+
+// --- sensitivity (v1.3, Commit 3b-v) ------------------------------------------
+
+/** Extract one target metric from a re-derived baseline (D-D). */
+function extractSensitivityMetric(metric: string, m: AnalysisMetrics, derived: DerivedFinancingCase): number | null {
+  switch (metric) {
+    case "CAP_RATE":
+      return m.capRate;
+    case "DSCR":
+      return derived.dscr;
+    case "LEVERED_IRR_PCT":
+      return derived.exit?.leveredIrrPct ?? null;
+    case "EQUITY_MULTIPLE":
+      return derived.exit?.equityMultiple ?? null;
+    case "TOTAL_PROFIT_USD":
+      return derived.exit?.totalProfitUsd ?? null;
+    default:
+      return null;
+  }
+}
+
+/** Apply ONE axis override to a COPY of a resolved assumption list (replace or append). */
+function withOverride(rows: ResolvedAssumption[], key: AssumptionKey, value: number): ResolvedAssumption[] {
+  const canonical = new Prisma.Decimal(value).toString();
+  let found = false;
+  const out = rows.map((r) => {
+    if (r.key === key) {
+      found = true;
+      return { ...r, value, canonical };
+    }
+    return r;
+  });
+  if (!found) out.push({ key, value, source: "MANUAL", canonical });
+  return out;
+}
+
+/**
+ * Rebuild ONE FinancingCase's SensitivityAnalysis (SE-1…SE-6). A CONSUMER of the
+ * settled baseline: each cell re-derives the Scenario + Case IN MEMORY under only
+ * that cell's explicit axis overrides — applied to a COPY of the frozen assumptions,
+ * NEVER persisted — and stores just the target metric. No-op when the case has no
+ * analysis. Content-idempotent: an unchanged rebuild performs zero cell writes.
+ */
+export async function rebuildSensitivity(organizationId: string, financingCaseId: string, db: Db = prisma) {
+  const analysis = await db.sensitivityAnalysis.findUnique({ where: { financingCaseId } });
+  if (!analysis) return null;
+  const fc = await db.financingCase.findFirstOrThrow({ where: { id: financingCaseId, organizationId }, include: { scenario: true } });
+  const scenario = fc.scenario;
+  const lineage = lineageOf(scenario);
+
+  // Frozen baseline: the SAME operating economics + capital the case itself consumes.
+  const assumptions = await resolveScenarioAssumptions(scenario.id, db);
+  const lines = await resolveScenarioLines(scenario.id, db);
+  const capital = await resolveFinancingCapital(financingCaseId, db);
+
+  // The baseline fingerprint the grid hangs off (SE-2/D-F) — folds in operating +
+  // capital + lineage, so a change to any of them re-fingerprints every cell.
+  const { scenarioVersion } = deriveScenarioResult(assumptions, lines, lineage);
+  const fpCapital: FingerprintAssumption[] = capital.map((c) => ({ key: c.key, canonical: c.canonical, source: c.source }));
+  const financingCaseVersion = computeFinancingCaseVersion(scenarioVersion, fpCapital, lineage);
+
+  const xKey = analysis.xKey as AssumptionKey;
+  const yKey = (analysis.yKey ?? null) as AssumptionKey | null;
+
+  // SE-3 — a cell is a pure function of the frozen assumptions + its explicit
+  // overrides + lineage; it reads no Property state, no other case, no other cell.
+  const evaluate = (xValue: number, yValue: number | null): number | null => {
+    let ops = assumptions;
+    let caps = capital;
+    const applyOne = (key: AssumptionKey, value: number) => {
+      if (isCapitalKey(key)) caps = withOverride(caps, key, value);
+      else ops = withOverride(ops, key, value);
+    };
+    applyOne(xKey, xValue);
+    if (yKey != null && yValue != null) applyOne(yKey, yValue);
+
+    // A cell whose overrides make the assumptions infeasible (e.g. a non-positive
+    // purchase price) is an empty reading, not a crash — the grid stays intact.
+    try {
+      const { metrics, inputs } = deriveScenarioResult(ops, lines, lineage);
+      const cap = (k: AssumptionKey) => assumptionValue(caps, k);
+      const derived = deriveFinancingCase({
+        operatingInputs: inputs,
+        incomeGrowthPct: assumptionValue(ops, "INCOME_GROWTH_PCT"),
+        expenseGrowthPct: assumptionValue(ops, "EXPENSE_GROWTH_PCT"),
+        holdYears: assumptionValue(ops, "HOLD_YEARS"),
+        exitCapRatePct: assumptionValue(ops, "EXIT_CAP_RATE_PCT"),
+        sellingCostsPct: assumptionValue(ops, "SELLING_COSTS_PCT"),
+        loanAmountUsd: cap("LOAN_AMOUNT"),
+        interestRatePct: cap("INTEREST_RATE"),
+        amortizationYears: cap("AMORTIZATION_YEARS"),
+        targetLtvPct: cap("TARGET_LTV_PCT"),
+        targetLtcPct: cap("TARGET_LTC_PCT"),
+        minDscr: cap("MIN_DSCR"),
+      });
+      return extractSensitivityMetric(analysis.targetMetric, metrics, derived);
+    } catch {
+      return null;
+    }
+  };
+
+  const xVals = axisValues(analysis.xMin, analysis.xMax, analysis.xSteps);
+  const yVals = yKey != null ? axisValues(analysis.yMin as number, analysis.yMax as number, analysis.ySteps as number) : null;
+
+  // Baseline values for EXACT marking (SE-6) — the CURRENT frozen value of each axis.
+  const baselineX = isCapitalKey(xKey) ? assumptionValue(capital, xKey) : assumptionValue(assumptions, xKey);
+  const baselineY = yKey == null ? null : isCapitalKey(yKey) ? assumptionValue(capital, yKey) : assumptionValue(assumptions, yKey);
+
+  const cells = buildGrid({ xValues: xVals, yValues: yVals, evaluate, baselineX, baselineY });
+
+  const spec: FingerprintSensitivitySpec = {
+    metric: analysis.targetMetric,
+    xKey,
+    xMin: analysis.xMin,
+    xMax: analysis.xMax,
+    xSteps: analysis.xSteps,
+    yKey,
+    yMin: analysis.yMin,
+    yMax: analysis.yMax,
+    ySteps: analysis.ySteps,
+  };
+  const sensitivityVersion = computeSensitivityVersion(financingCaseVersion, spec, lineage);
+  if (analysis.sensitivityVersion !== sensitivityVersion || analysis.calcLibVersion !== scenario.calcLibVersion) {
+    await db.sensitivityAnalysis.update({
+      where: { id: analysis.id },
+      data: { sensitivityVersion, calcLibVersion: scenario.calcLibVersion },
+    });
+  }
+
+  // Cells: disposable + rebuildable (SE-4). Zero-write when unchanged; buildGrid emits
+  // in (yIndex, xIndex) order, matching the query ordering below.
+  const existing = await db.sensitivityCell.findMany({
+    where: { sensitivityAnalysisId: analysis.id },
+    orderBy: [{ yIndex: "asc" }, { xIndex: "asc" }],
+  });
+  const unchanged =
+    existing.length === cells.length &&
+    cells.every((c, idx) => {
+      const e = existing[idx];
+      return (
+        e != null &&
+        e.xIndex === c.xIndex &&
+        e.yIndex === c.yIndex &&
+        e.xValue === c.xValue &&
+        e.yValue === c.yValue &&
+        e.metricValue === c.metricValue &&
+        e.isBaseline === c.isBaseline
+      );
+    });
+  if (!unchanged) {
+    await db.sensitivityCell.deleteMany({ where: { sensitivityAnalysisId: analysis.id } });
+    for (const c of cells) {
+      await db.sensitivityCell.create({
+        data: {
+          organizationId,
+          sensitivityAnalysisId: analysis.id,
+          xIndex: c.xIndex,
+          yIndex: c.yIndex,
+          xValue: c.xValue,
+          yValue: c.yValue,
+          metricValue: c.metricValue,
+          isBaseline: c.isBaseline,
+        },
+      });
+    }
+  }
+  return db.sensitivityAnalysis.findUnique({
+    where: { id: analysis.id },
+    include: { cells: { orderBy: [{ yIndex: "asc" }, { xIndex: "asc" }] } },
+  });
+}
+
+/**
+ * Set (or clear, when `spec` is null) the SensitivityAnalysis on ONE FinancingCase of
+ * a DRAFT scenario, then rebuild its cells. Replace-whole (cascade drops the prior
+ * cells). Only validated specs from the fixed allow-lists are accepted (D-C).
+ */
+export async function setSensitivityAnalysis(
+  organizationId: string,
+  financingCaseId: string,
+  spec: SensitivitySpec | null,
+  db: Db = prisma,
+): Promise<void> {
+  const fc = await db.financingCase.findFirstOrThrow({ where: { id: financingCaseId, organizationId }, include: { scenario: true } });
+  if (fc.scenario.status !== "DRAFT") throw new Error("Cannot modify a sensitivity analysis on a non-DRAFT scenario");
+  await db.sensitivityAnalysis.deleteMany({ where: { financingCaseId } });
+  if (spec == null) return;
+  const invalid = validateSensitivitySpec(spec);
+  if (invalid) throw new Error(`Invalid sensitivity analysis: ${invalid}`);
+  await db.sensitivityAnalysis.create({
+    data: {
+      organizationId,
+      financingCaseId,
+      targetMetric: spec.targetMetric,
+      xKey: spec.xKey,
+      xMin: spec.xMin,
+      xMax: spec.xMax,
+      xSteps: spec.xSteps,
+      yKey: spec.yKey,
+      yMin: spec.yMin,
+      yMax: spec.yMax,
+      ySteps: spec.ySteps,
+      sensitivityVersion: "",
+      calcLibVersion: fc.scenario.calcLibVersion,
+    },
+  });
+  await rebuildSensitivity(organizationId, financingCaseId, db);
 }
 
 /** Rebuild every FinancingCase under a scenario (after the operating side changes). */
@@ -406,8 +629,13 @@ async function rebuildAllFinancingCases(organizationId: string, scenarioId: stri
   for (const fc of cases) await rebuildFinancingCase(organizationId, fc.id, db);
 }
 
-/** One capital structure to write. */
-export type FinancingCaseEntry = { label: string; source?: AssumptionSource; capital: { key: AssumptionKey; value: number | null }[] };
+/** One capital structure to write (optionally carrying a per-case sensitivity spec, 3b-v). */
+export type FinancingCaseEntry = {
+  label: string;
+  source?: AssumptionSource;
+  capital: { key: AssumptionKey; value: number | null }[];
+  sensitivity?: SensitivitySpec | null;
+};
 
 /**
  * Replace a DRAFT scenario's entire set of financing cases (in order), then rebuild
@@ -434,6 +662,29 @@ export async function setFinancingCases(
       if (cap.value == null || !CAPITAL_ASSUMPTION_KEYS.includes(cap.key)) continue;
       await db.financingAssumption.create({
         data: { organizationId, financingCaseId: fc.id, key: cap.key, valueNumeric: new Prisma.Decimal(cap.value), source: c.source ?? "MANUAL" },
+      });
+    }
+    // Optional per-case sensitivity spec (3b-v). Validated here; its cells are filled
+    // by the rebuild below (which reads the freshly-computed baseline fingerprint).
+    if (c.sensitivity != null) {
+      const invalid = validateSensitivitySpec(c.sensitivity);
+      if (invalid) throw new Error(`Invalid sensitivity analysis for "${c.label}": ${invalid}`);
+      await db.sensitivityAnalysis.create({
+        data: {
+          organizationId,
+          financingCaseId: fc.id,
+          targetMetric: c.sensitivity.targetMetric,
+          xKey: c.sensitivity.xKey,
+          xMin: c.sensitivity.xMin,
+          xMax: c.sensitivity.xMax,
+          xSteps: c.sensitivity.xSteps,
+          yKey: c.sensitivity.yKey,
+          yMin: c.sensitivity.yMin,
+          yMax: c.sensitivity.yMax,
+          ySteps: c.sensitivity.ySteps,
+          sensitivityVersion: "",
+          calcLibVersion: scenario.calcLibVersion,
+        },
       });
     }
   }
@@ -578,6 +829,7 @@ export async function getActiveScenarioResult(organizationId: string, opportunit
           capitalAssumptions: true,
           cashFlow: { orderBy: { year: "asc" } },
           equityCashFlow: { orderBy: { year: "asc" } },
+          sensitivity: { include: { cells: { orderBy: [{ yIndex: "asc" }, { xIndex: "asc" }] } } },
         },
       },
     },
@@ -617,7 +869,7 @@ export async function createNextVersion(organizationId: string, scenarioId: stri
       include: {
         assumptions: true,
         lineItems: { orderBy: { position: "asc" } },
-        financingCases: { orderBy: { position: "asc" }, include: { capitalAssumptions: true } },
+        financingCases: { orderBy: { position: "asc" }, include: { capitalAssumptions: true, sensitivity: true } },
       },
     });
     if (source.status !== "LOCKED") throw new Error("Only a LOCKED scenario can be branched into a new version");
@@ -679,6 +931,27 @@ export async function createNextVersion(organizationId: string, scenarioId: stri
             source: cap.source,
             sourceField: cap.sourceField,
             sourceAsOf: cap.sourceAsOf,
+          },
+        });
+      }
+      // Clone the per-case sensitivity spec (3b-v); its cells are rebuilt below.
+      if (fc.sensitivity) {
+        const s = fc.sensitivity;
+        await tx.sensitivityAnalysis.create({
+          data: {
+            organizationId,
+            financingCaseId: nfc.id,
+            targetMetric: s.targetMetric,
+            xKey: s.xKey,
+            xMin: s.xMin,
+            xMax: s.xMax,
+            xSteps: s.xSteps,
+            yKey: s.yKey,
+            yMin: s.yMin,
+            yMax: s.yMax,
+            ySteps: s.ySteps,
+            sensitivityVersion: "",
+            calcLibVersion: next.calcLibVersion,
           },
         });
       }

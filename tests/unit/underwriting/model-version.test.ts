@@ -8,8 +8,10 @@ import {
   RULESET_VERSION,
   computeScenarioVersion,
   computeFinancingCaseVersion,
+  computeSensitivityVersion,
   type FingerprintAssumption,
   type FingerprintLine,
+  type FingerprintSensitivitySpec,
   type ModelLineage,
 } from "../../../lib/underwriting/model-version";
 
@@ -20,11 +22,11 @@ const set: FingerprintAssumption[] = [
   { key: "UNIT_COUNT", canonical: "10", source: "SEEDED" },
 ];
 
-test("lineage constants reflect the 3b-iv bump and CURRENT_MODEL_LINEAGE mirrors them", () => {
-  assert.equal(UNDERWRITING_MODEL_VERSION, 5);
-  assert.equal(CALCULATION_LIBRARY_VERSION, 5);
+test("lineage constants reflect the 3b-v bump and CURRENT_MODEL_LINEAGE mirrors them", () => {
+  assert.equal(UNDERWRITING_MODEL_VERSION, 6);
+  assert.equal(CALCULATION_LIBRARY_VERSION, 6);
   assert.equal(RULESET_VERSION, 1);
-  assert.deepEqual(L, { modelVersion: 5, calcLibVersion: 5, rulesetVersion: 1 });
+  assert.deepEqual(L, { modelVersion: 6, calcLibVersion: 6, rulesetVersion: 1 });
 });
 
 test("fingerprint is a 32-char hex string", () => {
@@ -137,4 +139,49 @@ test("a capital change, the operating scenarioVersion, or the lineage each flips
 
 test("an all-cash case (no capital) fingerprints distinctly from a levered one under the same scenario", () => {
   assert.notEqual(computeFinancingCaseVersion(sv, capital, L), computeFinancingCaseVersion(sv, [], L));
+});
+
+// --- Sensitivity fingerprint (3b-v, SE-3/D-F) --------------------------------
+const fcv = computeFinancingCaseVersion(sv, capital, L);
+const spec: FingerprintSensitivitySpec = {
+  metric: "LEVERED_IRR_PCT",
+  xKey: "EXIT_CAP_RATE_PCT",
+  xMin: 6,
+  xMax: 10,
+  xSteps: 5,
+  yKey: "INTEREST_RATE",
+  yMin: 5,
+  yMax: 7,
+  ySteps: 3,
+};
+
+test("a sensitivity fingerprint is a 32-char hex string and is deterministic", () => {
+  const fp = computeSensitivityVersion(fcv, spec, L);
+  assert.match(fp, /^[0-9a-f]{32}$/);
+  assert.equal(fp, computeSensitivityVersion(fcv, spec, L));
+});
+
+test("the baseline financingCaseVersion, the spec, and the lineage each flip the sensitivity fingerprint", () => {
+  const base = computeSensitivityVersion(fcv, spec, L);
+  // Baseline case change (folds in operating + capital + lineage — SE-2).
+  assert.notEqual(base, computeSensitivityVersion("ffffffffffffffffffffffffffffffff", spec, L));
+  // Every spec field participates.
+  assert.notEqual(base, computeSensitivityVersion(fcv, { ...spec, metric: "DSCR" }, L));
+  assert.notEqual(base, computeSensitivityVersion(fcv, { ...spec, xKey: "PURCHASE_PRICE" }, L));
+  assert.notEqual(base, computeSensitivityVersion(fcv, { ...spec, xMin: 5.5 }, L));
+  assert.notEqual(base, computeSensitivityVersion(fcv, { ...spec, xMax: 10.5 }, L));
+  assert.notEqual(base, computeSensitivityVersion(fcv, { ...spec, xSteps: 6 }, L));
+  assert.notEqual(base, computeSensitivityVersion(fcv, { ...spec, yKey: "AMORTIZATION_YEARS" }, L));
+  assert.notEqual(base, computeSensitivityVersion(fcv, { ...spec, yMin: 4.5 }, L));
+  assert.notEqual(base, computeSensitivityVersion(fcv, { ...spec, yMax: 8 }, L));
+  assert.notEqual(base, computeSensitivityVersion(fcv, { ...spec, ySteps: 4 }, L));
+  assert.notEqual(base, computeSensitivityVersion(fcv, spec, { ...L, calcLibVersion: L.calcLibVersion + 1 }));
+});
+
+test("a one-axis spec fingerprints distinctly from the two-axis spec and is stable", () => {
+  const oneAxis: FingerprintSensitivitySpec = { ...spec, yKey: null, yMin: null, yMax: null, ySteps: null };
+  const fp = computeSensitivityVersion(fcv, oneAxis, L);
+  assert.match(fp, /^[0-9a-f]{32}$/);
+  assert.notEqual(fp, computeSensitivityVersion(fcv, spec, L));
+  assert.equal(fp, computeSensitivityVersion(fcv, oneAxis, L));
 });
