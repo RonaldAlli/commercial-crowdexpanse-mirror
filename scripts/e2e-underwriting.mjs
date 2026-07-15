@@ -606,6 +606,41 @@ try {
   // OM-12: cross-org access is rejected (org B cannot read or generate from org A's scenario).
   await throws(() => getScenarioForMemo(b.id, mScn), "OM-12: cross-org getScenarioForMemo is rejected");
   await throws(() => generateOfferMemo(b.id, mScn, { id: "x", display: "X" }), "OM-12: cross-org generation is rejected");
+
+  console.log("\n[18b] Failure-safe file/DB model (OM-L — file-first, compensating cleanup, no overwrite):");
+  // Unique, org-scoped storage keys (OM-L) — each memo is a distinct artifact.
+  assert(doc1.storageKey !== doc2.storageKey, "OM-L: each generation uses a unique storage key");
+  assert(doc1.storageKey.startsWith(a.id + "/") && doc2.storageKey.startsWith(a.id + "/"), "OM-L: storage keys are organization-scoped");
+  // A file with no committed Document row is unreachable (retrieval requires a row).
+  const orphanKey = `${a.id}/e2e-orphan-${process.pid}.html`;
+  await import("../lib/storage.ts").then((m) => m.persistFile(orphanKey, Buffer.from("<!doctype html>orphan")));
+  memoKeys.push(orphanKey);
+  assert((await prisma.document.findFirst({ where: { storageKey: orphanKey } })) === null, "OM-L: an unreferenced file has no Document row — it cannot be downloaded");
+  // Cleanup is key-specific: removing a bogus key never touches an existing memo's bytes.
+  await removeFile(`${a.id}/does-not-exist.html`);
+  assert(fs.existsSync(absolutePathFor(doc1.storageKey)), "OM-L: cleanup of one key never removes another successfully generated memo");
+
+  // Sequence-conflict path: fire concurrent generations on a fresh LOCKED scenario.
+  // Conflicts must fail cleanly — the winner's artifact is never overwritten, and every
+  // losing attempt's file is compensated away, so files-on-disk == committed rows.
+  const cProp2 = await createPropertyRecord(a.id, op({ name: "Race Tower", unitCount: 12, estimatedValueUsd: 900_000 }), {});
+  const cOpp2 = await mkOpp(a.id, cProp2.id, "Race deal");
+  const { scenarioId: mScn2 } = await saveAnalyzerScenario(a.id, cOpp2.id, [
+    { key: "PURCHASE_PRICE", value: 800_000 }, { key: "GROSS_INCOME", value: 100_000 }, { key: "OPERATING_EXPENSES", value: 25_000 },
+  ], { financingCases: [{ label: "Debt", capital: [{ key: "LOAN_AMOUNT", value: 600_000 }, { key: "INTEREST_RATE", value: 6 }, { key: "AMORTIZATION_YEARS", value: 30 }] }] });
+  await lockScenario(a.id, mScn2);
+  const orgDir = absolutePathFor(a.id);
+  const filesBefore = fs.existsSync(orgDir) ? fs.readdirSync(orgDir).length : 0;
+  const burst = await Promise.allSettled(Array.from({ length: 4 }, () => generateOfferMemo(a.id, mScn2, { id: mUser.id, display: mUser.name })));
+  const wins = burst.filter((r) => r.status === "fulfilled").map((r) => r.value);
+  const conflicts = burst.length - wins.length;
+  const raceRows = await prisma.document.findMany({ where: { sourceScenarioId: mScn2, documentType: "OFFER_MEMO" }, orderBy: { generationSequence: "asc" } });
+  for (const r of raceRows) memoKeys.push(r.storageKey);
+  assert(raceRows.length === wins.length, "OM-L: only successful generations committed a row (failed conflicts committed nothing)");
+  assert(new Set(raceRows.map((r) => r.generationSequence)).size === raceRows.length, "OM-L: committed generation sequences are unique — no artifact was overwritten");
+  assert(raceRows.every((r) => fs.existsSync(absolutePathFor(r.storageKey))), "OM-L: every committed memo's artifact exists on disk");
+  const filesAfter = fs.readdirSync(orgDir).length;
+  assert(filesAfter - filesBefore === wins.length, `OM-L: ${conflicts} conflict(s) left NO orphan file — files on disk == committed rows (compensating cleanup)`);
 } finally {
   console.log("\nCleaning up throwaway orgs (cascade)...");
   for (const key of memoKeys) await removeFile(key).catch(() => {});

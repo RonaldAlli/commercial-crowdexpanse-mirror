@@ -1,5 +1,12 @@
 # Offer-Memo Architecture Lock
 
+> **Status: ✅ SHIPPED (2026-07-15).** Live in production — migration `20260715220000`
+> applied (prod 21→22), serving build `OuE0HfLIzVy6LsKqzp3ct`, feature commit `5629e8a`.
+> All invariants OM-1…OM-12 realized and verified (unit + E2E sections [18]/[18b],
+> including a live sequence-conflict proving compensating cleanup). Output format:
+> self-contained HTML. LOI generation and PDF output remain deferred to later sibling
+> slices. This completes the final Version 1.3 Definition-of-Done item.
+
 Design authority for **offer-memo generation** — the final open Version 1.3
 Definition-of-Done item ("an offer memo can be generated from a model"). Ratified
 by the founder on 2026-07-15. This lock is downstream of, and never reopens, the
