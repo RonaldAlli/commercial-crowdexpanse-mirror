@@ -36,6 +36,14 @@ That difference is the whole design: Property leans on **strong deterministic an
 | **PI-G** | **Multi-source disagreement** | Projection determines the **displayed** current canonical anchor, **but identity resolution must also inspect whether conflicting active strong-anchor evidence exists.** No conflict → the winning parcel projection may participate in Tier 1A. Conflict → **automatic resolution is blocked and a review candidate is created.** All competing evidence stays immutable in the ledger; a change to the winning anchor **deterministically rebuilds** the identity index. **Precedence must never hide an identity conflict.** |
 | **PI-H** | **Scope** | **Headless-first, then UI** (see §6 sub-commits). External parcel ingestion, licensed/public sources, geocoding, richer enrichment, fuzzy matching, and structural Property merge remain **separately gated.** |
 
+### 3.1 Implementation decisions (locked 2026-07-15)
+
+| # | Decision | Locked resolution |
+|---|---|---|
+| **ID-1** | **RBAC resource** | A **dedicated `PROPERTY_IDENTITY` resource**, high-risk posture mirroring `OWNER_IDENTITY`: **write/manage = ADMIN + ACQUISITIONS; no ANALYST/DISPOSITIONS read tier** for the resolution surface; enforced at **both page and action** layers; **denials audited**. Ordinary `PROPERTY` write does **not** govern canonical-identity decisions. Property CRUD/provenance/refresh keep their existing resources; structural merge stays separate (out of 2c). |
+| **ID-2** | **Typed projected-field model** | Generalize the Property projected-field definition to **one small, explicit typed field-definition map**: `{ key, valueType (integer \| string-anchor), normalizer, projection coercion }`. **No** dynamic-field framework, plugin registration, runtime-configurable schema, or second anchor-projection path. Raw values stay in `Observation` provenance; normalized values are deterministic + versioned. **The entity registry stays dispatch-only**; Property-specific normalization/projection stays in Property intelligence modules. |
+| **ID-3** | **Candidate store** | A **dedicated `PropertyMatchDecision`**; do **not** generalize `OwnerMatchDecision` in 2c. The two domains share the *review concept* but use materially different evidence (Owner: names/aliases/matchKey · Property: FIPS-scoped parcel anchors/normalized address/crosswalk conflicts). Revisit a shared abstraction only once both are proven and their persistence/lifecycle shapes are demonstrably identical. |
+
 ---
 
 ## 4. The guarded tiered resolution rule (PI-E, refined)
