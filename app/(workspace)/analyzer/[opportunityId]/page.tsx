@@ -67,6 +67,23 @@ function sensCell(metric: string, v: number | null) {
   }
 }
 
+// --- findings / recommendation presentation (3b-vi) --------------------------
+const REC_LABEL: Record<string, string> = {
+  PROCEED: "Proceed",
+  PROCEED_WITH_CONDITIONS: "Proceed with conditions",
+  PASS: "Pass",
+};
+const REC_TONE: Record<string, "success" | "warning" | "danger"> = {
+  PROCEED: "success",
+  PROCEED_WITH_CONDITIONS: "warning",
+  PASS: "danger",
+};
+const SEV_CLASS: Record<string, string> = {
+  CRITICAL: "bg-rose-50 text-rose-700 ring-rose-200",
+  WARNING: "bg-amber-50 text-amber-700 ring-amber-200",
+  INFO: "bg-slate-50 text-slate-600 ring-slate-200",
+};
+
 export default async function AnalysisViewPage({ params }: { params: { opportunityId: string } }) {
   const user = await requireUser();
 
@@ -199,6 +216,38 @@ export default async function AnalysisViewPage({ params }: { params: { opportuni
           </article>
         ))}
       </section>
+
+      {scenario.recommendation ? (
+        <article className="card p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="eyebrow">Suggested recommendation</p>
+              <p className="mt-1 text-xs text-slate-400">
+                Advisory only — a deterministic reading of the findings below. The engine reports and recommends; the decision stays
+                with you.
+              </p>
+            </div>
+            <Badge tone={REC_TONE[scenario.recommendation.level] ?? "warning"}>{REC_LABEL[scenario.recommendation.level] ?? scenario.recommendation.level}</Badge>
+          </div>
+          {scenario.findings.length > 0 ? (
+            <ul className="mt-5 space-y-2.5">
+              {scenario.findings.map((f) => (
+                <li key={f.id} className="flex items-start gap-3">
+                  <span className={`mt-0.5 inline-flex shrink-0 rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ring-1 ring-inset ${SEV_CLASS[f.severity] ?? SEV_CLASS.INFO}`}>
+                    {f.severity}
+                  </span>
+                  <div>
+                    <p className="text-sm font-medium text-slate-800">{f.title}</p>
+                    <p className="text-xs text-slate-500">{f.detail}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-4 text-sm text-slate-500">No findings — the scenario cleared every rule in the current ruleset.</p>
+          )}
+        </article>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <article className="card p-6 lg:col-span-2">

@@ -29,6 +29,7 @@ import { deriveFinancingCase, type DerivedFinancingCase } from "@/lib/underwriti
 import {
   CURRENT_MODEL_LINEAGE,
   computeFinancingCaseVersion,
+  computeFindingsVersion,
   computeScenarioVersion,
   computeSensitivityVersion,
   type FingerprintAssumption,
@@ -36,6 +37,7 @@ import {
   type FingerprintSensitivitySpec,
   type ModelLineage,
 } from "@/lib/underwriting/model-version";
+import { deriveFindings, type CaseFindingInput, type Finding } from "@/lib/underwriting/findings";
 import {
   axisValues,
   buildGrid,
@@ -623,10 +625,104 @@ export async function setSensitivityAnalysis(
   await rebuildSensitivity(organizationId, financingCaseId, db);
 }
 
-/** Rebuild every FinancingCase under a scenario (after the operating side changes). */
+// --- findings / recommendation (v1.3, Commit 3b-vi) ---------------------------
+
+const FINDING_FIELDS = ["code", "category", "severity", "decisive", "title", "detail", "financingCaseId", "observedValue", "thresholdValue", "position"] as const;
+
+/**
+ * Rebuild a Scenario's findings + suggested recommendation (FR-1…FR-6). The TOP layer:
+ * it CONSUMES the already-settled deterministic outputs (operating ScenarioResult + each
+ * FinancingCase's result + year-1 cash flow) and the fixed versioned ruleset — it never
+ * recomputes a metric and never mutates one. Keyed by `findingsVersion` (RULESET_VERSION
+ * participates ONLY here — R-A). Content-idempotent: an unchanged rebuild performs zero
+ * writes. Runs LAST in the layered pipeline (after operating → financing → exit →
+ * sensitivity).
+ */
+export async function rebuildFindings(organizationId: string, scenarioId: string, db: Db = prisma) {
+  const scenario = await db.underwritingScenario.findFirstOrThrow({ where: { id: scenarioId, organizationId } });
+  const result = await db.scenarioResult.findUnique({ where: { scenarioId } });
+  if (!result) {
+    // No operating result (invalid assumptions) — no findings to derive.
+    await db.scenarioFinding.deleteMany({ where: { scenarioId } });
+    await db.scenarioRecommendation.deleteMany({ where: { scenarioId } });
+    return null;
+  }
+
+  const cases = await db.financingCase.findMany({
+    where: { scenarioId },
+    orderBy: { position: "asc" },
+    include: { result: true, capitalAssumptions: true, cashFlow: { orderBy: { year: "asc" }, take: 1 } },
+  });
+
+  const caseInputs: CaseFindingInput[] = cases.map((c) => {
+    const r = c.result;
+    const minDscrRow = c.capitalAssumptions.find((x) => x.key === "MIN_DSCR");
+    return {
+      id: c.id,
+      label: c.label,
+      isPrimary: c.position === 0,
+      hasDebt: r?.annualDebtServiceUsd != null,
+      dscr: r?.dscr ?? null,
+      minDscr: minDscrRow ? minDscrRow.valueNumeric.toNumber() : null,
+      debtYieldPct: r?.debtYieldPct ?? null,
+      avgDscr: r?.avgDscr ?? null,
+      year1CashFlowBeforeTaxUsd: c.cashFlow[0]?.cashFlowBeforeTaxUsd ?? null,
+      hasExit: r?.grossExitValueUsd != null,
+      equityMultiple: r?.equityMultiple ?? null,
+      leveredIrrPct: r?.leveredIrrPct ?? null,
+    };
+  });
+
+  const { findings, recommendation } = deriveFindings(
+    { spreadUsd: result.spreadUsd, allInCostUsd: result.allInCostUsd, expenseRatioPct: result.expenseRatioPct },
+    caseInputs,
+  );
+  const findingsVersion = computeFindingsVersion(
+    scenario.scenarioVersion,
+    cases.map((c) => c.financingCaseVersion),
+    scenario.rulesetVersion,
+  );
+
+  // Findings: disposable + rebuildable (FR-3). Zero-write when unchanged; position is
+  // the deterministic array index from the pure module.
+  const rows = findings.map((f: Finding, position) => ({ ...f, position }));
+  const existing = await db.scenarioFinding.findMany({ where: { scenarioId }, orderBy: { position: "asc" } });
+  const findingsUnchanged =
+    existing.length === rows.length &&
+    rows.every((f, idx) => {
+      const e = existing[idx] as unknown as Record<string, unknown>;
+      return e != null && FINDING_FIELDS.every((k) => e[k] === (f as unknown as Record<string, unknown>)[k]);
+    });
+  if (!findingsUnchanged) {
+    await db.scenarioFinding.deleteMany({ where: { scenarioId } });
+    for (const f of rows) {
+      await db.scenarioFinding.create({ data: { organizationId, scenarioId, ...f } });
+    }
+  }
+
+  // Recommendation: 1:1, content-idempotent.
+  const existingRec = await db.scenarioRecommendation.findUnique({ where: { scenarioId } });
+  const recUnchanged =
+    existingRec != null &&
+    existingRec.level === recommendation &&
+    existingRec.findingsVersion === findingsVersion &&
+    existingRec.rulesetVersion === scenario.rulesetVersion;
+  if (!recUnchanged) {
+    await db.scenarioRecommendation.upsert({
+      where: { scenarioId },
+      create: { organizationId, scenarioId, level: recommendation, findingsVersion, rulesetVersion: scenario.rulesetVersion },
+      update: { organizationId, level: recommendation, findingsVersion, rulesetVersion: scenario.rulesetVersion },
+    });
+  }
+  return db.scenarioRecommendation.findUnique({ where: { scenarioId } });
+}
+
+/** Rebuild every FinancingCase under a scenario, then the findings layer (after operating changes). */
 async function rebuildAllFinancingCases(organizationId: string, scenarioId: string, db: Db): Promise<void> {
   const cases = await db.financingCase.findMany({ where: { scenarioId }, orderBy: { position: "asc" } });
   for (const fc of cases) await rebuildFinancingCase(organizationId, fc.id, db);
+  // Findings are the TOP layer — rebuilt once, after every case (and its sensitivity) is settled.
+  await rebuildFindings(organizationId, scenarioId, db);
 }
 
 /** One capital structure to write (optionally carrying a per-case sensitivity spec, 3b-v). */
@@ -822,6 +918,8 @@ export async function getActiveScenarioResult(organizationId: string, opportunit
       result: true,
       assumptions: true,
       lineItems: { orderBy: { position: "asc" } },
+      findings: { orderBy: { position: "asc" } },
+      recommendation: true,
       financingCases: {
         orderBy: { position: "asc" },
         include: {
@@ -1033,6 +1131,9 @@ export async function backfillUnderwritingFromDealAnalysis(organizationId: strin
       if (capital.length > 0) {
         await setFinancingCases(organizationId, scenario.id, [{ label: "Base financing", capital }], tx);
       }
+      // Findings (3b-vi) — run explicitly: the no-debt path above never reaches
+      // rebuildAllFinancingCases, and every scenario still gets operating findings.
+      await rebuildFindings(organizationId, scenario.id, tx);
       await tx.underwriting.update({ where: { id: uw.id }, data: { activeScenarioId: scenario.id } });
     });
     created++;

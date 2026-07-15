@@ -9,6 +9,7 @@ import {
   computeScenarioVersion,
   computeFinancingCaseVersion,
   computeSensitivityVersion,
+  computeFindingsVersion,
   type FingerprintAssumption,
   type FingerprintLine,
   type FingerprintSensitivitySpec,
@@ -22,11 +23,11 @@ const set: FingerprintAssumption[] = [
   { key: "UNIT_COUNT", canonical: "10", source: "SEEDED" },
 ];
 
-test("lineage constants reflect the 3b-v bump and CURRENT_MODEL_LINEAGE mirrors them", () => {
+test("lineage constants reflect the 3b-vi ruleset bump and CURRENT_MODEL_LINEAGE mirrors them", () => {
   assert.equal(UNDERWRITING_MODEL_VERSION, 6);
   assert.equal(CALCULATION_LIBRARY_VERSION, 6);
-  assert.equal(RULESET_VERSION, 1);
-  assert.deepEqual(L, { modelVersion: 6, calcLibVersion: 6, rulesetVersion: 1 });
+  assert.equal(RULESET_VERSION, 2);
+  assert.deepEqual(L, { modelVersion: 6, calcLibVersion: 6, rulesetVersion: 2 });
 });
 
 test("fingerprint is a 32-char hex string", () => {
@@ -60,13 +61,14 @@ test("adding/removing an assumption flips the fingerprint", () => {
   assert.notEqual(computeScenarioVersion(set, L), computeScenarioVersion(fewer, L));
 });
 
-test("a model-lineage bump flips the fingerprint even with identical assumptions", () => {
+test("a MODEL or CALC bump flips the scenario fingerprint, but a RULESET bump does NOT (R-A / FR-6)", () => {
   const bumpedModel: ModelLineage = { ...L, modelVersion: L.modelVersion + 1 };
   const bumpedCalc: ModelLineage = { ...L, calcLibVersion: L.calcLibVersion + 1 };
   const bumpedRules: ModelLineage = { ...L, rulesetVersion: L.rulesetVersion + 1 };
   assert.notEqual(computeScenarioVersion(set, L), computeScenarioVersion(set, bumpedModel));
   assert.notEqual(computeScenarioVersion(set, L), computeScenarioVersion(set, bumpedCalc));
-  assert.notEqual(computeScenarioVersion(set, L), computeScenarioVersion(set, bumpedRules));
+  // FR-6: a rules-only change must never invalidate a metric fingerprint.
+  assert.equal(computeScenarioVersion(set, L), computeScenarioVersion(set, bumpedRules));
 });
 
 test("an empty assumption set still fingerprints deterministically", () => {
@@ -184,4 +186,27 @@ test("a one-axis spec fingerprints distinctly from the two-axis spec and is stab
   assert.match(fp, /^[0-9a-f]{32}$/);
   assert.notEqual(fp, computeSensitivityVersion(fcv, spec, L));
   assert.equal(fp, computeSensitivityVersion(fcv, oneAxis, L));
+});
+
+test("a RULESET bump does NOT flip the financing-case or sensitivity fingerprints (FR-6)", () => {
+  const bumpedRules: ModelLineage = { ...L, rulesetVersion: L.rulesetVersion + 1 };
+  assert.equal(computeFinancingCaseVersion(sv, capital, L), computeFinancingCaseVersion(sv, capital, bumpedRules));
+  assert.equal(computeSensitivityVersion(fcv, spec, L), computeSensitivityVersion(fcv, spec, bumpedRules));
+});
+
+// --- Findings fingerprint (3b-vi, FR-1/FR-6 — the ONLY place RULESET_VERSION lives) --
+test("a findings fingerprint is a 32-char hex string and is deterministic + case-order-independent", () => {
+  const fp = computeFindingsVersion(sv, ["aaa", "bbb"], 2);
+  assert.match(fp, /^[0-9a-f]{32}$/);
+  assert.equal(fp, computeFindingsVersion(sv, ["aaa", "bbb"], 2));
+  assert.equal(fp, computeFindingsVersion(sv, ["bbb", "aaa"], 2)); // order-independent
+});
+
+test("the scenarioVersion, any case fingerprint, and the RULESET_VERSION each flip the findings fingerprint", () => {
+  const base = computeFindingsVersion(sv, ["aaa", "bbb"], 2);
+  assert.notEqual(base, computeFindingsVersion("ffffffffffffffffffffffffffffffff", ["aaa", "bbb"], 2));
+  assert.notEqual(base, computeFindingsVersion(sv, ["aaa", "ccc"], 2));
+  assert.notEqual(base, computeFindingsVersion(sv, ["aaa"], 2));
+  // RULESET_VERSION participates HERE (and only here) — a rules change re-fingerprints findings.
+  assert.notEqual(base, computeFindingsVersion(sv, ["aaa", "bbb"], 3));
 });

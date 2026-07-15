@@ -24,6 +24,7 @@ import {
   setScenarioAssumptions,
   setSensitivityAnalysis,
   rebuildSensitivity,
+  rebuildFindings,
   getActiveScenarioResult,
   resolveScenarioAssumptions,
   backfillUnderwritingFromDealAnalysis,
@@ -96,7 +97,7 @@ try {
   const sc1 = await prisma.underwritingScenario.findUnique({ where: { id: scenarioId } });
   assert(typeof sc1.scenarioVersion === "string" && sc1.scenarioVersion.length === 32, "scenario carries a 32-char scenarioVersion");
   assert(result.scenarioVersion === sc1.scenarioVersion, "the result reflects the scenario's current scenarioVersion (not stale)");
-  assert(sc1.modelVersion === 6 && sc1.calcLibVersion === 6 && sc1.rulesetVersion === 1, "model lineage frozen on the scenario (3b-v bump)");
+  assert(sc1.modelVersion === 6 && sc1.calcLibVersion === 6 && sc1.rulesetVersion === 2, "model lineage frozen on the scenario (3b-vi ruleset bump)");
 
   console.log("\n[4] ScenarioSeed is a ONE-WAY snapshot — a later Property change never mutates the Scenario:");
   await prisma.property.update({ where: { id: prop.id }, data: { estimatedValueUsd: 5_000_000 } });
@@ -402,6 +403,60 @@ try {
   const seV2Case = seV2Active.financingCases[0];
   assert(seV2Active.id === seV2.id && seV2Case.sensitivity != null && seV2Case.sensitivity.cells.length === 15, "createNextVersion clones the sensitivity spec and rebuilds its 15 cells");
   assert(seV2Case.sensitivity.cells.filter((c) => c.isBaseline).length === 1, "the cloned grid re-marks its baseline cell");
+
+  console.log("\n[15] Findings + suggested recommendation (3b-vi, FR-1…FR-6):");
+  const rankOf = (s) => ({ CRITICAL: 0, WARNING: 1, INFO: 2 }[s]);
+  const fProp = await createPropertyRecord(a.id, op({ name: "Findings", unitCount: UNIT_COUNT, estimatedValueUsd: 1_300_000 }), {});
+  const fOpp = await mkOpp(a.id, fProp.id, "Findings deal");
+  const fOperating = [
+    { key: "PURCHASE_PRICE", value: 1_000_000 },
+    { key: "GROSS_INCOME", value: 130_000 },
+    { key: "OPERATING_EXPENSES", value: 30_000 },
+    { key: "INCOME_GROWTH_PCT", value: 0 },
+    { key: "EXPENSE_GROWTH_PCT", value: 0 },
+    { key: "HOLD_YEARS", value: 5 },
+    { key: "EXIT_CAP_RATE_PCT", value: 8 },
+    { key: "SELLING_COSTS_PCT", value: 2 },
+  ];
+  // Primary "Conservative" is healthy (DSCR ~1.85); alt "Aggressive" is over-levered (DSCR <1).
+  const fCases = [
+    { label: "Conservative", capital: [{ key: "LOAN_AMOUNT", value: 750_000 }, { key: "INTEREST_RATE", value: 6 }, { key: "AMORTIZATION_YEARS", value: 30 }] },
+    { label: "Aggressive", capital: [{ key: "LOAN_AMOUNT", value: 1_300_000 }, { key: "INTEREST_RATE", value: 8 }, { key: "AMORTIZATION_YEARS", value: 30 }] },
+  ];
+  await saveAnalyzerScenario(a.id, fOpp.id, fOperating, { financingCases: fCases });
+  const fx = await getActiveScenarioResult(a.id, fOpp.id);
+  const rec = fx.recommendation;
+  const fcodes = fx.findings.map((f) => f.code);
+  assert(rec != null && rec.level === "PROCEED", "healthy primary structure → suggested recommendation PROCEED");
+  assert(rec.rulesetVersion === 2 && /^[0-9a-f]{32}$/.test(rec.findingsVersion), "recommendation carries ruleset 2 + a findings fingerprint");
+  const dscrCrit = fx.findings.find((f) => f.code === "DSCR_BELOW_ONE");
+  assert(dscrCrit != null && dscrCrit.decisive === false && dscrCrit.financingCaseId === fx.financingCases[1].id, "R-B: a CRITICAL on the NON-primary case is reported (cites the case) but is not decisive");
+  assert(fx.findings.some((f) => f.code === "HEALTHY_DSCR" && f.decisive === true && f.financingCaseId === fx.financingCases[0].id), "the primary case's healthy DSCR is a decisive INFO signal");
+  assert(fx.findings.every((f, i) => i === 0 || rankOf(fx.findings[i - 1].severity) <= rankOf(f.severity)), "findings ordered CRITICAL → WARNING → INFO");
+  // FR-1: findings are derived from the settled results; the metrics themselves are untouched.
+  assert(fx.result.noiAnnualUsd === 100_000 && fx.financingCases[0].result.dscr != null, "FR-1: findings never mutate the operating result or case metrics");
+
+  // Reconstruction + zero-write idempotency (FR-3).
+  const recXmin = async (sid) => (await prisma.$queryRaw`SELECT xmin::text AS xmin FROM scenario_recommendations WHERE "scenarioId" = ${sid}`)[0]?.xmin;
+  await prisma.scenarioFinding.deleteMany({ where: { scenarioId: fx.id } });
+  await prisma.scenarioRecommendation.delete({ where: { scenarioId: fx.id } });
+  await rebuildFindings(a.id, fx.id);
+  const fx2 = await getActiveScenarioResult(a.id, fOpp.id);
+  assert(fx2.recommendation.level === "PROCEED" && fx2.findings.length === fx.findings.length && fx2.findings.map((f) => f.code).join() === fcodes.join(), "findings + recommendation reconstruct deterministically from the settled outputs");
+  const fz = await recXmin(fx.id);
+  await rebuildFindings(a.id, fx.id);
+  assert((await recXmin(fx.id)) === fz, "FR-3: a no-op findings rebuild performs ZERO writes (xmin unchanged)");
+
+  // An underwater, all-cash deal → PASS on a decisive operating finding.
+  const pProp = await createPropertyRecord(a.id, op({ name: "Underwater", unitCount: UNIT_COUNT, estimatedValueUsd: 900_000 }), {});
+  const pOpp = await mkOpp(a.id, pProp.id, "Underwater deal");
+  await saveAnalyzerScenario(a.id, pOpp.id, [
+    { key: "PURCHASE_PRICE", value: 1_000_000 },
+    { key: "GROSS_INCOME", value: 130_000 },
+    { key: "OPERATING_EXPENSES", value: 30_000 },
+  ]);
+  const px = await getActiveScenarioResult(a.id, pOpp.id);
+  assert(px.recommendation.level === "PASS" && px.findings.some((f) => f.code === "NEGATIVE_SPREAD" && f.financingCaseId === null), "an underwater deal (estimated value < all-in cost) → PASS on a decisive operating NEGATIVE_SPREAD finding");
 } finally {
   console.log("\nCleaning up throwaway orgs (cascade)...");
   for (const id of orgIds) await prisma.organization.delete({ where: { id } }).catch((e) => console.log(`  cleanup warn: ${e.message}`));

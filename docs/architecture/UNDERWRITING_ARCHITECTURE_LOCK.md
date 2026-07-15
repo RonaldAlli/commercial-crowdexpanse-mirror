@@ -232,6 +232,50 @@ Scope excludes (deferred): findings, risks, recommendation bands, optimization, 
 Monte Carlo, probability distributions, more than two axes, and any mutation of baseline
 assumptions.
 
+### Findings / Risks / Suggested-Recommendation invariants (Commit 3b-vi)
+
+3b-vi adds the **top** layer of the stack — interpretation, not calculation. A pure
+`lib/underwriting/findings.ts` reads the settled deterministic outputs (operating
+`ScenarioResult` + each `FinancingCase`'s financing/exit results) and a **fixed,
+versioned ruleset** to emit `ScenarioFinding`s and a single deterministic
+`ScenarioRecommendation` (`PROCEED` / `PROCEED_WITH_CONDITIONS` / `PASS`). It is a
+**consumer** of the engine, exactly like sensitivity (Principle 10) and strictly
+downstream of every metric (Principle 7 / UW-7): findings never feed back into any
+calculation, and the engine reports/recommends but never decides (UW-4). Findings belong
+to the **Scenario** (they may cite a specific `FinancingCase`); the recommendation is
+driven by the *decisive* subset — operating findings + the **primary** case (position 0).
+
+**Fingerprint separation (ratified R-A).** `RULESET_VERSION` is REMOVED from the
+deterministic calculation fingerprints (`scenarioVersion`, `financingCaseVersion`,
+`sensitivityVersion` now fold only model + calc lineage). A new, separate
+`findingsVersion = f(scenarioVersion, all financingCaseVersions, RULESET_VERSION)` keys
+the findings layer. This makes a rules-only change reproducible **without** invalidating
+any metric, cash flow, valuation, financing result, IRR/waterfall, or sensitivity output
+(FR-6). Model lineage bumps to **model 6 / calc 6 / ruleset 2** — a `RULESET_VERSION`
+increment ONLY (the kernel and model shape are unchanged).
+
+- **FR-1 — Findings are pure functions of settled underwriting metrics + the versioned
+  ruleset.** No clock, no randomness, no I/O, no cross-scenario read.
+- **FR-2 — Findings and the suggested recommendation belong to exactly one Scenario.**
+  They never exist independently of it; a cited `FinancingCase` is a reference, not a
+  second owner.
+- **FR-3 — Findings are deterministic, rebuildable, disposable, and idempotent.** Delete
+  them and they regenerate identically from the settled outputs + ruleset; a no-op
+  rebuild performs zero writes.
+- **FR-4 — Rules are fixed and versioned.** The ruleset lives in code; changing, adding,
+  or removing a rule (or a threshold) REQUIRES a `RULESET_VERSION` increment — nothing
+  else. No user-authored formulas or scripting.
+- **FR-5 — The engine reports and recommends; humans decide.** The suggested
+  recommendation is advisory only and never modifies an underwriting result (UW-4); the
+  *decided* recommendation + `UNDERWRITING_APPROVAL` remain deferred (U-B / 3d).
+- **FR-6 — A ruleset change never alters a deterministic result.** It must not change any
+  metric, cash flow, valuation, financing result, IRR, equity waterfall, or sensitivity
+  output — guaranteed structurally by the fingerprint separation above.
+
+Scope excludes (deferred): market-signal / external-data risks (occupancy, 1.2 signals),
+the decided recommendation + approval workflow, offer-memo/LOI export, configurable rules,
+and any ML/narrative. 3b-vi evaluates ONLY the scenario's own frozen underwriting outputs.
+
 ## 5. Commit 3a — Underwriting Model Formalization (headed by this lock)
 
 3a establishes the ownership model without deepening the math:
@@ -256,9 +300,11 @@ reading only frozen assumptions (never current Property state).
 
 3b deepens the financial engine only (never ownership/lifecycle/governance/V1.2), as
 a sequence of deterministic sub-slices, each a pure sibling to `lib/analysis.ts`:
-**3b-i debt sizing (shipped — DS-1/DS-2)** → **3b-ii income/expense schedules (shipped —
-IS-1/IS-2/IS-3)** → 3b-iii cash flow → 3b-iv exit + waterfall → 3b-v sensitivity → 3b-vi findings/risks +
-suggested recommendation (introduces `RULESET_VERSION` behavior). Still separately
+**3b-i debt sizing (shipped — DS-1…DS-4)** → **3b-ii income/expense schedules (shipped —
+IS-1/IS-2/IS-3)** → **3b-iii cash flow (shipped — CF-1…CF-5)** → **3b-iv exit + waterfall
+(shipped — EX-1…EX-6)** → **3b-v sensitivity (shipped — SE-1…SE-7)** → **3b-vi
+findings/risks + suggested recommendation (in progress — FR-1…FR-6; first `RULESET_VERSION`
+behavior, ruleset 1→2, with the R-A fingerprint separation)**. Still separately
 gated and out of scope until reached: the decided Recommendation + `UNDERWRITING_APPROVAL`
 (3d) and offer-memo/LOI export (Documents). Removing the deprecated `DealAnalysis`
 table is deferred to a post-acceptance release ([D15](../roadmap/TECHNICAL_DEBT.md)).

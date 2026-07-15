@@ -910,6 +910,8 @@ model UnderwritingScenario {
   lineItems       ScenarioLineItem[]
   result          ScenarioResult?
   financingCases  FinancingCase[]
+  findings        ScenarioFinding[]
+  recommendation  ScenarioRecommendation?
 
   @@unique([underwritingId, version])
   @@index([organizationId])
@@ -1075,6 +1077,72 @@ model FinancingCaseResult {
 
   @@index([organizationId])
   @@map("financing_case_results")
+}
+
+// Findings / Risks / Suggested Recommendation (v1.3, Commit 3b-vi). The TOP consumer
+// layer (FR-1): a pure, fixed, versioned ruleset reads the settled deterministic outputs
+// and emits per-Scenario findings + one advisory recommendation. It NEVER feeds back into
+// any calculation (Principle 7 / UW-7) and the engine never decides (UW-4 / FR-5). Keyed
+// by `findingsVersion` (RULESET_VERSION lives here ONLY — R-A / FR-6), so a rules change
+// never invalidates a metric.
+enum FindingSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum FindingCategory {
+  DEAL_QUALITY
+  FINANCING
+  CASH_FLOW
+  RETURN
+}
+
+enum RecommendationLevel {
+  PROCEED
+  PROCEED_WITH_CONDITIONS
+  PASS
+}
+
+// One finding on a Scenario (FR-2). It may CITE a FinancingCase (financingCaseId) but is
+// owned by the Scenario — the reference is a plain id (findings are fully rebuilt on any
+// case change, so no FK/cascade is needed). `decisive` marks the findings that drive the
+// recommendation (operating + the primary case). Disposable + rebuildable (FR-3).
+model ScenarioFinding {
+  id              String               @id @default(cuid())
+  organizationId  String
+  scenarioId      String
+  financingCaseId String?
+  code            String
+  category        FindingCategory
+  severity        FindingSeverity
+  decisive        Boolean              @default(true)
+  title           String
+  detail          String
+  observedValue   Float?
+  thresholdValue  Float?
+  position        Int
+  scenario        UnderwritingScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([scenarioId])
+  @@map("scenario_findings")
+}
+
+// The single suggested recommendation for a Scenario (1:1). Advisory only (FR-5): derived
+// deterministically from the decisive findings, never modifying an underwriting result.
+model ScenarioRecommendation {
+  id              String               @id @default(cuid())
+  organizationId  String
+  scenarioId      String               @unique
+  level           RecommendationLevel
+  findingsVersion String
+  rulesetVersion  Int
+  createdAt       DateTime             @default(now())
+  scenario        UnderwritingScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("scenario_recommendations")
 }
 
 // A sensitivity analysis over ONE FinancingCase (v1.3, Commit 3b-v). A CONSUMER of

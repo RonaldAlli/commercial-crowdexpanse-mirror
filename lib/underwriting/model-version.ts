@@ -28,11 +28,17 @@
 //     evenly-spaced axis generation + in-memory re-derivation per cell) / rules 1.
 //     Sensitivity is a CONSUMER (Principle 10) — this bump reflects that the model
 //     now HAS a sensitivity surface, not that any deterministic result changed.
+//   3b-vi — model 6 / calc 6 / RULESET 2: the FIRST findings/risk ruleset. A pure
+//     RULESET bump (the kernel + model shape are unchanged). Findings are the top
+//     CONSUMER layer (Principle 7 / FR-1). Ratified R-A: RULESET_VERSION is NO LONGER
+//     folded into the deterministic calculation fingerprints (scenario / financing /
+//     sensitivity) — a rules-only change must not invalidate any metric (FR-6). It
+//     participates ONLY in the separate `findingsVersion`.
 import { createHash } from "node:crypto";
 
 export const UNDERWRITING_MODEL_VERSION = 6;
 export const CALCULATION_LIBRARY_VERSION = 6;
-export const RULESET_VERSION = 1;
+export const RULESET_VERSION = 2;
 
 export type ModelLineage = {
   modelVersion: number;
@@ -58,8 +64,12 @@ export type FingerprintLine = { kind: string; category: string; canonical: strin
  * randomness, no insertion order — so it is rebuildable and stable across
  * processes. Makes Scenario → ScenarioVersion → ScenarioResult explicit: an
  * assumption change flips `value`/`source`; a calculation-model change flips the
- * lineage; either flips the fingerprint. Values are canonical decimal strings so
- * that numerically-equal Decimals (e.g. trailing zeros) fingerprint identically.
+ * MODEL or CALC lineage; either flips the fingerprint. Values are canonical decimal
+ * strings so numerically-equal Decimals (e.g. trailing zeros) fingerprint identically.
+ *
+ * NOTE (R-A / FR-6): `RULESET_VERSION` is deliberately NOT folded in. A findings/risk
+ * rule change is a pure top-layer (`findingsVersion`) change and must never invalidate
+ * a metric — so only MODEL + CALC lineage participate here.
  */
 export function computeScenarioVersion(
   assumptions: FingerprintAssumption[],
@@ -76,8 +86,8 @@ export function computeScenarioVersion(
   );
   const lineRows: string[][] = [];
   for (const l of sortedL) lineRows.push([l.kind, l.category, l.canonical]);
-  const { modelVersion, calcLibVersion, rulesetVersion } = lineage;
-  const canonical = JSON.stringify({ model: modelVersion, calc: calcLibVersion, rules: rulesetVersion, a: rows, s: lineRows });
+  const { modelVersion, calcLibVersion } = lineage;
+  const canonical = JSON.stringify({ model: modelVersion, calc: calcLibVersion, a: rows, s: lineRows });
   return createHash("sha256").update(canonical).digest("hex").slice(0, 32);
 }
 
@@ -97,8 +107,9 @@ export function computeFinancingCaseVersion(
   const sorted = [...capital].sort((a, b) => a.key.localeCompare(b.key));
   const rows: string[][] = [];
   for (const x of sorted) rows.push([x.key, x.canonical, x.source]);
-  const { modelVersion, calcLibVersion, rulesetVersion } = lineage;
-  const canonical = JSON.stringify({ model: modelVersion, calc: calcLibVersion, rules: rulesetVersion, sv: scenarioVersion, c: rows });
+  // RULESET_VERSION intentionally excluded (R-A / FR-6) — see computeScenarioVersion.
+  const { modelVersion, calcLibVersion } = lineage;
+  const canonical = JSON.stringify({ model: modelVersion, calc: calcLibVersion, sv: scenarioVersion, c: rows });
   return createHash("sha256").update(canonical).digest("hex").slice(0, 32);
 }
 
@@ -129,11 +140,11 @@ export function computeSensitivityVersion(
   spec: FingerprintSensitivitySpec,
   lineage: ModelLineage,
 ): string {
-  const { modelVersion, calcLibVersion, rulesetVersion } = lineage;
+  // RULESET_VERSION intentionally excluded (R-A / FR-6) — see computeScenarioVersion.
+  const { modelVersion, calcLibVersion } = lineage;
   const canonical = JSON.stringify({
     model: modelVersion,
     calc: calcLibVersion,
-    rules: rulesetVersion,
     fcv: financingCaseVersion,
     spec: {
       metric: spec.metric,
@@ -141,5 +152,24 @@ export function computeSensitivityVersion(
       y: spec.yKey == null ? null : [spec.yKey, spec.yMin, spec.yMax, spec.ySteps],
     },
   });
+  return createHash("sha256").update(canonical).digest("hex").slice(0, 32);
+}
+
+/**
+ * Deterministic FINGERPRINT for the findings/recommendation layer (v1.3, Commit 3b-vi,
+ * FR-1/FR-6). The TOP consumer layer: a pure function of the operating scenarioVersion,
+ * every FinancingCase's fingerprint (sorted, order-independent), and RULESET_VERSION.
+ * This is the ONLY fingerprint RULESET_VERSION participates in (R-A) — so a rules-only
+ * change re-fingerprints the findings and NOTHING beneath them (metrics, cash flow,
+ * exit, sensitivity all stay identical). Findings change iff the settled outputs OR the
+ * ruleset change.
+ */
+export function computeFindingsVersion(
+  scenarioVersion: string,
+  financingCaseVersions: string[],
+  rulesetVersion: number,
+): string {
+  const sortedCases = [...financingCaseVersions].sort((a, b) => a.localeCompare(b));
+  const canonical = JSON.stringify({ rules: rulesetVersion, sv: scenarioVersion, fcv: sortedCases });
   return createHash("sha256").update(canonical).digest("hex").slice(0, 32);
 }
