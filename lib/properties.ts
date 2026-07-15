@@ -10,6 +10,12 @@
 // Direction (not implemented broadly in Slice 2): Property CRUD server actions
 // become thin callers of this domain module — the action validates + authorizes,
 // the domain owns persistence.
+//
+// Scope boundary (READ BEFORE EXTENDING): operational persistence and intelligence
+// orchestration currently coexist only for the Slice 2 walking skeleton. As Property
+// Intelligence expands, orchestration should migrate into dedicated intelligence-
+// domain services while operational CRUD remains focused on entity lifecycle. This
+// module is NOT meant to become the permanent home of all Property Intelligence.
 import type { AssetType, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
