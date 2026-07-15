@@ -127,6 +127,8 @@ See [Volume 8](./TESTING_ROADMAP.md). Today: deterministic E2E integration scrip
 
 ## Development Lifecycle
 
+> **How-to companion:** the [Engineering Playbook](../architecture/ENGINEERING_PLAYBOOK.md) is the living standard for *how* we execute this lifecycle — coding standards, testing patterns, the review checklist, anti-patterns, and the engineering decision framework. Each completed slice also gets a permanent retrospective under this directory (first: [Slice 1](./SLICE_1_RETROSPECTIVE.md)).
+
 Every feature — human- or AI-authored — follows this, in order. **Nothing skips a step.**
 
 ```
