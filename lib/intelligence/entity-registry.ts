@@ -13,6 +13,12 @@
 // and no per-entity branching inside a hook. If a hook ever needs an
 // `if (entityType === ...)`, that logic belongs in the entity's module, not here.
 //
+// RULE (do not weaken): "The registry is responsible only for dispatch. It never
+// owns entity-specific business logic. Register existing domain behavior; do not
+// implement behavior inside the registry." Adding an entity = registering the
+// entity's already-existing projector/adapter/domain functions here — never
+// writing new behavior in this file.
+//
 // The map is typed `Record<IntelligenceEntityType, EntityProjector>`, so the
 // compiler REQUIRES an entry for every enum member: a new entity cannot be added
 // to the Prisma enum without registering its projector here.
