@@ -10,6 +10,8 @@ deterministic underwriting engine. It reuses the existing platforms (Documents, 
 ActivityLog, the pipeline) rather than reinventing them, and it gates the irreversible
 `PAID` milestone behind a satisfied closing checklist.
 
+> **Delivery status:** **Slice 1 (Closing Foundation + Due Diligence + the PAID gate) is LIVE in production** (2026-07-15; prod **23 migrations**, serving `q0k2nXlweILTSGL6K8rS7`; `main` @ `8cfb343`). All decisions/invariants below were implemented as ratified, including the pre-release refinement that a blocked PAID move explains which required items remain (pure `blockingItems`/`closingBlockMessage`). Later slices (Escrow, Financing, Assignments, dashboard, list-level progress) remain deferred. **Version 1.4 is not complete.**
+
 ## 1. Scope
 
 The first slice — **Closing Foundation + Due Diligence** — establishes the domain model

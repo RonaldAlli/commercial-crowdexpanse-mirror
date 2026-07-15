@@ -4,8 +4,8 @@
 > **Status:** 🟡 In progress. Depends on Opportunities pipeline (done), Buyer Matching (done), Documents (present), Underwriting (1.3). Architecture ratified — see [`CLOSING_CENTER_ARCHITECTURE_LOCK.md`](../architecture/CLOSING_CENTER_ARCHITECTURE_LOCK.md).
 
 ## Delivery status
-- **Slice 1 — Closing Foundation + Due Diligence + PAID gate:** ✅ built, awaiting founder review on branch `feat/closing-foundation-dd` (not merged/released). Delivers the domain model (template → snapshot → checklist → items), the `DUE_DILIGENCE` category, the `CLOSING` RBAC resource, the pure `isClosingReady` PAID gate composed with `canMoveStage`, and a blocked-gate explanation that lists the outstanding required items.
-- **Slices 2–n:** Escrow → Financing → Assignments → Transaction dashboard, each separately gated and reviewed.
+- **Slice 1 — Closing Foundation + Due Diligence + PAID gate:** ✅ **LIVE in production** (released 2026-07-15; prod 22→**23 migrations**, serving `q0k2nXlweILTSGL6K8rS7`; merged to `main` at `8cfb343`, dual-pushed gitea+github). Delivers the domain model (template → snapshot → checklist → items), the `DUE_DILIGENCE` category, the `CLOSING` RBAC resource, the pure `isClosingReady` PAID gate composed with `canMoveStage`, and a blocked-gate explanation that lists the outstanding required items. Behavior re-proven on the guarded `_test` DB (52 assertions); prod schema drift empty; V1.3 underwriting/offer-memo/documents/opportunity surfaces verified intact.
+- **Slices 2–n:** Escrow → Financing → Assignments → Transaction dashboard → list-level closing-progress (#7), each separately gated and reviewed. **Version 1.4 is NOT complete** — Slice 1 only.
 
 ## Goal
 Everything after "under contract" in one place: the last mile from `UNDER_CONTRACT` → `BUYER_MATCHED` → `CLOSING` → `PAID` becomes a managed, checklist-driven process instead of ad-hoc.
