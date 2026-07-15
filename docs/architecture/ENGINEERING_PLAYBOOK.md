@@ -3,7 +3,7 @@
 > **Status:** Living engineering standard. **This is how we build software in this repository.**
 > **Audience:** Anyone (human or AI) implementing a change in CrowdExpanse Commercial.
 > **Authority:** This is the *process* contract. The *architecture* contract is the [Engineering Master Plan](../roadmap/ENGINEERING_MASTER_PLAN.md) and, for the intelligence domain, [Volume 12](../roadmap/COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md). Where process and architecture meet, architecture wins.
-> **Provenance:** Distilled from [Slice 1](../roadmap/SLICE_1_RETROSPECTIVE.md) (Version 1.2, Commits 1a → 1d-3b), the first body of work built end-to-end under this process.
+> **Provenance:** Distilled from [Slice 1](../roadmap/SLICE_1_RETROSPECTIVE.md) (Version 1.2, Commits 1a → 1d-3b), the first body of work built end-to-end under this process; extended in Slice 2 (Commit 2a — the entity-projector registry, the Projection Reconstruction Standard, the multi-entity isolation test, and CRUD→domain-service).
 > **Maintenance:** Update this document **only when a better engineering practice is proven** (in a real slice, not in the abstract). Each completed slice also gets its own point-in-time retrospective under `docs/roadmap/`. Keep this file lean — it is a standard, not a history.
 
 ---
@@ -59,6 +59,7 @@ Next planning brief
 
 - **Pure-core libraries.** Put decision logic in pure, dependency-free functions (no Prisma, no framework) so it is unit-testable in isolation. Examples: `permissions.ts`, `projection-precedence.ts`, `owner-duplicates.ts`, `owner-merge-suggest.ts`.
 - **Thin UI.** Pages/components render state and dispatch to server actions. They never write projected/derived state directly.
+- **CRUD delegates to a domain service.** A server action validates + authorizes, then calls a `lib/` domain function that owns persistence (e.g. `createPropertyRecord`/`updatePropertyRecord` in `lib/properties.ts`); it never writes ledger-backed/projected fields inline. As an entity accretes intelligence, keep **operational persistence** and **intelligence orchestration** in separate domain services — do not let one module become the permanent catch-all for everything about the entity.
 - **Standard server-action shape:**
   `requireUser()` → `checkAuthorized(user, action, resource)` (or `authorize()` to throw) → domain lib call → `activityLog` (unless a domain record is already the authoritative audit) → `revalidatePath` → `redirect`.
   `checkAuthorized` takes a plain `Principal {id, role, organizationId}` so the authorization path is headless-testable.
@@ -78,8 +79,13 @@ Next planning brief
 - **Build** — production build succeeds (isolated distDir while D5 is open).
 - **Migration fidelity** — after generating a migration, re-diff must print `-- This is an empty migration.`
 
-**Reusable testing patterns (proven in Slice 1):**
+**Projection Reconstruction Standard (required for every ledger-backed entity):**
+Every entity whose typed columns are ledger-backed projections **must** ship with an executable test that corrupts/drops the projected columns, rebuilds them purely from the ledger (`rebuild<Entity>`), and asserts **byte-for-byte equality** with the pre-corruption projection. A ledger-backed projection **does not ship without a passing reconstruction test** — it converts the disposable-projection contract from a promise into a proof, and closes an entire class of column-vs-ledger drift regressions. *Proven: Owner (`e2e-projection` §5), Property (`e2e-property-projection` §4).*
+
+**Reusable testing patterns (proven in Slices 1–2):**
 - **Reversibility golden** — snapshot a semantic graph, perform the operation, reverse it, assert byte-for-byte equality.
+- **Multi-entity isolation** — when shared infrastructure (the intelligence spine, the entity-projector registry) serves more than one entity, prove one entity's operations never touch another's projection, provenance, or jobs. *Proven: `e2e-property-refresh` §5 (Owner and Property refreshes interleave without cross-contamination).*
+- **Genesis backfill (idempotent, deterministic)** — to bring pre-ledger columns under the ledger, seed genesis signals from the current column value with `asOf = createdAt` (never `now()`); re-running seeds nothing and changes no value. Preview read-only before writing to production.
 - **Forced-rollback E2E** — for any multi-write transaction, run the engine body in a `$transaction` that then throws, and assert nothing persisted — in **both** directions where applicable.
 - **Idempotency / duplicate-submit** — run the operation twice; assert no duplicate side effects.
 - **Cross-org scoping** — every domain test proves org B cannot see or touch org A.
