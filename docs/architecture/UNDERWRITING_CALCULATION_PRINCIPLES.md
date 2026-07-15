@@ -35,7 +35,7 @@ Scenario (frozen assumptions + lineage) → pure kernel → metrics / findings /
 Anything else → a calculation input                                                  (never)
 ```
 
-The nine principles below are how this constraint is upheld in practice; if any is
+The eleven principles below are how this constraint is upheld in practice; if any is
 ever in tension with convenience, this constraint wins.
 
 ---
@@ -126,6 +126,25 @@ over its inputs: a computed IRR never edits the cash flow it came from; a termin
 value never edits the operating NOI. The Scenario's frozen assumptions (and each
 case's capital) remain the *only* authoritative facts — every projection above them is
 regenerable and therefore safe to throw away (extends Principle 3 to the whole stack).
+
+## Principle 10 — Sensitivity never changes a deterministic result
+
+A sensitivity analysis is a **consumer** of the engine, not another calculator. It
+creates *alternate* projections by re-running the pure derivation over perturbed
+inputs, compares their outputs, and **never mutates** the base Scenario, its
+FinancingCases, its assumptions, or any persisted deterministic result. It reads the
+model; it never writes back into it. The dependency arrow points one way — base →
+sensitivity, never sensitivity → base — exactly as it does for metrics → recommendation
+(Principle 7). A sensitivity cell is a *what-if reading*, never an authoritative fact.
+
+## Principle 11 — Every sensitivity analysis has one immutable baseline
+
+There is always exactly **one baseline** — the frozen Scenario and its cases — and the
+variants are derived *from* it, never the reverse. A variant never rewrites the
+baseline; every comparison is variant-vs-baseline. Because each variant is a pure
+function of the baseline's frozen assumptions + the specific variation it applies, the
+whole analysis is reproducible and disposable: delete it and it regenerates identically
+from the baseline (an application of Principles 3 and 9 to the sensitivity layer).
 
 ---
 
