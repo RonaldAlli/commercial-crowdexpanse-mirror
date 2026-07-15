@@ -96,6 +96,15 @@ slices add their own alongside them.
   and which one bound** (`loanByLtvUsd` / `loanByLtcUsd` / `loanByDscrUsd` /
   `sizedLoanUsd` / `bindingConstraint`). "Why this loan?" is always answerable from
   stored explanatory metadata — not re-derived, not a heuristic.
+- **DS-3 — New sizing constraints compose; they never redefine existing ones.**
+  Adding a future ceiling (debt yield, maximum payment, sponsor equity, …) only adds
+  a term to the selection: the sized loan always remains `min(` all applicable
+  deterministic constraints `)`. No existing constraint changes meaning when another
+  is added.
+- **DS-4 — Every sizing constraint is independent.** Each constraint module computes
+  **only its own ceiling** from the scenario's inputs and knows nothing about the
+  others — LTV never reads LTC/DSCR or any future constraint. Selection (the `min`)
+  happens strictly afterward, over the independently-computed ceilings.
 
 ## 5. Commit 3a — Underwriting Model Formalization (headed by this lock)
 
