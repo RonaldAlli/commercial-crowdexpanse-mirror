@@ -59,8 +59,11 @@ const MATRIX: Record<Resource, Capability> = {
   OWNER: { write: [ADMIN, ACQUISITIONS], read: [ANALYST, DISPOSITIONS] },
   // Identity resolution is a high-risk MANAGE operation — no read-only tier.
   OWNER_IDENTITY: { write: [ADMIN, ACQUISITIONS], read: [] },
-  // Property identity resolution mirrors OWNER_IDENTITY's high-risk posture.
-  PROPERTY_IDENTITY: { write: [ADMIN, ACQUISITIONS], read: [] },
+  // Property identity resolution/crosswalk decisions: ADMIN + ACQUISITIONS write AND
+  // read the identity-review surface (candidate queue + resolution audit). ANALYST and
+  // DISPOSITIONS get neither — identity review is governance, not operational reporting
+  // (Commit 2c-ii). The read tier is stated explicitly (not merely implied by write).
+  PROPERTY_IDENTITY: { write: [ADMIN, ACQUISITIONS], read: [ADMIN, ACQUISITIONS] },
   // Refresh mirrors OWNER: acquisitions run ingestion; everyone can read the trail.
   REFRESH: { write: [ADMIN, ACQUISITIONS], read: [ANALYST, DISPOSITIONS] },
 };

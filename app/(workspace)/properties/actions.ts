@@ -7,7 +7,8 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { authorize, checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
-import { createPropertyRecord, updatePropertyRecord } from "@/lib/properties";
+import { updatePropertyRecord } from "@/lib/properties";
+import { resolveOrCreateProperty } from "@/lib/intelligence/property-resolver";
 import { titleCase } from "@/lib/property-options";
 
 export type PropertyFormState = { error?: string } | undefined;
@@ -114,8 +115,12 @@ export async function createProperty(
 
   // Projected fields (yearBuilt, squareFeet) flow through the ledger; operational
   // columns are written directly — the domain module keeps both in one transaction.
+  // Creation routes through guarded resolve-before-create (Commit 2c-ii): today the
+  // form supplies no identity anchors/external-ids, so evidence is empty → Tier NONE →
+  // an ordinary create (behavior-preserving). When 2c-iii adds anchor inputs, a unique
+  // conflict-free match will resolve to the existing property instead of duplicating.
   const { yearBuilt, squareFeet, ...operational } = result.payload;
-  const property = await createPropertyRecord(
+  const { property, resolved } = await resolveOrCreateProperty(
     user.organizationId,
     operational,
     { yearBuilt, squareFeet },
@@ -128,8 +133,8 @@ export async function createProperty(
       propertyId: property.id,
       sellerId: property.sellerId,
       actorId: user.id,
-      eventType: "property.created",
-      eventLabel: `Property added: ${property.name}`,
+      eventType: resolved ? "property.resolved" : "property.created",
+      eventLabel: resolved ? `Property matched existing: ${property.name}` : `Property added: ${property.name}`,
       eventBody: `${titleCase(property.assetType)} · ${property.city}, ${property.state}`,
     },
   });

@@ -11,9 +11,11 @@ test("PROPERTY_IDENTITY write is ADMIN + ACQUISITIONS only (high-risk, mirrors O
   for (const role of [ANALYST, DISPOSITIONS]) assert.equal(can(role, "MANAGE", "PROPERTY_IDENTITY"), false, `${role} cannot resolve identity`);
 });
 
-test("PROPERTY_IDENTITY has NO read-only tier (identity resolution is not a viewer surface)", () => {
-  for (const role of [ANALYST, DISPOSITIONS]) assert.equal(can(role, "READ", "PROPERTY_IDENTITY"), false, `${role} has no identity read tier`);
-  for (const role of [ADMIN, ACQUISITIONS]) assert.equal(can(role, "READ", "PROPERTY_IDENTITY"), true);
+test("PROPERTY_IDENTITY read is ADMIN + ACQUISITIONS only — the identity-review surface (Commit 2c-ii)", () => {
+  // Identity review (candidate queue + resolution audit) is governance, not operational
+  // reporting, so ANALYST/DISPOSITIONS are excluded from read as well as write.
+  for (const role of [ADMIN, ACQUISITIONS]) assert.equal(can(role, "READ", "PROPERTY_IDENTITY"), true, `${role} may view identity review`);
+  for (const role of [ANALYST, DISPOSITIONS]) assert.equal(can(role, "READ", "PROPERTY_IDENTITY"), false, `${role} may not view identity review`);
 });
 
 test("PROPERTY (ordinary maintenance) stays distinct from PROPERTY_IDENTITY", () => {

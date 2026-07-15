@@ -16,7 +16,7 @@
 // Intelligence expands, orchestration should migrate into dedicated intelligence-
 // domain services while operational CRUD remains focused on entity lifecycle. This
 // module is NOT meant to become the permanent home of all Property Intelligence.
-import type { AssetType, Prisma } from "@prisma/client";
+import type { AssetType, Prisma, SourceCategory } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { acceptObservationAsSignalTx, appendSignal, recordObservation } from "@/lib/intelligence/provenance";
@@ -54,6 +54,13 @@ export type PropertyProjectedValues = Partial<Record<PropertyProjectedField, str
 interface WriteOpts {
   actorUserId?: string;
   method?: string;
+  // Enrichment provenance (Commit 2c-ii): when evidence originates from a non-user
+  // source — e.g. resolve-before-create carrying inbound anchors onto the resolved
+  // property — the observation must retain its ORIGINAL source metadata. Manual
+  // writes omit these and default to USER_ENTERED / actor / now.
+  sourceCategory?: SourceCategory;
+  sourceId?: string;
+  asOf?: Date;
 }
 
 /**
@@ -91,15 +98,52 @@ async function setPropertyProjectedFieldTx(
       fieldKey,
       valueRaw: raw, // preserve the true raw submission (invariant #3)
       valueNormalized: normalized,
-      sourceCategory: "USER_ENTERED",
-      sourceId: opts.actorUserId ?? "user",
-      asOf: new Date(),
+      sourceCategory: opts.sourceCategory ?? "USER_ENTERED",
+      sourceId: opts.sourceId ?? opts.actorUserId ?? "user",
+      asOf: opts.asOf ?? new Date(),
       method: opts.method ?? "manual",
     },
     tx,
   );
   await acceptObservationAsSignalTx(tx, organizationId, obs.id);
   await recomputePropertyField(organizationId, propertyId, fieldKey, tx);
+}
+
+/**
+ * Apply the projected values through the ledger within the caller's tx, then sync
+ * the derived identity index. The shared core of create / update / resolve-enrich
+ * (Commit 2c-ii) — every path writes projected fields the same way and always leaves
+ * the identity row in sync.
+ */
+export async function applyPropertyProjectedValuesTx(
+  tx: Prisma.TransactionClient,
+  organizationId: string,
+  propertyId: string,
+  projected: PropertyProjectedValues,
+  opts: WriteOpts = {},
+) {
+  for (const fieldKey of PROPERTY_PROJECTED_FIELDS) {
+    await setPropertyProjectedFieldTx(tx, organizationId, propertyId, fieldKey, projected[fieldKey], opts);
+  }
+  await rebuildPropertyIdentity(organizationId, propertyId, tx); // every property has a derived identity row
+}
+
+/**
+ * Transaction-composable Property create: operational columns written directly; the
+ * projected fields seeded as genesis signals and projected. Callers that must compose
+ * the create with other writes in ONE transaction (resolve-before-create, Commit
+ * 2c-ii) use this; the public wrapper below opens the transaction.
+ */
+export async function createPropertyRecordTx(
+  tx: Prisma.TransactionClient,
+  organizationId: string,
+  operational: PropertyOperationalPayload,
+  projected: PropertyProjectedValues,
+  opts: WriteOpts = {},
+) {
+  const property = await tx.property.create({ data: { organizationId, ...operational } });
+  await applyPropertyProjectedValuesTx(tx, organizationId, property.id, projected, { ...opts, method: opts.method ?? "create" });
+  return tx.property.findUniqueOrThrow({ where: { id: property.id } });
 }
 
 /**
@@ -113,14 +157,7 @@ export async function createPropertyRecord(
   projected: PropertyProjectedValues,
   opts: WriteOpts = {},
 ) {
-  return prisma.$transaction(async (tx) => {
-    const property = await tx.property.create({ data: { organizationId, ...operational } });
-    for (const fieldKey of PROPERTY_PROJECTED_FIELDS) {
-      await setPropertyProjectedFieldTx(tx, organizationId, property.id, fieldKey, projected[fieldKey], { ...opts, method: opts.method ?? "create" });
-    }
-    await rebuildPropertyIdentity(organizationId, property.id, tx); // every property has a derived identity row
-    return tx.property.findUniqueOrThrow({ where: { id: property.id } });
-  });
+  return prisma.$transaction((tx) => createPropertyRecordTx(tx, organizationId, operational, projected, opts));
 }
 
 /**
@@ -138,10 +175,7 @@ export async function updatePropertyRecord(
     const existing = await tx.property.findFirst({ where: { id: propertyId, organizationId }, select: { id: true } });
     if (!existing) throw new Error("Property not found in organization");
     await tx.property.update({ where: { id: existing.id }, data: operational });
-    for (const fieldKey of PROPERTY_PROJECTED_FIELDS) {
-      await setPropertyProjectedFieldTx(tx, organizationId, existing.id, fieldKey, projected[fieldKey], opts);
-    }
-    await rebuildPropertyIdentity(organizationId, existing.id, tx);
+    await applyPropertyProjectedValuesTx(tx, organizationId, existing.id, projected, opts);
     return tx.property.findUniqueOrThrow({ where: { id: existing.id } });
   });
 }

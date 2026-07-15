@@ -220,6 +220,8 @@ model Organization {
   signals       IntelligenceSignal[]
   refreshJobs   RefreshJob[]
   matchDecisions OwnerMatchDecision[]
+  propertyResolutions    PropertyResolution[]
+  propertyMatchDecisions PropertyMatchDecision[]
 
   @@map("organizations")
 }
@@ -638,12 +640,98 @@ model PropertyExternalIdentifier {
   asOf               DateTime?
   state              ExternalIdentifierState @default(ACTIVE)
   supersededById     String?
+  // v1.2 Commit 2c-ii: set when a resolution REVERSAL revokes this attachment
+  // (ACTIVE → SUPERSEDED with supersededById null). A revocation, not a remap; the
+  // identifier value is never rewritten — the same append-only lifecycle transition.
+  revokedByResolutionId String?
   createdAt          DateTime                @default(now())
   property           Property                @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, provider, providerIdentifier])
   @@index([organizationId, propertyId])
   @@map("property_external_identifiers")
+}
+
+// v1.2 Commit 2c-ii — Property identity RESOLUTION audit + candidate governance.
+// Resolution sits between identity structure (2c-i) and human workflow (2c-iii): a
+// deterministic classification engine that decides how inbound evidence attaches to
+// a canonical Property. It NEVER modifies evidence (locked invariant) and never
+// merges/deletes/repoints — it only appends and deterministically rebuilds.
+
+enum ResolutionBasis {
+  UNIQUE_PARCEL
+  UNIQUE_EXTERNAL_IDENTIFIER
+  PARCEL_CONFLICT
+  ADDRESS_PROPOSAL
+  EXTERNAL_ID_CONFLICT
+}
+
+enum ResolutionEventKind {
+  RESOLVE
+  REVERSAL
+}
+
+// The append-only Resolution audit log. Every guarded Tier-1A resolve-before-create
+// appends a RESOLVE event; a reversal appends a REVERSAL event that SUPERSEDES it —
+// a first-class historical event (actor + reason + time + affected resolution). The
+// original row is never mutated. `basis` is deterministic explanatory metadata (why
+// this path was taken) and NEVER an input to behavior. Property ids are scalars (no
+// FK) so audit history survives a later Property change (mirrors OwnerMatchDecision);
+// the org relation cascades for lifecycle cleanup only.
+model PropertyResolution {
+  id                            String              @id @default(cuid())
+  organizationId                String
+  kind                          ResolutionEventKind
+  resolvedPropertyId            String
+  basis                         ResolutionBasis
+  evidence                      Json // normalized anchors + external ids snapshot at decision time
+  attachedExternalIdentifierIds Json // crosswalk row ids this RESOLVE attached (read by a REVERSAL)
+  reason                        String?
+  requestKey                    String? // idempotent replay of a RESOLVE (unique per org)
+  supersedesResolutionId        String? // REVERSAL → the RESOLVE it reverses
+  actorUserId                   String?
+  createdAt                     DateTime            @default(now())
+  organization                  Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, requestKey])
+  @@index([organizationId, resolvedPropertyId])
+  @@map("property_resolutions")
+}
+
+enum PropertyMatchStatus {
+  PENDING
+  CONFIRMED
+  DISMISSED
+}
+
+// A human's decision about a POSSIBLE Property-identity match surfaced by resolution
+// (Tier 1B / Tier 2). Decision-support ONLY: it records judgement, never a structural
+// change (no merge/create/delete/repoint, no Signal write) — a CONFIRMED pair feeds a
+// future (deferred) merge. Canonical unordered pair (propertyIdA < propertyIdB) so a
+// decision is order-independent; property ids are scalars (no FK) so history survives.
+// `evidenceFingerprint` snapshots both sides' identityVersion + basis so a DISMISSED
+// pair re-surfaces only on a MATERIAL identity change (or explicit ADMIN reopen).
+// Mirrors OwnerMatchDecision.
+model PropertyMatchDecision {
+  id                  String              @id @default(cuid())
+  organizationId      String
+  propertyIdA         String // canonical: lexicographically smaller property id
+  propertyIdB         String // larger property id
+  basis               ResolutionBasis
+  status              PropertyMatchStatus
+  evidenceFingerprint String // identity-state fingerprint → material-change detection
+  reason              String?
+  note                String?
+  decidedByUserId     String?
+  decidedAt           DateTime? // set when confirmed / dismissed
+  reopenedByUserId    String?
+  reopenedAt          DateTime? // when set, the decision is inactive (pair pending again)
+  createdAt           DateTime            @default(now())
+  organization        Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, propertyIdA, propertyIdB])
+  @@index([organizationId, status])
+  @@map("property_match_decisions")
 }
 
 model Opportunity {
