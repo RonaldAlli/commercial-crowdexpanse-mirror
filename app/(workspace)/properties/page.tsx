@@ -80,12 +80,19 @@ export default async function PropertiesPage({
         title="Properties"
         description="Asset inventory tied to sellers, underwriting, and opportunity flow."
         actions={
-          can(user.role, "CREATE", "PROPERTY") ? (
-            <Link className="btn-primary" href="/properties/new">
-              Add property
-              <Icon name="arrowUpRight" className="h-4 w-4" />
-            </Link>
-          ) : null
+          <>
+            {can(user.role, "READ", "PROPERTY_IDENTITY") ? (
+              <Link className="btn-ghost" href="/properties/candidates">
+                Identity review
+              </Link>
+            ) : null}
+            {can(user.role, "CREATE", "PROPERTY") ? (
+              <Link className="btn-primary" href="/properties/new">
+                Add property
+                <Icon name="arrowUpRight" className="h-4 w-4" />
+              </Link>
+            ) : null}
+          </>
         }
       />
 

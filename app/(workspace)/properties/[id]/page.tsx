@@ -87,6 +87,11 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
         description={[property.city, property.state].filter(Boolean).join(", ") || undefined}
         actions={
           <>
+            {can(user.role, "READ", "PROPERTY_IDENTITY") ? (
+              <Link className="btn-ghost" href={`/properties/${property.id}/identity`}>
+                Identity &amp; resolution
+              </Link>
+            ) : null}
             {can(user.role, "UPDATE", "PROPERTY") ? (
               <Link className="btn-ghost" href={`/properties/${property.id}/edit`}>
                 <Icon name="notes" className="h-4 w-4" />
