@@ -166,28 +166,28 @@ enum IntelligenceEntityType {
 }
 
 model User {
-  id             String        @id @default(cuid())
-  organizationId String
-  name           String
-  email          String        @unique
-  hashedPassword String
-  role           UserRole      @default(ACQUISITIONS)
-  lifecycleState UserLifecycleState @default(ACTIVE)
-  deactivatedAt  DateTime?
-  deactivatedById String? // audit-only plain column (no FK), mirrors Invitation.invitedById
+  id                      String             @id @default(cuid())
+  organizationId          String
+  name                    String
+  email                   String             @unique
+  hashedPassword          String
+  role                    UserRole           @default(ACQUISITIONS)
+  lifecycleState          UserLifecycleState @default(ACTIVE)
+  deactivatedAt           DateTime?
+  deactivatedById         String? // audit-only plain column (no FK), mirrors Invitation.invitedById
   // Session epoch: any signed cookie whose issuedAt predates this is rejected.
   // Set to now() on deactivation to invalidate all existing sessions at once.
-  sessionsValidAfter DateTime?
+  sessionsValidAfter      DateTime?
   // Cursor for the notification bell: org activity newer than this (and not by
   // this user) is "unread". Null means unread-since-account-creation.
   lastNotificationsReadAt DateTime?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  tasks          Task[]
-  notes          Note[]
-  documents      Document[]
-  activities     ActivityLog[]
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+  organization            Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tasks                   Task[]
+  notes                   Note[]
+  documents               Document[]
+  activities              ActivityLog[]
 
   @@index([organizationId])
   @@index([organizationId, lifecycleState])
@@ -195,33 +195,34 @@ model User {
 }
 
 model Organization {
-  id            String        @id @default(cuid())
-  name          String
-  slug          String        @unique
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  users         User[]
-  sellers       Seller[]
-  buyers        Buyer[]
-  properties    Property[]
-  opportunities Opportunity[]
-  analyses      DealAnalysis[]
-  tasks         Task[]
-  notes         Note[]
-  documents     Document[]
-  matches       BuyerMatch[]
-  invitations   Invitation[]
-  activities    ActivityLog[]
-  settings      OrganizationSettings?
-  emailMessages EmailMessage[]
-  owners        Owner[]
-  ownerMerges   OwnerMergeRecord[]
-  observations  Observation[]
-  signals       IntelligenceSignal[]
-  refreshJobs   RefreshJob[]
-  matchDecisions OwnerMatchDecision[]
+  id                     String                  @id @default(cuid())
+  name                   String
+  slug                   String                  @unique
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  users                  User[]
+  sellers                Seller[]
+  buyers                 Buyer[]
+  properties             Property[]
+  opportunities          Opportunity[]
+  analyses               DealAnalysis[]
+  tasks                  Task[]
+  notes                  Note[]
+  documents              Document[]
+  matches                BuyerMatch[]
+  invitations            Invitation[]
+  activities             ActivityLog[]
+  settings               OrganizationSettings?
+  emailMessages          EmailMessage[]
+  owners                 Owner[]
+  ownerMerges            OwnerMergeRecord[]
+  observations           Observation[]
+  signals                IntelligenceSignal[]
+  refreshJobs            RefreshJob[]
+  matchDecisions         OwnerMatchDecision[]
   propertyResolutions    PropertyResolution[]
   propertyMatchDecisions PropertyMatchDecision[]
+  underwritings          Underwriting[]
 
   @@map("organizations")
 }
@@ -484,17 +485,17 @@ model OrganizationSettings {
 // context. PENDING/FAILED rows with attempts < maxAttempts are the drain target.
 model EmailMessage {
   id                String        @id @default(cuid())
-  organizationId    String?       // nullable: some system emails aren't org-scoped
+  organizationId    String? // nullable: some system emails aren't org-scoped
   toEmail           String
-  template          String        // MessageKind vocabulary (open, like ActivityLog.eventType)
+  template          String // MessageKind vocabulary (open, like ActivityLog.eventType)
   templateVersion   Int           @default(1)
-  subject           String        // metadata only — never the body
+  subject           String // metadata only — never the body
   status            EmailStatus   @default(PENDING)
   attempts          Int           @default(0)
   maxAttempts       Int           @default(3)
   providerMessageId String?
   error             String?
-  correlationId     String?       // ties to the triggering entity (invitationId, …)
+  correlationId     String? // ties to the triggering entity (invitationId, …)
   lastAttemptAt     DateTime?
   sentAt            DateTime?
   createdAt         DateTime      @default(now())
@@ -556,42 +557,42 @@ model Buyer {
 }
 
 model Property {
-  id             String        @id @default(cuid())
-  organizationId String
-  sellerId       String?
-  ownerId        String? // v1.2: the canonical Owner that holds title (nullable, additive)
-  name           String
-  assetType      AssetType
-  addressLine1   String
-  city           String
-  state          String
-  postalCode     String?
-  county         String?
-  unitCount      Int?
-  squareFeet     Int?
-  acreage        Float?
-  yearBuilt      Int?
-  occupancyRate  Float?
-  askingPriceUsd Int?
-  estimatedValueUsd Int?
-  noiAnnualUsd   Int?
-  capRate        Float?
-  status         String?
+  id                  String                       @id @default(cuid())
+  organizationId      String
+  sellerId            String?
+  ownerId             String? // v1.2: the canonical Owner that holds title (nullable, additive)
+  name                String
+  assetType           AssetType
+  addressLine1        String
+  city                String
+  state               String
+  postalCode          String?
+  county              String?
+  unitCount           Int?
+  squareFeet          Int?
+  acreage             Float?
+  yearBuilt           Int?
+  occupancyRate       Float?
+  askingPriceUsd      Int?
+  estimatedValueUsd   Int?
+  noiAnnualUsd        Int?
+  capRate             Float?
+  status              String?
   // v1.2 Commit 2c-i: ledger-backed projected identity ANCHORS (evidence, not identity).
-  apnNormalized     String?
-  countyFipsCode    String?
-  addressNormalized String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  seller         Seller?       @relation(fields: [sellerId], references: [id], onDelete: SetNull)
-  owner          Owner?        @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  opportunities  Opportunity[]
-  analyses       DealAnalysis[]
-  documents      Document[]
-  notes          Note[]
-  activities     ActivityLog[]
-  identity       PropertyIdentity?
+  apnNormalized       String?
+  countyFipsCode      String?
+  addressNormalized   String?
+  createdAt           DateTime                     @default(now())
+  updatedAt           DateTime                     @updatedAt
+  organization        Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  seller              Seller?                      @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  owner               Owner?                       @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  opportunities       Opportunity[]
+  analyses            DealAnalysis[]
+  documents           Document[]
+  notes               Note[]
+  activities          ActivityLog[]
+  identity            PropertyIdentity?
   externalIdentifiers PropertyExternalIdentifier[]
 
   @@index([organizationId])
@@ -606,16 +607,16 @@ model Property {
 // `rebuiltFromProjectionAt` is the deterministic projection watermark (max winning
 // anchor-signal createdAt), never wall-clock. One row per property.
 model PropertyIdentity {
-  id                     String    @id @default(cuid())
-  organizationId         String
-  propertyId             String    @unique
-  countyFipsCode         String?
-  apnNormalized          String?
-  addressNormalized      String?
-  parcelKey              String? // "${countyFipsCode}|${apnNormalized}" — only when both present
-  identityVersion        String // deterministic fingerprint of the winning anchor set + normalizer versions
+  id                      String    @id @default(cuid())
+  organizationId          String
+  propertyId              String    @unique
+  countyFipsCode          String?
+  apnNormalized           String?
+  addressNormalized       String?
+  parcelKey               String? // "${countyFipsCode}|${apnNormalized}" — only when both present
+  identityVersion         String // deterministic fingerprint of the winning anchor set + normalizer versions
   rebuiltFromProjectionAt DateTime?
-  property               Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  property                Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, parcelKey])
   @@index([organizationId, addressNormalized])
@@ -632,20 +633,20 @@ enum ExternalIdentifierState {
 // supersedes the prior ACTIVE row and inserts a new one. At most one ACTIVE row per
 // (organizationId, provider, providerIdentifier), enforced transactionally.
 model PropertyExternalIdentifier {
-  id                 String                  @id @default(cuid())
-  organizationId     String
-  propertyId         String
-  provider           String
-  providerIdentifier String
-  asOf               DateTime?
-  state              ExternalIdentifierState @default(ACTIVE)
-  supersededById     String?
+  id                    String                  @id @default(cuid())
+  organizationId        String
+  propertyId            String
+  provider              String
+  providerIdentifier    String
+  asOf                  DateTime?
+  state                 ExternalIdentifierState @default(ACTIVE)
+  supersededById        String?
   // v1.2 Commit 2c-ii: set when a resolution REVERSAL revokes this attachment
   // (ACTIVE → SUPERSEDED with supersededById null). A revocation, not a remap; the
   // identifier value is never rewritten — the same append-only lifecycle transition.
   revokedByResolutionId String?
-  createdAt          DateTime                @default(now())
-  property           Property                @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt             DateTime                @default(now())
+  property              Property                @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, provider, providerIdentifier])
   @@index([organizationId, propertyId])
@@ -753,6 +754,7 @@ model Opportunity {
   property         Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   seller           Seller?          @relation(fields: [sellerId], references: [id], onDelete: SetNull)
   analysis         DealAnalysis?
+  underwriting     Underwriting?
   tasks            Task[]
   notes            Note[]
   documents        Document[]
@@ -765,11 +767,16 @@ model Opportunity {
   @@map("opportunities")
 }
 
+// DEPRECATED (v1.3, Commit 3a). DealAnalysis is superseded by the canonical
+// Underwriting → UnderwritingScenario → UnderwritingAssumption → ScenarioResult
+// model below. Retained (not dropped) for one accepted release so the ownership
+// change can be proven stable before the table is removed (founder decision D-7).
+// No code writes or reads it after the 3a analyzer repoint.
 model DealAnalysis {
-  id                   String        @id @default(cuid())
+  id                   String       @id @default(cuid())
   organizationId       String
   propertyId           String
-  opportunityId        String        @unique
+  opportunityId        String       @unique
   purchasePriceUsd     Int
   renovationBudgetUsd  Int?
   closingCostsUsd      Int?
@@ -784,31 +791,158 @@ model DealAnalysis {
   debtYield            Float?
   pricePerUnitUsd      Float?
   analystSummary       String?
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
-  organization         Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  property             Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  opportunity          Opportunity   @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property             Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  opportunity          Opportunity  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
   @@index([propertyId])
   @@map("deal_analysis")
 }
 
+// --- Commercial Underwriting (v1.3, Commit 3a) --------------------------------
+// The canonical deterministic underwriting model. Underwriting anchors on the
+// Opportunity (U-G); a Scenario owns a frozen set of Assumptions; a ScenarioResult
+// owns the deterministic calculations derived from those assumptions + model
+// lineage (U-L). Every deterministic output belongs to exactly one Scenario.
+// Property context enters ONCE as SEEDED assumptions (a one-way snapshot — a
+// Scenario never changes because the underlying Property changes); the analyst's
+// inputs are MANUAL assumptions. Reconstruction reads only frozen assumptions +
+// model lineage + the pure calculation kernel — never current Property state.
+enum ScenarioStatus {
+  DRAFT
+  LOCKED
+  SUPERSEDED
+}
+
+enum AssumptionSource {
+  MANUAL // authored by the analyst
+  SEEDED // snapshotted from the Version 1.2 platform at scenario creation (a ScenarioSeed value)
+}
+
+enum AssumptionKey {
+  PURCHASE_PRICE
+  RENOVATION_BUDGET
+  CLOSING_COSTS
+  GROSS_INCOME
+  OPERATING_EXPENSES
+  LOAN_AMOUNT
+  INTEREST_RATE
+  AMORTIZATION_YEARS
+  UNIT_COUNT
+  ESTIMATED_VALUE
+}
+
+model Underwriting {
+  id               String                 @id @default(cuid())
+  organizationId   String
+  opportunityId    String                 @unique
+  // Scalar snapshot of the property underwritten — deliberately NOT an FK, so the
+  // underwriting never couples back onto the Property graph (U-G).
+  propertyId       String
+  activeScenarioId String?
+  createdByUserId  String?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  organization     Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity      Opportunity            @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  scenarios        UnderwritingScenario[]
+
+  @@index([organizationId])
+  @@map("underwritings")
+}
+
+model UnderwritingScenario {
+  id              String                   @id @default(cuid())
+  organizationId  String
+  underwritingId  String
+  label           String
+  version         Int
+  status          ScenarioStatus           @default(DRAFT)
+  // Model lineage (U-K) frozen onto every scenario at creation.
+  modelVersion    Int
+  calcLibVersion  Int
+  rulesetVersion  Int
+  // Deterministic fingerprint of (assumption set + canonical ordering + model
+  // lineage). Makes Scenario → ScenarioVersion → ScenarioResult explicit and
+  // distinguishes an assumption change from a calculation-model change.
+  scenarioVersion String
+  // Analyst narrative for this scenario. A note, NOT a deterministic output — it
+  // is deliberately excluded from scenarioVersion and from ScenarioResult.
+  analystSummary  String?
+  supersededById  String?
+  createdByUserId String?
+  createdAt       DateTime                 @default(now())
+  lockedAt        DateTime?
+  underwriting    Underwriting             @relation(fields: [underwritingId], references: [id], onDelete: Cascade)
+  assumptions     UnderwritingAssumption[]
+  result          ScenarioResult?
+
+  @@unique([underwritingId, version])
+  @@index([organizationId])
+  @@map("underwriting_scenarios")
+}
+
+model UnderwritingAssumption {
+  id             String               @id @default(cuid())
+  organizationId String
+  scenarioId     String
+  key            AssumptionKey
+  // Decimal in persistence for exact monetary/rate storage; converted to a JS
+  // number deterministically at the boundary into the pure kernel (D-6).
+  valueNumeric   Decimal
+  source         AssumptionSource
+  // Provenance for SEEDED assumptions: which platform field, and its as-of.
+  sourceField    String?
+  sourceAsOf     DateTime?
+  createdAt      DateTime             @default(now())
+  scenario       UnderwritingScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@unique([scenarioId, key])
+  @@index([organizationId])
+  @@map("underwriting_assumptions")
+}
+
+model ScenarioResult {
+  id                   String               @id @default(cuid())
+  organizationId       String
+  scenarioId           String               @unique
+  // The scenarioVersion this result was derived from (staleness detection).
+  scenarioVersion      String
+  calcLibVersion       Int
+  noiAnnualUsd         Int?
+  allInCostUsd         Int
+  capRate              Float?
+  pricePerUnitUsd      Float?
+  expenseRatioPct      Float?
+  // Float, not Int: computeAnalysis returns a 2-decimal amortized payment (e.g.
+  // 53959.55). An Int column would truncate it and break rebuild idempotency.
+  annualDebtServiceUsd Float?
+  dscr                 Float?
+  debtYieldPct         Float?
+  spreadUsd            Int?
+  scenario             UnderwritingScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("scenario_results")
+}
+
 model Task {
-  id             String        @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   opportunityId  String?
   ownerId        String?
   title          String
   description    String?
-  status         TaskStatus    @default(BACKLOG)
+  status         TaskStatus   @default(BACKLOG)
   dueDate        DateTime?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  opportunity    Opportunity?  @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
-  owner          User?         @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity    Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  owner          User?        @relation(fields: [ownerId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
   @@index([opportunityId])
@@ -817,7 +951,7 @@ model Task {
 }
 
 model Note {
-  id             String        @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   opportunityId  String?
   propertyId     String?
@@ -825,59 +959,59 @@ model Note {
   buyerId        String?
   authorId       String?
   body           String
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  opportunity    Opportunity?  @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
-  property       Property?     @relation(fields: [propertyId], references: [id], onDelete: SetNull)
-  seller         Seller?       @relation(fields: [sellerId], references: [id], onDelete: SetNull)
-  buyer          Buyer?        @relation(fields: [buyerId], references: [id], onDelete: SetNull)
-  author         User?         @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity    Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  property       Property?    @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  seller         Seller?      @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  buyer          Buyer?       @relation(fields: [buyerId], references: [id], onDelete: SetNull)
+  author         User?        @relation(fields: [authorId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
   @@map("notes")
 }
 
 model Document {
-  id             String        @id @default(cuid())
-  organizationId String
-  opportunityId  String?
-  propertyId     String?
-  sellerId       String?
-  buyerId        String?
-  uploaderId     String?
-  title          String
-  documentType   DocumentType
-  storageKey     String
+  id               String       @id @default(cuid())
+  organizationId   String
+  opportunityId    String?
+  propertyId       String?
+  sellerId         String?
+  buyerId          String?
+  uploaderId       String?
+  title            String
+  documentType     DocumentType
+  storageKey       String
   originalFilename String?
-  mimeType       String?
-  fileSizeBytes  Int?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  opportunity    Opportunity?  @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
-  property       Property?     @relation(fields: [propertyId], references: [id], onDelete: SetNull)
-  seller         Seller?       @relation(fields: [sellerId], references: [id], onDelete: SetNull)
-  buyer          Buyer?        @relation(fields: [buyerId], references: [id], onDelete: SetNull)
-  uploader       User?         @relation(fields: [uploaderId], references: [id], onDelete: SetNull)
+  mimeType         String?
+  fileSizeBytes    Int?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity      Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  property         Property?    @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  seller           Seller?      @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  buyer            Buyer?       @relation(fields: [buyerId], references: [id], onDelete: SetNull)
+  uploader         User?        @relation(fields: [uploaderId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
   @@map("documents")
 }
 
 model BuyerMatch {
-  id             String        @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   opportunityId  String
   buyerId        String
-  status         MatchStatus   @default(NEW)
+  status         MatchStatus  @default(NEW)
   score          Int?
   thesis         String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  opportunity    Opportunity   @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
-  buyer          Buyer         @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity    Opportunity  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  buyer          Buyer        @relation(fields: [buyerId], references: [id], onDelete: Cascade)
 
   @@unique([opportunityId, buyerId])
   @@index([organizationId])
@@ -888,7 +1022,7 @@ model BuyerMatch {
 model Invitation {
   id             String           @id @default(cuid())
   organizationId String
-  email          String           // normalized lowercase
+  email          String // normalized lowercase
   role           UserRole
   tokenHash      String           @unique // HMAC of the raw token; raw is never stored
   status         InvitationStatus @default(PENDING)
@@ -906,7 +1040,7 @@ model Invitation {
 }
 
 model ActivityLog {
-  id             String        @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   opportunityId  String?
   propertyId     String?
@@ -916,13 +1050,13 @@ model ActivityLog {
   eventType      String
   eventLabel     String
   eventBody      String?
-  createdAt      DateTime      @default(now())
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  opportunity    Opportunity?  @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
-  property       Property?     @relation(fields: [propertyId], references: [id], onDelete: SetNull)
-  seller         Seller?       @relation(fields: [sellerId], references: [id], onDelete: SetNull)
-  buyer          Buyer?        @relation(fields: [buyerId], references: [id], onDelete: SetNull)
-  actor          User?         @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity    Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  property       Property?    @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  seller         Seller?      @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  buyer          Buyer?       @relation(fields: [buyerId], references: [id], onDelete: SetNull)
+  actor          User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
   @@map("activity_log")

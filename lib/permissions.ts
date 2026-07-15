@@ -32,7 +32,12 @@ export type Resource =
   | "PROPERTY_IDENTITY"
   // Ingestion (v1.2, Commit 1c). REFRESH = triggering a source refresh / viewing
   // the refresh audit trail. Write = run a refresh; read = view job history.
-  | "REFRESH";
+  | "REFRESH"
+  // Commercial Underwriting (v1.3, Commit 3a). UNDERWRITING = authoring scenarios /
+  // assumptions and rebuilding results — the canonical successor to DEAL_ANALYSIS.
+  // A future UNDERWRITING_APPROVAL resource (deciding a recommendation) is reserved
+  // for Commit 3d and deliberately NOT added here.
+  | "UNDERWRITING";
 
 export type Action = "CREATE" | "READ" | "UPDATE" | "DELETE" | "MANAGE";
 
@@ -66,6 +71,10 @@ const MATRIX: Record<Resource, Capability> = {
   PROPERTY_IDENTITY: { write: [ADMIN, ACQUISITIONS], read: [ADMIN, ACQUISITIONS] },
   // Refresh mirrors OWNER: acquisitions run ingestion; everyone can read the trail.
   REFRESH: { write: [ADMIN, ACQUISITIONS], read: [ANALYST, DISPOSITIONS] },
+  // Underwriting mirrors the legacy DEAL_ANALYSIS policy exactly: analysts author,
+  // acquisitions/dispositions read. Deciding a recommendation is a separate,
+  // higher-risk action reserved for UNDERWRITING_APPROVAL in Commit 3d.
+  UNDERWRITING: { write: [ADMIN, ANALYST], read: [ACQUISITIONS, DISPOSITIONS] },
 };
 
 /** Can `role` perform `action` on `resource`? Pipeline movement is separate — see canMoveStage. */

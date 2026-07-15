@@ -20,13 +20,31 @@ export default async function AnalyzerPage() {
     where: { organizationId: user.organizationId },
     include: {
       property: { select: { name: true, assetType: true } },
-      analysis: { select: { capRate: true, noiAnnualUsd: true, dscr: true } },
     },
     orderBy: { updatedAt: "desc" },
   });
 
-  const analyzed = opportunities.filter((o) => o.analysis);
-  const needsAnalysis = opportunities.filter((o) => !o.analysis);
+  // Map each opportunity → its active scenario's persisted result (the canonical
+  // successor to opportunity.analysis). An opportunity is "analyzed" iff its active
+  // scenario has a ScenarioResult.
+  const underwritings = await prisma.underwriting.findMany({
+    where: { organizationId: user.organizationId },
+    select: { opportunityId: true, activeScenarioId: true },
+  });
+  const activeScenarioIds = underwritings.map((u) => u.activeScenarioId).filter((id): id is string => id != null);
+  const resultRows = await prisma.scenarioResult.findMany({
+    where: { organizationId: user.organizationId, scenarioId: { in: activeScenarioIds } },
+    select: { scenarioId: true, capRate: true, noiAnnualUsd: true, dscr: true },
+  });
+  const resultByScenario = new Map(resultRows.map((r) => [r.scenarioId, r]));
+  const resultByOpp = new Map<string, { capRate: number | null; noiAnnualUsd: number | null; dscr: number | null }>();
+  for (const u of underwritings) {
+    const r = u.activeScenarioId ? resultByScenario.get(u.activeScenarioId) : undefined;
+    if (r) resultByOpp.set(u.opportunityId, r);
+  }
+
+  const analyzed = opportunities.filter((o) => resultByOpp.has(o.id));
+  const needsAnalysis = opportunities.filter((o) => !resultByOpp.has(o.id));
 
   const header = (
     <PageHeader
@@ -67,7 +85,9 @@ export default async function AnalyzerPage() {
         </div>
         {analyzed.length > 0 ? (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {analyzed.map((o) => (
+            {analyzed.map((o) => {
+              const r = resultByOpp.get(o.id)!;
+              return (
               <Link key={o.id} href={`/analyzer/${o.id}`} className="card p-5 transition-shadow hover:shadow-md">
                 <p className="truncate font-semibold text-slate-900">{o.title}</p>
                 <p className="mt-0.5 truncate text-xs text-slate-500">
@@ -76,21 +96,22 @@ export default async function AnalyzerPage() {
                 <div className="mt-4 grid grid-cols-3 gap-2 text-center">
                   <div>
                     <p className="text-[0.7rem] uppercase tracking-wide text-slate-400">Cap</p>
-                    <p className="metric text-sm font-semibold text-slate-900">{pct(o.analysis!.capRate)}</p>
+                    <p className="metric text-sm font-semibold text-slate-900">{pct(r.capRate)}</p>
                   </div>
                   <div>
                     <p className="text-[0.7rem] uppercase tracking-wide text-slate-400">NOI</p>
                     <p className="metric text-sm font-semibold text-slate-900">
-                      {o.analysis!.noiAnnualUsd != null ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 }).format(o.analysis!.noiAnnualUsd) : "—"}
+                      {r.noiAnnualUsd != null ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 }).format(r.noiAnnualUsd) : "—"}
                     </p>
                   </div>
                   <div>
                     <p className="text-[0.7rem] uppercase tracking-wide text-slate-400">DSCR</p>
-                    <p className="metric text-sm font-semibold text-slate-900">{o.analysis!.dscr != null ? `${o.analysis!.dscr}x` : "—"}</p>
+                    <p className="metric text-sm font-semibold text-slate-900">{r.dscr != null ? `${r.dscr}x` : "—"}</p>
                   </div>
                 </div>
               </Link>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="card">

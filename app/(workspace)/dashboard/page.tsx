@@ -37,6 +37,31 @@ const taskTone: Record<string, Tone> = {
   COMPLETE: "success",
 };
 
+/** The latest underwriting's active scenario, shaped like the legacy latestAnalysis. */
+async function latestUnderwritingSummary(organizationId: string) {
+  const uw = await prisma.underwriting.findFirst({
+    where: { organizationId, activeScenarioId: { not: null } },
+    orderBy: { updatedAt: "desc" },
+    include: { opportunity: { select: { title: true } } },
+  });
+  if (!uw?.activeScenarioId) return null;
+  const scenario = await prisma.underwritingScenario.findFirst({
+    where: { id: uw.activeScenarioId, organizationId },
+    include: { result: true, assumptions: { where: { key: "PURCHASE_PRICE" } } },
+  });
+  if (!scenario?.result) return null;
+  return {
+    purchasePriceUsd: scenario.assumptions[0]?.valueNumeric.toNumber() ?? null,
+    noiAnnualUsd: scenario.result.noiAnnualUsd,
+    capRate: scenario.result.capRate,
+    debtYield: scenario.result.debtYieldPct,
+    dscr: scenario.result.dscr,
+    pricePerUnitUsd: scenario.result.pricePerUnitUsd,
+    analystSummary: scenario.analystSummary,
+    opportunity: { title: uw.opportunity.title },
+  };
+}
+
 export default async function DashboardPage() {
   const user = await requireUser();
   const where = { organizationId: user.organizationId };
@@ -51,7 +76,6 @@ export default async function DashboardPage() {
     opportunities,
     openTasks,
     activity,
-    latestAnalysis,
   ] = await Promise.all([
     prisma.seller.count({ where }),
     prisma.buyer.count({ where }),
@@ -76,12 +100,12 @@ export default async function DashboardPage() {
       orderBy: { createdAt: "desc" },
       take: 6,
     }),
-    prisma.dealAnalysis.findFirst({
-      where,
-      include: { opportunity: true, property: true },
-      orderBy: { updatedAt: "desc" },
-    }),
   ]);
+
+  // Latest underwriting = the most recently touched Underwriting's active scenario
+  // result (the canonical successor to the latest DealAnalysis). Shaped to match
+  // the fields the analyzer card renders.
+  const latestAnalysis = await latestUnderwritingSummary(user.organizationId);
 
   const stats = [
     { label: "Sellers", value: String(sellerCount), detail: "Motivated sellers tracked in acquisitions." },

@@ -7,9 +7,10 @@ import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
-import { computeAnalysis } from "@/lib/analysis";
 import { prisma } from "@/lib/prisma";
 import { titleCase } from "@/lib/property-options";
+import { getActiveScenarioResult } from "@/lib/underwriting";
+import type { AssumptionKey } from "@/lib/underwriting/assumptions";
 
 export const dynamic = "force-dynamic";
 
@@ -26,18 +27,19 @@ export default async function AnalysisViewPage({ params }: { params: { opportuni
   const opportunity = await prisma.opportunity.findFirst({
     where: { id: params.opportunityId, organizationId: user.organizationId },
     include: {
-      property: { select: { id: true, name: true, assetType: true, unitCount: true, estimatedValueUsd: true } },
-      analysis: true,
+      property: { select: { id: true, name: true, assetType: true } },
     },
   });
 
   if (!opportunity) {
     notFound();
   }
-  if (!opportunity.analysis) {
+
+  const scenario = await getActiveScenarioResult(user.organizationId, opportunity.id);
+  if (!scenario || !scenario.result) {
     // Writers go straight to the builder. Read-only roles can't create one and
     // would hit the guarded edit route's notFound() — show an empty view instead.
-    if (can(user.role, "UPDATE", "DEAL_ANALYSIS")) {
+    if (can(user.role, "UPDATE", "UNDERWRITING")) {
       redirect(`/analyzer/${opportunity.id}/edit`);
     }
     return (
@@ -59,19 +61,13 @@ export default async function AnalysisViewPage({ params }: { params: { opportuni
     );
   }
 
-  const a = opportunity.analysis;
-  const m = computeAnalysis({
-    purchasePriceUsd: a.purchasePriceUsd,
-    renovationBudgetUsd: a.renovationBudgetUsd,
-    closingCostsUsd: a.closingCostsUsd,
-    grossIncomeAnnualUsd: a.grossIncomeAnnualUsd,
-    operatingExpensesUsd: a.operatingExpensesUsd,
-    loanAmountUsd: a.loanAmountUsd,
-    interestRatePct: a.interestRatePct,
-    amortizationYears: a.amortizationYears,
-    unitCount: opportunity.property.unitCount,
-    estimatedValueUsd: opportunity.property.estimatedValueUsd,
-  });
+  // Read metrics from the persisted, deterministically-derived ScenarioResult and
+  // the inputs from the scenario's frozen assumptions (the ScenarioSeed snapshot
+  // supplies unit count + estimated value — no live Property read).
+  const m = scenario.result;
+  const a = new Map<AssumptionKey, number>();
+  for (const row of scenario.assumptions) a.set(row.key as AssumptionKey, row.valueNumeric.toNumber());
+  const val = (k: AssumptionKey): number | null => (a.has(k) ? (a.get(k) as number) : null);
 
   const metrics: { label: string; value: string; accent?: boolean }[] = [
     { label: "NOI", value: usd(m.noiAnnualUsd) },
@@ -80,7 +76,7 @@ export default async function AnalysisViewPage({ params }: { params: { opportuni
     { label: "Expense ratio", value: pct(m.expenseRatioPct) },
     { label: "DSCR", value: m.dscr != null ? `${m.dscr}x` : "—" },
     { label: "Debt yield", value: pct(m.debtYieldPct) },
-    { label: "Estimated value", value: usd(opportunity.property.estimatedValueUsd) },
+    { label: "Estimated value", value: usd(val("ESTIMATED_VALUE")) },
     { label: "All-in cost", value: usd(m.allInCostUsd) },
     { label: "Contract value", value: usd(opportunity.contractValueUsd) },
     { label: "Assignment fee", value: usd(opportunity.assignmentFeeUsd), accent: true },
@@ -98,7 +94,7 @@ export default async function AnalysisViewPage({ params }: { params: { opportuni
             <Link className="btn-ghost" href={`/opportunities/${opportunity.id}`}>
               Opportunity
             </Link>
-            {can(user.role, "UPDATE", "DEAL_ANALYSIS") ? (
+            {can(user.role, "UPDATE", "UNDERWRITING") ? (
               <Link className="btn-primary" href={`/analyzer/${opportunity.id}/edit`}>
                 <Icon name="notes" className="h-4 w-4" />
                 Edit analysis
@@ -124,14 +120,14 @@ export default async function AnalysisViewPage({ params }: { params: { opportuni
           <p className="eyebrow">Inputs</p>
           <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[
-              { label: "Purchase price", value: usd(a.purchasePriceUsd) },
-              { label: "Renovation budget", value: usd(a.renovationBudgetUsd) },
-              { label: "Closing costs", value: usd(a.closingCostsUsd) },
-              { label: "Gross income / yr", value: usd(a.grossIncomeAnnualUsd) },
-              { label: "Operating expenses / yr", value: usd(a.operatingExpensesUsd) },
-              { label: "Loan amount", value: usd(a.loanAmountUsd) },
-              { label: "Interest rate", value: a.interestRatePct != null ? `${a.interestRatePct}%` : "—" },
-              { label: "Amortization", value: a.amortizationYears != null ? `${a.amortizationYears} yrs` : "—" },
+              { label: "Purchase price", value: usd(val("PURCHASE_PRICE")) },
+              { label: "Renovation budget", value: usd(val("RENOVATION_BUDGET")) },
+              { label: "Closing costs", value: usd(val("CLOSING_COSTS")) },
+              { label: "Gross income / yr", value: usd(val("GROSS_INCOME")) },
+              { label: "Operating expenses / yr", value: usd(val("OPERATING_EXPENSES")) },
+              { label: "Loan amount", value: usd(val("LOAN_AMOUNT")) },
+              { label: "Interest rate", value: val("INTEREST_RATE") != null ? `${val("INTEREST_RATE")}%` : "—" },
+              { label: "Amortization", value: val("AMORTIZATION_YEARS") != null ? `${val("AMORTIZATION_YEARS")} yrs` : "—" },
               { label: "Annual debt service", value: usd(m.annualDebtServiceUsd) },
             ].map((d) => (
               <div key={d.label}>
@@ -140,10 +136,10 @@ export default async function AnalysisViewPage({ params }: { params: { opportuni
               </div>
             ))}
           </dl>
-          {a.analystSummary ? (
+          {scenario.analystSummary ? (
             <div className="mt-6 border-t border-slate-100 pt-5">
               <p className="eyebrow">Analyst summary</p>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">{a.analystSummary}</p>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">{scenario.analystSummary}</p>
             </div>
           ) : null}
         </article>

@@ -5,8 +5,9 @@ import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";
 import { checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
-import { computeAnalysis } from "@/lib/analysis";
 import { prisma } from "@/lib/prisma";
+import { saveAnalyzerScenario } from "@/lib/underwriting";
+import type { AssumptionKey } from "@/lib/underwriting/assumptions";
 
 export type AnalysisFormState = { error?: string } | undefined;
 
@@ -34,17 +35,15 @@ export async function saveAnalysis(
   formData: FormData,
 ): Promise<AnalysisFormState> {
   const user = await requireUser();
-  if (!(await checkAuthorized(user, "UPDATE", "DEAL_ANALYSIS", { opportunityId }))) {
+  if (!(await checkAuthorized(user, "UPDATE", "UNDERWRITING", { opportunityId }))) {
     return { error: GENERIC_DENIAL };
   }
 
-  // Org-scope through the opportunity, and pull property context for the math.
+  // Org-scope through the opportunity. Property context is no longer read here —
+  // it is snapshotted as SEEDED assumptions inside the underwriting service.
   const opportunity = await prisma.opportunity.findFirst({
     where: { id: opportunityId, organizationId: user.organizationId },
-    include: {
-      property: { select: { id: true, unitCount: true, estimatedValueUsd: true } },
-      analysis: { select: { id: true } },
-    },
+    include: { property: { select: { id: true } } },
   });
   if (!opportunity) return { error: "Opportunity not found." };
 
@@ -55,44 +54,23 @@ export async function saveAnalysis(
     return { error: "Purchase price is required and must be greater than zero." };
   }
 
-  const inputs = {
-    purchasePriceUsd,
-    renovationBudgetUsd: intOrNull(str("renovationBudgetUsd")),
-    closingCostsUsd: intOrNull(str("closingCostsUsd")),
-    grossIncomeAnnualUsd: intOrNull(str("grossIncomeAnnualUsd")),
-    operatingExpensesUsd: intOrNull(str("operatingExpensesUsd")),
-    loanAmountUsd: intOrNull(str("loanAmountUsd")),
-    interestRatePct: floatOrNull(str("interestRatePct")),
-    amortizationYears: intOrNull(str("amortizationYears")),
-  };
+  // Map the form to the MANUAL assumption set (the 8 analyst-authored inputs).
+  const manual: { key: AssumptionKey; value: number | null }[] = [
+    { key: "PURCHASE_PRICE", value: purchasePriceUsd },
+    { key: "RENOVATION_BUDGET", value: intOrNull(str("renovationBudgetUsd")) },
+    { key: "CLOSING_COSTS", value: intOrNull(str("closingCostsUsd")) },
+    { key: "GROSS_INCOME", value: intOrNull(str("grossIncomeAnnualUsd")) },
+    { key: "OPERATING_EXPENSES", value: intOrNull(str("operatingExpensesUsd")) },
+    { key: "LOAN_AMOUNT", value: intOrNull(str("loanAmountUsd")) },
+    { key: "INTEREST_RATE", value: floatOrNull(str("interestRatePct")) },
+    { key: "AMORTIZATION_YEARS", value: intOrNull(str("amortizationYears")) },
+  ];
 
-  const metrics = computeAnalysis({
-    ...inputs,
-    unitCount: opportunity.property.unitCount,
-    estimatedValueUsd: opportunity.property.estimatedValueUsd,
-  });
+  const existed = (await prisma.underwriting.findUnique({ where: { opportunityId: opportunity.id } })) != null;
 
-  const data = {
-    ...inputs,
-    noiAnnualUsd: metrics.noiAnnualUsd,
-    capRate: metrics.capRate,
-    dscr: metrics.dscr,
-    debtYield: metrics.debtYieldPct,
-    pricePerUnitUsd: metrics.pricePerUnitUsd,
+  const { result } = await saveAnalyzerScenario(user.organizationId, opportunity.id, manual, {
+    createdByUserId: user.id,
     analystSummary: orNull(str("analystSummary")),
-  };
-
-  const existed = opportunity.analysis != null;
-
-  await prisma.dealAnalysis.upsert({
-    where: { opportunityId: opportunity.id },
-    update: data,
-    create: {
-      organizationId: user.organizationId,
-      propertyId: opportunity.property.id,
-      opportunityId: opportunity.id,
-      ...data,
-    },
   });
 
   await prisma.activityLog.create({
@@ -103,7 +81,7 @@ export async function saveAnalysis(
       actorId: user.id,
       eventType: existed ? "analysis.updated" : "analysis.created",
       eventLabel: `${existed ? "Analysis updated" : "Analysis created"}: ${opportunity.title}`,
-      eventBody: metrics.capRate != null ? `Cap rate ${metrics.capRate}%` : null,
+      eventBody: result.capRate != null ? `Cap rate ${result.capRate}%` : null,
     },
   });
 
