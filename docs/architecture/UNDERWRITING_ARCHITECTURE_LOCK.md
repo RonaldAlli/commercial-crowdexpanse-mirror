@@ -3,8 +3,10 @@
 > The canonical, load-bearing architecture for deterministic commercial
 > underwriting. This is a **fresh lock**, not an extension of Property Intelligence:
 > underwriting is a **read-only consumer** of the completed Version 1.2 platform, not
-> a second source of truth. Locked 2026-07-15. See also the [roadmap](../roadmap/VERSION_1_3.md)
-> and the [Engineering Playbook](./ENGINEERING_PLAYBOOK.md).
+> a second source of truth. Locked 2026-07-15. See also the [Underwriting Calculation
+> Principles](./UNDERWRITING_CALCULATION_PRINCIPLES.md) (the deterministic philosophy
+> every formula shares), the [roadmap](../roadmap/VERSION_1_3.md), and the
+> [Engineering Playbook](./ENGINEERING_PLAYBOOK.md).
 
 ## 1. Mission
 
