@@ -1,7 +1,7 @@
 # Version 1.3 — Commercial Underwriting
 
 > **Theme:** Deepen the Deal Analyzer into full financial modeling.
-> **Status:** 🟢 In progress — architecture locked ([Underwriting Architecture Lock](../architecture/UNDERWRITING_ARCHITECTURE_LOCK.md)); **Commit 3a (Underwriting Model Formalization) is LIVE**.
+> **Status:** ✅ **COMPLETE · ACCEPTED · RELEASED (`v1.3.0`, 2026-07-15)** — frozen on `release/1.3`; prod **22 migrations**, serving `OuE0HfLIzVy6LsKqzp3ct`. Every slice (3a → offer-memo) is live; every Definition-of-Done item is satisfied. See the [V1.3 Production Acceptance Record](../releases/V1_3_ACCEPTANCE.md) + [Release Note](../releases/V1_3_RELEASE_NOTE.md). Governed by the [Underwriting Architecture Lock](../architecture/UNDERWRITING_ARCHITECTURE_LOCK.md) + [Calculation Principles](../architecture/UNDERWRITING_CALCULATION_PRINCIPLES.md) + [Offer-Memo Lock](../architecture/OFFER_MEMO_ARCHITECTURE_LOCK.md).
 
 ## Architecture & progress
 The deterministic architecture is locked in the [Underwriting Architecture Lock](../architecture/UNDERWRITING_ARCHITECTURE_LOCK.md) (decisions U-A…U-L, invariants UW-1…UW-9): underwriting is a **read-only consumer** of Version 1.2, not a second source of truth.

@@ -7,9 +7,9 @@
 | Version | Theme | Status | Detail |
 |---|---|---|---|
 | **1.0** | Foundation (auth, multi-tenancy, core records, pipeline) | ✅ Shipped | — |
-| **1.1** | **Operational Excellence** | 🟡 In progress (~80%) | [VERSION_1_1.md](./VERSION_1_1.md) |
-| **1.2** | **Commercial Intelligence** | 🔴 Planned | [VERSION_1_2.md](./VERSION_1_2.md) |
-| **1.3** | **Commercial Underwriting** | 🟡 Foundation exists | [VERSION_1_3.md](./VERSION_1_3.md) |
+| **1.1** | **Operational Excellence** | ✅ Shipped (`v1.1.0`) | [VERSION_1_1.md](./VERSION_1_1.md) |
+| **1.2** | **Commercial Intelligence** | 🟢 In progress (Slices 1–2 live, `v1.2.0-slice.1/2`) | [VERSION_1_2.md](./VERSION_1_2.md) |
+| **1.3** | **Commercial Underwriting** | ✅ **Released (`v1.3.0`, accepted 2026-07-15)** | [VERSION_1_3.md](./VERSION_1_3.md) · [Acceptance](../releases/V1_3_ACCEPTANCE.md) |
 | **1.4** | **Closing Center** | 🔴 Planned | [VERSION_1_4.md](./VERSION_1_4.md) |
 | **2.0** | **Automation & AI** | 🔴 Planned | [VERSION_2_0.md](./VERSION_2_0.md) |
 

@@ -68,14 +68,12 @@
 - **Testing:** `e2e-unique-match.mjs`. Good.
 - **Future AI:** Natural-language match rationale; learned weights (2.0, with human override).
 
-## Deal Analyzer / Underwriting — 🟡 (~35%)
-- **Current:** `DealAnalysis` + pure `lib/analysis.ts` compute NOI, cap rate, DSCR, debt yield, price/unit; analyzer routes + edit.
-- **Completed:** Core metric math; per-opportunity analysis record.
-- **Future (1.3):** Line-item NOI, multi-year cash flow, debt scenarios, sensitivity tables, risk scoring, versioned models, offer-memo export.
-- **Dependencies:** Opportunities, Property, Documents (T12/rent roll), 1.2 intelligence (inputs).
-- **Known Issues:** Single-scenario; totals not line-items; no unit tests on the math yet.
-- **Testing:** **Gap** — pure math must get unit tests (Testing Roadmap). E2E for the analyzer flow.
-- **Future AI:** Underwriting narrative drafts; document extraction (2.0).
+## Deal Analyzer / Underwriting — 🟢 (100% · Version 1.3 accepted & released 2026-07-15)
+- **Current:** Canonical `Underwriting → Scenario → Assumption → ScenarioResult` model over the **unchanged** pure `lib/analysis.ts` kernel + pure sibling modules (`debt-sizing`, `schedule`, `cash-flow`, `financing`, `exit`, `sensitivity`, `findings`, `model-version`); analyzer routes + edit + comparison; deterministic, versioned, rebuildable.
+- **Completed (1.3):** Ownership model + scenario lifecycle/versioning (3a); debt sizing (3b-i); income/expense schedules (3b-ii); financing cases + multi-year cash flow (3b-iii); exit valuation + basic waterfall + levered IRR/equity multiple (3b-iv); sensitivity matrices (3b-v); findings/risks + suggested recommendation (3b-vi); decided recommendation + `UNDERWRITING_APPROVAL` (3d); scenario comparison (3e); **offer-memo generation** (Documents-owned, [Offer-Memo Lock](../architecture/OFFER_MEMO_ARCHITECTURE_LOCK.md)). See [V1.3 Acceptance](../releases/V1_3_ACCEPTANCE.md).
+- **Dependencies:** Opportunities, Property, Documents (offer-memo output), 1.2 intelligence (inputs).
+- **Testing:** Every pure module CRITICAL-gated ≥90% branch with worked examples; `e2e-underwriting.mjs` (166 assertions). Gap closed.
+- **Future:** LOI generation, native PDF output, refinance/tax modeling, preferred/promote waterfalls, market-signal risks — all deferred/gated. Underwriting narrative drafts; document extraction (2.0).
 
 ## Tasks — 🟢
 - **Current:** List with search/sort/pagination; inline status; workflow-priority default order (`lib/task-sort.ts`); opportunity/owner links.
@@ -95,10 +93,10 @@
 - **Testing:** Covered via search E2E. **Add:** note-links unit tests.
 - **Future AI:** Auto-summaries; extracted action items (2.0).
 
-## Documents — 🟡 (~70%)
-- **Current:** Upload via server action; typed (`T12`/`RENT_ROLL`/`LOI`/`CONTRACT`/…); download route; local storage with 25 MB cap + path-traversal guard (`lib/storage.ts`).
-- **Completed:** Upload/list/download; type taxonomy.
-- **Future:** Object storage (S3-class); virus scan; DD-checklist wiring (1.4); extraction (2.0).
+## Documents — 🟡 (~75%)
+- **Current:** Upload via server action; typed (`T12`/`RENT_ROLL`/`LOI`/`CONTRACT`/…); download route; local storage with 25 MB cap + path-traversal guard (`lib/storage.ts`). **Generated documents (v1.3):** a `DocumentOrigin` discriminator (`UPLOADED`/`GENERATED`) + generation provenance; **offer-memo generation** produces immutable, append-only, SHA-256-stamped self-contained HTML from a LOCKED underwriting scenario (Documents-owned, one-way read from Underwriting; [Offer-Memo Lock](../architecture/OFFER_MEMO_ARCHITECTURE_LOCK.md), OM-1…OM-12). Generated memos are immutable — not editable/deletable through the upload-management actions.
+- **Completed:** Upload/list/download; type taxonomy; generated-document foundation + offer-memo generation.
+- **Future:** Object storage (S3-class); virus scan; **LOI generation + native PDF output (deferred sibling slices)**; DD-checklist wiring (1.4); extraction (2.0).
 - **Dependencies:** Organization; linked records; filesystem/`UPLOAD_DIR`.
 - **Known Issues:** Local filesystem storage doesn't scale beyond one VPS — see [Tech Debt](./TECHNICAL_DEBT.md).
 - **Testing:** **Gap** — add upload/download + path-guard tests.
