@@ -114,4 +114,23 @@ A fresh **architecture lock** for 2c must resolve, at minimum:
 
 ---
 
+## G. Architectural Debt — intentionally-unresolved design questions
+
+**Distinct from [Technical Debt (Volume 7)](../roadmap/TECHNICAL_DEBT.md).** Technical debt is a known issue or refactor in *built* code, with a fix trigger. **Architectural debt is a canonical *design* question deliberately left open** because the evidence to decide it well does not yet exist. Recording these separately makes clear they are **deferred decisions, not oversights** — nobody forgot them; the project consciously chose not to answer them prematurely. Each carries a **decision trigger** so it resurfaces at the right moment rather than by accident.
+
+| # | Open design question | Why it is (correctly) unresolved | Decision trigger |
+|---|---|---|---|
+| **AD1** | Does Property ever require **structural merge** (collapsing two surrogate `Property.id`s), or does *resolve-before-create* + a crosswalk prevent duplicate surrogates from ever forming? | Owner needs merge because person records get re-created redundantly. Property has strong deterministic anchors (parcel within jurisdiction) that *may* prevent duplicates entirely — but no ingestion at volume has tested it. | First evidence of duplicate Property surrogates in real data (post-ingestion). |
+| **AD2** | Should a provider-id **crosswalk replace merge** as the primary identity-reconciliation mechanism for Property? | Tightly coupled to AD1. A many-provider-ids → one-`Property.id` crosswalk may make structural merge an exceptional repair tool rather than a core workflow. | 2c identity lock (initial stance); revisit after first multi-provider ingestion. |
+| **AD3** | What is the long-term **canonical address model** — deterministic in-house normalization vs. licensed CASS/USPS hygiene, and how much of an address is identity-anchor vs. pure display? | Address hygiene at real quality needs a licensed source ([Decision F](../roadmap/COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md), Volume 12 §8). A minimal deterministic normalizer is buildable now; the full model is not. | Decision F sign-off / first licensed address source. |
+| **AD4** | How is **multi-source parcel disagreement** represented and resolved (County APN vs. vendor APN for the "same" asset)? | Leaning: through the ledger + precedence, like any projected field — but the interaction between a *changing winning anchor* and *identity matching* (matching on a moving target) is unproven. | First non-manual parcel source. |
+| **AD5** | When and how do **Market and Property interact** (property→market rollups; market signals influencing property scoring, Volume 12 §5–§6)? | Market is not on the spine yet; designing the interaction now would be speculative (violates B4). | The Market slice. |
+| **AD6** | When does **external licensing change the architecture** itself (not just add an adapter) — e.g. a source whose terms forbid storage, mandate per-query fetch, or impose retention/attribution the ledger doesn't model? | Only `USER_ENTERED` is live; no license terms have been tested against the ledger's storage model. | First licensed-source contract review (Decision F). |
+| **AD7** | Do identity **anchors live *in* the ledger** as projected fields with provenance (elegant reuse of the proven substrate), **or in a separate identity store**? | Ledger-as-anchor-store is elegant and reuses precedence/provenance — but it means identity matching runs on a *projected, possibly-changing* value. The trade-off is real and unproven. | 2c identity lock. |
+| **AD8** | Is the **proposal-only, human-confirmed** identity-change discipline (proven for Owner) right for Property, given parcels are *government-assigned unique keys* far stronger than person names? Could exact `(FIPS, APN)` justify deterministic auto-anchoring? | The Owner precedent is a hypothesis, not a template (B2). Over-applying "humans confirm every identity link" may add friction where a parcel id is objectively authoritative; under-applying it may collapse distinct assets. | 2c identity lock. |
+
+**Reading guide:** AD7 and AD8 are the two questions the **2c architecture lock resolves first** (they shape the whole identity model). AD1–AD6 are consciously **carried forward** — the 2c lock states an initial stance and a trigger for each, but does not force them closed without the evidence named above.
+
+---
+
 *Cross-references: design authority [Volume 12](../roadmap/COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md) · process [Engineering Playbook](./ENGINEERING_PLAYBOOK.md) · debt [Volume 7](../roadmap/TECHNICAL_DEBT.md) · release status [Volume 1.2 roadmap](../roadmap/VERSION_1_2.md).*
