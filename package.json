@@ -4,7 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "predeploy:check": "node scripts/predeploy-check.mjs",
+    "prebuild": "node scripts/predeploy-check.mjs",
     "build": "next build",
+    "prebuild:isolated": "NEXT_DIST_DIR=.next-isolated node scripts/predeploy-check.mjs",
     "build:isolated": "NEXT_DIST_DIR=.next-isolated next build",
     "start": "next start",
     "lint": "next lint",

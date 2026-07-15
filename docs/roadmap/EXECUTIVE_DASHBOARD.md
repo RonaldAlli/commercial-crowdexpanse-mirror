@@ -1,7 +1,7 @@
 # Volume 10 — Executive Dashboard
 
 > The single source of truth for "what state is each module in." Update this table whenever a module's status changes (part of the [Definition of Done](./ENGINEERING_MASTER_PLAN.md#definition-of-done)).
-> **Last reviewed:** 2026-07-14. Percentages are engineering-judgment estimates of scope-complete against that module's roadmap.
+> **Last reviewed:** 2026-07-15. Percentages are engineering-judgment estimates of scope-complete against that module's roadmap.
 
 ## Legend
 ✅ Complete · 🟢 Good (usable, minor gaps) · 🟡 Partial · 🔴 Planned
@@ -31,7 +31,7 @@
 | Testing & CI (cross-cutting) | ✅ Complete | 1.1 | 100% |
 | Backups & DR (cross-cutting, D4) | ✅ Complete (code+docs) | 1.1 | 100%¹ |
 | Deal Analyzer / Underwriting | 🟡 Partial | 1.3 | 35% |
-| Commercial Intelligence (Owner/Property/Market/Portfolio) | 🟡 In progress | 1.2 | 40% (**Slice 1 implementation complete** — foundation + Owner UI + linking + candidate review + refresh + merge/unmerge controls; Commit 1d-3b done, prod at 10 migrations). Merged/built/prod-DB-current, **not yet user-accessible** — awaiting frontend redeploy (D5) |
+| Commercial Intelligence (Owner/Property/Market/Portfolio) | 🟡 In progress | 1.2 | 40% (**Slice 1 complete, accepted, and LIVE in production** — foundation + Owner UI + linking + candidate review + refresh + merge/unmerge controls; Commit 1d-3b, prod at 10 migrations; frontend serving build `9555QJiLxh4O9PrlVp3UH`; [D5](./TECHNICAL_DEBT.md) resolved. [Acceptance record](../releases/V1_2_SLICE_1_ACCEPTANCE.md). Next: Slice 2) |
 | Closing Center | 🔴 Planned | 1.4 | 0% |
 | Automation & Campaigns | 🔴 Planned | 2.0 | 0% |
 | AI Layer | 🔴 Planned | 2.0 | 0% |
@@ -44,7 +44,7 @@
 |---|---|---|
 | 1.0 | Foundation | ✅ Shipped |
 | 1.1 | Operational Excellence | ✅ **Released — `v1.1.0`** (frozen on `release/1.1`). Testing/CI/lists + D4 backups + permissions Slices 1–2 + member lifecycle + invitation resend + org settings + email 3d-i/3d-ii + unit-test PQ-1 + lint-CI PQ-2 + perf PQ-3/PQ-4 all shipped — board p95 ~109→~43 ms; every path within budget. Password reset (3e) + relation search moved to 1.2. |
-| 1.2 | Commercial Intelligence | 🟡 In progress — architecture locked ([Volume 12](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md)); **Slice 1 implementation complete — final Commit 1d-3b merge/unmerge controls shipped** (1a/1a-2→1b→1c→1d-1→1d-2a→1d-2b→1d-3a→1d-3b; prod at 10 migrations). Slice 1 code merged/tested/built/prod-DB-current. ⚠️ Whole 1.2 UI **not yet user-accessible** — awaits frontend redeploy (root-owned `.next`, D5). Next: Slice 2 (Property Intelligence). |
+| 1.2 | Commercial Intelligence | 🟡 In progress — architecture locked ([Volume 12](./COMMERCIAL_INTELLIGENCE_ARCHITECTURE.md)); **Slice 1 complete, accepted, and LIVE in production** (1a/1a-2→1b→1c→1d-1→1d-2a→1d-2b→1d-3a→1d-3b; prod at 10 migrations; serving build `9555QJiLxh4O9PrlVp3UH`; D5 resolved; [acceptance record](../releases/V1_2_SLICE_1_ACCEPTANCE.md)). Next: Slice 2 (Property Intelligence). |
 | 1.3 | Commercial Underwriting | 🟡 Foundation (~35%) |
 | 1.4 | Closing Center | 🔴 Planned |
 | 2.0 | Automation & AI | 🔴 Planned |
