@@ -112,9 +112,11 @@ export async function updateDocument(id: string, _prev: DocumentFormState, formD
 
   const existing = await prisma.document.findFirst({
     where: { id, organizationId: user.organizationId },
-    select: { id: true, originalFilename: true },
+    select: { id: true, originalFilename: true, origin: true },
   });
   if (!existing) return { error: "Document not found." };
+  // Generated offer memos are immutable, append-only artifacts (OM-8/OM-I) — never edited.
+  if (existing.origin === "GENERATED") return { error: "Generated documents are immutable and cannot be edited." };
 
   const meta = await resolveMeta(formData, user.organizationId);
   if ("error" in meta) return { error: meta.error };
@@ -151,6 +153,11 @@ export async function deleteDocument(id: string) {
     where: { id, organizationId: user.organizationId },
   });
   if (!existing) {
+    redirect("/documents");
+  }
+  // Generated offer memos are immutable, append-only artifacts (OM-8/OM-I) — deletion
+  // of generated documents is deliberately not added in this slice.
+  if (existing.origin === "GENERATED") {
     redirect("/documents");
   }
 

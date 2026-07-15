@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import { decideUnderwriting } from "@/app/(workspace)/analyzer/actions";
+import { decideUnderwriting, generateOfferMemo } from "@/app/(workspace)/analyzer/actions";
 import { DecisionForm } from "@/components/decision-form";
 import { EmptyState } from "@/components/empty-state";
 import { Icon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { requireUser } from "@/lib/auth";
+import { listGeneratedMemos } from "@/lib/documents/offer-memo-service";
 import { can } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { titleCase } from "@/lib/property-options";
@@ -154,6 +155,13 @@ export default async function AnalysisViewPage({ params }: { params: { opportuni
   // headline DSCR / debt yield; all cases appear in the comparison card below.
   const cases = scenario.financingCases;
   const primary = cases[0]?.result ?? null;
+
+  // Offer memos are Documents-owned generated artifacts (OM-1). A LOCKED scenario
+  // with a primary financing case may generate one; the append-only history is shown.
+  const canGenerateMemo = can(user.role, "READ", "UNDERWRITING") && can(user.role, "CREATE", "DOCUMENT");
+  const generatedMemos =
+    scenario.status === "LOCKED" ? await listGeneratedMemos(user.organizationId, scenario.id) : [];
+  const memoEligible = scenario.status === "LOCKED" && primary != null;
   const capOf = (c: (typeof cases)[number], key: AssumptionKey): number | null => {
     const r = c.capitalAssumptions.find((x) => x.key === key);
     return r ? r.valueNumeric.toNumber() : null;
@@ -318,6 +326,51 @@ export default async function AnalysisViewPage({ params }: { params: { opportuni
               <DecisionForm action={decideUnderwriting.bind(null, opportunity.id, scenario.id)} />
             </div>
           ) : null}
+
+          <div className="mt-5 border-t border-slate-100 pt-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-slate-700">Offer memo</p>
+                <p className="mt-1 text-xs text-slate-400">
+                  A self-contained document generated from this locked scenario&apos;s settled results. Each memo is an
+                  immutable snapshot — later model changes never alter it; generating again appends a new version.
+                </p>
+              </div>
+              {canGenerateMemo && memoEligible ? (
+                <form action={generateOfferMemo.bind(null, opportunity.id, scenario.id)}>
+                  <button type="submit" className="btn-primary whitespace-nowrap">
+                    Generate offer memo
+                  </button>
+                </form>
+              ) : null}
+            </div>
+            {!memoEligible ? (
+              <p className="mt-3 text-xs text-slate-400">
+                A primary financing case with settled returns is required before a memo can be generated.
+              </p>
+            ) : generatedMemos.length > 0 ? (
+              <ul className="mt-3 space-y-2">
+                {generatedMemos.map((memo) => (
+                  <li key={memo.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 p-2.5">
+                    <span className="text-sm text-slate-700">
+                      Memo #{memo.generationSequence} · scenario v{memo.sourceScenarioVersion}
+                      <span className="ml-2 text-xs text-slate-400">{memo.generatedAt ? dateStr(memo.generatedAt) : ""}</span>
+                    </span>
+                    <span className="flex items-center gap-3">
+                      <span className="metric text-[11px] text-slate-400" title="SHA-256 of the stored document">
+                        {memo.contentSha256?.slice(0, 12)}
+                      </span>
+                      <Link className="btn-ghost" href={`/documents/${memo.id}/download`}>
+                        View
+                      </Link>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-sm text-slate-500">No memo generated yet.</p>
+            )}
+          </div>
         </article>
       ) : null}
 

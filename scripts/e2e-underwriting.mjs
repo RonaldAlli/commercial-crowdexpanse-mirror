@@ -28,9 +28,14 @@ import {
   rebuildFindings,
   getActiveScenarioResult,
   getScenarioComparison,
+  getScenarioForMemo,
   resolveScenarioAssumptions,
   backfillUnderwritingFromDealAnalysis,
 } from "../lib/underwriting.ts";
+import { generateOfferMemo, listGeneratedMemos } from "../lib/documents/offer-memo-service.ts";
+import { absolutePathFor, removeFile } from "../lib/storage.ts";
+import fs from "node:fs";
+import crypto from "node:crypto";
 
 const TAG = "e2e-underwriting";
 assertTestDatabase();
@@ -70,6 +75,8 @@ const mkOpp = (orgId, propertyId, title = "Deal") =>
   prisma.opportunity.create({ data: { organizationId: orgId, propertyId, title } });
 
 const orgIds = [];
+const memoKeys = []; // generated memo storage keys to remove on cleanup (files live on disk)
+const shaOf = (buf) => crypto.createHash("sha256").update(buf).digest("hex");
 try {
   const a = await prisma.organization.create({ data: { name: TAG, slug: `${TAG}-${process.pid}-a` } });
   orgIds.push(a.id);
@@ -520,8 +527,88 @@ try {
   assert(comp[0].result.noiAnnualUsd === v1Noi, "Principle 5: v1's metrics are unchanged by v2 — comparison never entangles them");
   assert(comp[0].financingCases.length === 1 && comp[1].financingCases.length === 1 && comp[1].financingCases[0].result != null, "each version surfaces its primary financing case + result");
   assert(comp[0].recommendation != null && comp[1].recommendation != null, "each version surfaces its own suggested recommendation");
+
+  console.log("\n[18] Offer-memo generation (a Documents-owned generated artifact — OM-1…OM-12):");
+  const mUser = await prisma.user.create({ data: { organizationId: a.id, name: "Gen User", email: `gen-${process.pid}@e2e.test`, hashedPassword: "x", role: "ANALYST" } });
+  const mProp = await createPropertyRecord(a.id, op({ name: "Memo Tower", unitCount: 24, estimatedValueUsd: 1_300_000 }), {});
+  const mOpp = await mkOpp(a.id, mProp.id, "Memo deal");
+  const { scenarioId: mScn } = await saveAnalyzerScenario(a.id, mOpp.id, [
+    { key: "PURCHASE_PRICE", value: 1_000_000 },
+    { key: "GROSS_INCOME", value: 130_000 },
+    { key: "OPERATING_EXPENSES", value: 30_000 },
+    { key: "HOLD_YEARS", value: 5 },
+    { key: "EXIT_CAP_RATE_PCT", value: 6.5 },
+  ], { financingCases: [{ label: "Senior debt", capital: [{ key: "LOAN_AMOUNT", value: 750_000 }, { key: "INTEREST_RATE", value: 6 }, { key: "AMORTIZATION_YEARS", value: 30 }] }] });
+
+  // OM-2 / OM-A: a DRAFT scenario cannot generate a memo (fail closed).
+  await throws(() => getScenarioForMemo(a.id, mScn), "OM-2: getScenarioForMemo rejects a DRAFT scenario");
+  await throws(() => generateOfferMemo(a.id, mScn, { id: "u", display: "U" }), "OM-2: generation is rejected on a DRAFT scenario");
+
+  await lockScenario(a.id, mScn);
+  const lockedScn = await prisma.underwritingScenario.findUnique({ where: { id: mScn } });
+
+  // OM-3: generation must NOT recompute — the settled result is untouched (xmin stable).
+  const beforeXmin = await xmin(mScn);
+  const memo1 = await generateOfferMemo(a.id, mScn, { id: mUser.id, display: mUser.name });
+  const doc1 = await prisma.document.findUnique({ where: { id: memo1.id } });
+  memoKeys.push(doc1.storageKey);
+  assert(await xmin(mScn) === beforeXmin, "OM-3: generation performs no calculation (scenario_results xmin unchanged)");
+
+  // OM-1 / OM-7: an immutable GENERATED Document, sequence 1.
+  assert(doc1.origin === "GENERATED" && doc1.documentType === "OFFER_MEMO", "OM-1: the memo is a GENERATED OFFER_MEMO document");
+  assert(doc1.generationSequence === 1, "OM-7: the first memo is generation sequence 1");
+  assert(doc1.mimeType === "text/html; charset=utf-8", "the memo is stored as self-contained HTML");
+
+  // OM-4: the canonical snapshot holds the persisted values it was built from.
+  const snap1 = doc1.contentSnapshot;
+  assert(snap1.scenario.scenarioVersion === lockedScn.scenarioVersion, "OM-4: snapshot captures the exact scenarioVersion");
+  assert(snap1.result.noiAnnualUsd === 100_000, "OM-4: snapshot NOI matches the persisted ScenarioResult (100k)");
+  assert(snap1.primaryCase.result.leveredIrrPct != null, "OM-4: snapshot carries the primary case's settled returns");
+  assert(doc1.scenarioVersionSnapshot === lockedScn.scenarioVersion, "OM-4: the row's scenarioVersion snapshot matches");
+
+  // OM-5 / OM-6: version stamps + a SHA-256 that matches the stored bytes.
+  assert(doc1.templateVersion === 1 && doc1.generatorVersion === 1 && doc1.snapshotSchemaVersion === 1, "OM-5: template/generator/schema versions recorded");
+  const bytes1 = fs.readFileSync(absolutePathFor(doc1.storageKey));
+  assert(shaOf(bytes1) === doc1.contentSha256, "OM-6: the stored file's SHA-256 matches the recorded hash");
+  assert(bytes1.toString("utf-8").startsWith("<!doctype html>"), "the stored artifact is a complete HTML document");
+  assert(!/https?:\/\//.test(bytes1.toString("utf-8")), "the stored artifact has no external URLs (self-contained)");
+
+  // OM-J: no decision yet → the snapshot says so explicitly.
+  assert(snap1.humanDecision === null && snap1.engineSuggestion != null, "OM-J: engine suggestion present, human decision null before any decision");
+
+  // OM-8 (later decision): recording a decision does NOT alter the earlier memo.
+  await recordUnderwritingDecision(a.id, mScn, { decision: "APPROVED", rationale: "Approved at committee", actorUserId: mUser.id });
+  const doc1After = await prisma.document.findUnique({ where: { id: memo1.id } });
+  assert(doc1After.contentSha256 === doc1.contentSha256, "OM-8: a later decision does not change the earlier memo (hash unchanged)");
+  assert(doc1After.contentSnapshot.humanDecision === null, "OM-8: the earlier memo's snapshot still shows no decision");
+  assert(shaOf(fs.readFileSync(absolutePathFor(doc1.storageKey))) === doc1.contentSha256, "OM-8: the earlier memo's stored bytes are unchanged");
+
+  // OM-7: regeneration appends sequence 2 and now includes the decision.
+  const memo2 = await generateOfferMemo(a.id, mScn, { id: mUser.id, display: mUser.name });
+  const doc2 = await prisma.document.findUnique({ where: { id: memo2.id } });
+  memoKeys.push(doc2.storageKey);
+  assert(doc2.generationSequence === 2, "OM-7: regeneration appends generation sequence 2");
+  assert(doc2.id !== doc1.id && doc2.storageKey !== doc1.storageKey, "OM-7: regeneration is a NEW row + NEW artifact, never an overwrite");
+  assert(doc2.contentSnapshot.humanDecision?.level === "APPROVED", "OM-J: the new memo captures the current human decision");
+  assert(doc2.decisionSequenceSnapshot === 1, "the new memo snapshots the decision sequence");
+  assert(doc1.contentSnapshot.generatedBy.display === "Gen User", "the generator's display name is resolved into the snapshot");
+  assert(doc2.contentSnapshot.humanDecision.actorDisplay === "Gen User", "the decision actor's display name is resolved into the snapshot");
+
+  // OM-8 (later version): superseding the scenario does NOT alter an existing memo.
+  await createNextVersion(a.id, mScn);
+  const doc1Final = await prisma.document.findUnique({ where: { id: memo1.id } });
+  assert(doc1Final.contentSha256 === doc1.contentSha256, "OM-8: creating a new scenario version leaves the earlier memo untouched");
+
+  // OM-7: the append-only history lists both memos, newest first.
+  const history = await listGeneratedMemos(a.id, mScn);
+  assert(history.length === 2 && history[0].generationSequence === 2 && history[1].generationSequence === 1, "OM-7: memo history is append-only, newest first");
+
+  // OM-12: cross-org access is rejected (org B cannot read or generate from org A's scenario).
+  await throws(() => getScenarioForMemo(b.id, mScn), "OM-12: cross-org getScenarioForMemo is rejected");
+  await throws(() => generateOfferMemo(b.id, mScn, { id: "x", display: "X" }), "OM-12: cross-org generation is rejected");
 } finally {
   console.log("\nCleaning up throwaway orgs (cascade)...");
+  for (const key of memoKeys) await removeFile(key).catch(() => {});
   for (const id of orgIds) await prisma.organization.delete({ where: { id } }).catch((e) => console.log(`  cleanup warn: ${e.message}`));
   await prisma.$disconnect();
 }

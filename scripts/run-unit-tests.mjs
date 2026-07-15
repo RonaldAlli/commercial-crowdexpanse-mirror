@@ -44,6 +44,9 @@ const CRITICAL = [
   "lib/underwriting/exit.ts",
   "lib/underwriting/sensitivity.ts",
   "lib/underwriting/findings.ts",
+  // Offer-memo generation — the pure snapshot assembler + deterministic HTML renderer
+  // (no Prisma/clock/randomness). Determinism + escaping are load-bearing (OM-F/OM-12).
+  "lib/documents/offer-memo.ts",
 ];
 const TRACKED = [
   ...CRITICAL,

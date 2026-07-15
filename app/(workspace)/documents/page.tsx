@@ -73,6 +73,11 @@ export default async function DocumentsPage() {
                       </td>
                       <td className="table-cell whitespace-nowrap">
                         <Badge tone="neutral">{documentTypeLabel(doc.documentType)}</Badge>
+                        {doc.origin === "GENERATED" ? (
+                          <span className="ml-1.5 inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 ring-1 ring-inset ring-emerald-200">
+                            Generated
+                          </span>
+                        ) : null}
                       </td>
                       <td className="table-cell whitespace-nowrap">
                         {link ? (
@@ -84,20 +89,32 @@ export default async function DocumentsPage() {
                         )}
                       </td>
                       <td className="table-cell metric whitespace-nowrap text-right text-slate-600">{formatBytes(doc.fileSizeBytes)}</td>
-                      <td className="table-cell whitespace-nowrap text-slate-600">{doc.uploader?.name ?? "—"}</td>
+                      <td className="table-cell whitespace-nowrap text-slate-600">
+                        {doc.uploader?.name ?? (doc.origin === "GENERATED" ? "Generated" : "—")}
+                      </td>
                       <td className="table-cell whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-1">
                           <a href={`/documents/${doc.id}/download?download=1`} className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700">
                             Download
                           </a>
-                          <Link href={`/documents/${doc.id}/edit`} className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700">
-                            Edit
-                          </Link>
-                          <form action={deleteDocumentBound}>
-                            <button type="submit" className="rounded-md px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50">
-                              Delete
-                            </button>
-                          </form>
+                          {doc.origin === "GENERATED" ? (
+                            // Generated memos are immutable, append-only artifacts (OM-8/OM-I) —
+                            // no metadata edit and no deletion in this slice.
+                            <span className="rounded-md px-2 py-1 text-xs font-medium text-slate-300" title="Generated memos are immutable">
+                              Immutable
+                            </span>
+                          ) : (
+                            <>
+                              <Link href={`/documents/${doc.id}/edit`} className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700">
+                                Edit
+                              </Link>
+                              <form action={deleteDocumentBound}>
+                                <button type="submit" className="rounded-md px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50">
+                                  Delete
+                                </button>
+                              </form>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

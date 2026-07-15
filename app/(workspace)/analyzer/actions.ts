@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";
-import { checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
+import { authorize, checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
+import { generateOfferMemo as generateOfferMemoDoc } from "@/lib/documents/offer-memo-service";
 import { prisma } from "@/lib/prisma";
 import { saveAnalyzerScenario, recordUnderwritingDecision, type FinancingCaseEntry } from "@/lib/underwriting";
 import type { AssumptionKey } from "@/lib/underwriting/assumptions";
@@ -74,6 +75,32 @@ export async function decideUnderwriting(
   revalidatePath(`/analyzer/${opportunityId}`);
   revalidatePath("/dashboard");
   redirect(`/analyzer/${opportunityId}`);
+}
+
+/**
+ * Generate an offer memo from a LOCKED scenario (v1.3, offer-memo). Crosses two
+ * protected domains, so it requires BOTH UNDERWRITING read (to see the model) and
+ * DOCUMENT write (to create the artifact) — never UNDERWRITING_APPROVAL (that governs
+ * DECIDING, not reporting; OM-K). The Documents service performs the fail-closed,
+ * failure-safe generation (OM-2/OM-L); on success we redirect to the memo's inline view.
+ */
+export async function generateOfferMemo(opportunityId: string, scenarioId: string) {
+  const user = await requireUser();
+  await authorize(user, "READ", "UNDERWRITING", { opportunityId });
+  await authorize(user, "CREATE", "DOCUMENT", { opportunityId });
+
+  // Scope the scenario to this opportunity's underwriting (org + anchor) before generating.
+  const scenario = await prisma.underwritingScenario.findFirst({
+    where: { id: scenarioId, organizationId: user.organizationId, underwriting: { opportunityId } },
+    select: { id: true },
+  });
+  if (!scenario) redirect(`/analyzer/${opportunityId}`);
+
+  const memo = await generateOfferMemoDoc(user.organizationId, scenarioId, { id: user.id, display: user.name });
+
+  revalidatePath(`/analyzer/${opportunityId}`);
+  revalidatePath("/documents");
+  redirect(`/documents/${memo.id}/download`);
 }
 
 function intOrNull(raw: string) {

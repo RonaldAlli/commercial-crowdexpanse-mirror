@@ -959,6 +959,47 @@ export async function getScenarioComparison(organizationId: string, opportunityI
   });
 }
 
+/**
+ * Narrow, read-only bundle for offer-memo generation (v1.3, offer-memo). This is the
+ * SOLE seam the Documents module reads through (OM-2/OM-3/OM-10): it returns already-
+ * persisted, settled rows and performs NO calculation or rebuild. It fails closed
+ * (OM-A/OM-B) unless the scenario is currently LOCKED, belongs to the org, and carries
+ * a settled operating result plus a primary FinancingCase with its own result. This
+ * module imports nothing from Documents — the dependency is strictly one-way.
+ */
+export type ScenarioMemoBundle = NonNullable<Awaited<ReturnType<typeof getScenarioForMemo>>>;
+
+export async function getScenarioForMemo(organizationId: string, scenarioId: string) {
+  const scenario = await prisma.underwritingScenario.findFirst({
+    where: { id: scenarioId, organizationId },
+    include: {
+      result: true,
+      assumptions: true,
+      findings: { orderBy: { position: "asc" } },
+      recommendation: true,
+      decisions: { orderBy: { sequence: "desc" }, take: 1 },
+      financingCases: {
+        orderBy: { position: "asc" },
+        take: 1,
+        include: { result: true, capitalAssumptions: true },
+      },
+    },
+  });
+  if (!scenario) throw new Error("Scenario not found"); // includes cross-org (findFirst is org-scoped)
+  if (scenario.status !== "LOCKED") throw new Error("An offer memo can only be generated from a LOCKED scenario"); // OM-2
+  if (!scenario.result) throw new Error("Cannot generate an offer memo: the scenario has no settled result");
+  const primaryCase = scenario.financingCases[0];
+  if (!primaryCase || !primaryCase.result) {
+    throw new Error("Cannot generate an offer memo: the scenario has no primary financing case with a settled result");
+  }
+  const underwriting = await prisma.underwriting.findUniqueOrThrow({ where: { id: scenario.underwritingId } });
+  const opportunity = await prisma.opportunity.findFirstOrThrow({
+    where: { id: underwriting.opportunityId, organizationId },
+    include: { property: true },
+  });
+  return { scenario, primaryCase, opportunity, property: opportunity.property };
+}
+
 /** DRAFT → LOCKED: freeze the scenario after ensuring its fingerprint + result are current. */
 export async function lockScenario(organizationId: string, scenarioId: string, opts: { actorUserId?: string } = {}) {
   return prisma.$transaction(async (tx) => {

@@ -54,6 +54,16 @@ enum DocumentType {
   OTHER
 }
 
+// How a Document came to exist (v1.3, offer-memo generation). UPLOADED = a human
+// uploaded file (the only origin before this slice). GENERATED = produced by the
+// app from settled underwriting data (an offer memo). The discriminator is explicit
+// so a generated artifact is never mistaken for an upload — see the Offer-Memo
+// Architecture Lock (OM-G).
+enum DocumentOrigin {
+  UPLOADED
+  GENERATED
+}
+
 enum MatchStatus {
   NEW
   REVIEWING
@@ -940,9 +950,9 @@ model UnderwritingAssumption {
 }
 
 model ScenarioResult {
-  id                   String                @id @default(cuid())
+  id                   String               @id @default(cuid())
   organizationId       String
-  scenarioId           String                @unique
+  scenarioId           String               @unique
   // The scenarioVersion this result was derived from (staleness detection).
   scenarioVersion      String
   calcLibVersion       Int
@@ -993,23 +1003,23 @@ model ScenarioLineItem {
 // seller-financing, mezzanine, or preferred-equity alternatives can be compared
 // side by side without touching the operating model.
 model FinancingCase {
-  id                 String                @id @default(cuid())
-  organizationId     String
-  scenarioId         String
-  label              String
-  position           Int
-  source             AssumptionSource
+  id                   String                @id @default(cuid())
+  organizationId       String
+  scenarioId           String
+  label                String
+  position             Int
+  source               AssumptionSource
   // Deterministic per-case fingerprint (CF-3): sha256(operating scenarioVersion +
   // sorted capital assumptions + model lineage). Each case is independently
   // reproducible and independently comparable.
   financingCaseVersion String
-  createdAt          DateTime              @default(now())
-  scenario           UnderwritingScenario  @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
-  capitalAssumptions FinancingAssumption[]
-  result             FinancingCaseResult?
-  cashFlow           CashFlowYear[]
-  equityCashFlow     EquityCashFlowYear[]
-  sensitivity        SensitivityAnalysis?
+  createdAt            DateTime              @default(now())
+  scenario             UnderwritingScenario  @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  capitalAssumptions   FinancingAssumption[]
+  result               FinancingCaseResult?
+  cashFlow             CashFlowYear[]
+  equityCashFlow       EquityCashFlowYear[]
+  sensitivity          SensitivityAnalysis?
 
   @@index([organizationId])
   @@index([scenarioId])
@@ -1019,7 +1029,7 @@ model FinancingCase {
 // A capital input owned by a FinancingCase (CF-1). Mirrors UnderwritingAssumption
 // exactly, but scoped to the capital structure rather than the operating Scenario.
 model FinancingAssumption {
-  id              String        @id @default(cuid())
+  id              String           @id @default(cuid())
   organizationId  String
   financingCaseId String
   key             AssumptionKey
@@ -1027,8 +1037,8 @@ model FinancingAssumption {
   source          AssumptionSource
   sourceField     String?
   sourceAsOf      DateTime?
-  createdAt       DateTime      @default(now())
-  financingCase   FinancingCase @relation(fields: [financingCaseId], references: [id], onDelete: Cascade)
+  createdAt       DateTime         @default(now())
+  financingCase   FinancingCase    @relation(fields: [financingCaseId], references: [id], onDelete: Cascade)
 
   @@unique([financingCaseId, key])
   @@index([organizationId])
@@ -1039,42 +1049,42 @@ model FinancingAssumption {
 // ScenarioResult per CF-2). Derived, cached, content-idempotent, rebuildable —
 // 1:1 with a FinancingCase.
 model FinancingCaseResult {
-  id                   String                @id @default(cuid())
-  organizationId       String
-  financingCaseId      String                @unique
-  financingCaseVersion String
-  calcLibVersion       Int
+  id                    String                @id @default(cuid())
+  organizationId        String
+  financingCaseId       String                @unique
+  financingCaseVersion  String
+  calcLibVersion        Int
   // Debt service on the case's amortizing loan (Float — a 2-decimal payment).
-  annualDebtServiceUsd Float?
-  dscr                 Float?
-  debtYieldPct         Float?
+  annualDebtServiceUsd  Float?
+  dscr                  Float?
+  debtYieldPct          Float?
   // Debt sizing (relocated from 3b-i): the loan the case's constraints permit.
-  loanByLtvUsd         Int?
-  loanByLtcUsd         Int?
-  loanByDscrUsd        Int?
-  sizedLoanUsd         Int?
-  bindingConstraint    DebtSizingConstraint?
+  loanByLtvUsd          Int?
+  loanByLtcUsd          Int?
+  loanByDscrUsd         Int?
+  sizedLoanUsd          Int?
+  bindingConstraint     DebtSizingConstraint?
   // Multi-year operating cash-flow aggregates for this case. cumulativeCashFlowUsd
   // is the cumulative operating equity cash flow (levered CF before tax over the hold).
-  projectionYears      Int?
-  avgDscr              Float?
+  projectionYears       Int?
+  avgDscr               Float?
   cumulativeCashFlowUsd Int?
   // Exit valuation + returns (v1.3, Commit 3b-iv). Null when no exit is modeled (no
   // hold period or no exit cap rate). The EX-2 set is fully persisted so the terminal
   // value is independently reproducible; returns are pure functions of the equity
   // cash-flow series (EX-4). All operating cash flow only — no tax/refinance/promote.
-  terminalNoiUsd       Float?
-  exitCapRatePct       Float?
-  sellingCostsPct      Float?
-  grossExitValueUsd    Float?
-  sellingCostsUsd      Float?
-  debtPayoffUsd        Float?
-  netSaleProceedsUsd   Float?
-  contributedEquityUsd Float?
-  equityMultiple       Float?
-  leveredIrrPct        Float?
-  totalProfitUsd       Float?
-  financingCase        FinancingCase         @relation(fields: [financingCaseId], references: [id], onDelete: Cascade)
+  terminalNoiUsd        Float?
+  exitCapRatePct        Float?
+  sellingCostsPct       Float?
+  grossExitValueUsd     Float?
+  sellingCostsUsd       Float?
+  debtPayoffUsd         Float?
+  netSaleProceedsUsd    Float?
+  contributedEquityUsd  Float?
+  equityMultiple        Float?
+  leveredIrrPct         Float?
+  totalProfitUsd        Float?
+  financingCase         FinancingCase         @relation(fields: [financingCaseId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
   @@map("financing_case_results")
@@ -1095,22 +1105,22 @@ enum UnderwritingDecisionLevel {
 }
 
 model UnderwritingDecision {
-  id                       String                    @id @default(cuid())
-  organizationId           String
-  scenarioId               String
-  underwritingId           String // denormalized for scoping (set at record time)
+  id              String                    @id @default(cuid())
+  organizationId  String
+  scenarioId      String
+  underwritingId  String // denormalized for scoping (set at record time)
   // Per-scenario monotonic order; the highest sequence is the current decision.
-  sequence                 Int
-  decision                 UnderwritingDecisionLevel
-  rationale                String
+  sequence        Int
+  decision        UnderwritingDecisionLevel
+  rationale       String
   // Immutable snapshot the human reviewed (AP-6) — read from the scenario/recommendation,
   // never recomputed here.
-  scenarioVersion          String
-  findingsVersion          String?
-  suggestedLevel           RecommendationLevel? // the engine's suggestion at decision time (for contrast)
-  actorUserId              String
-  createdAt                DateTime                  @default(now())
-  scenario                 UnderwritingScenario      @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  scenarioVersion String
+  findingsVersion String?
+  suggestedLevel  RecommendationLevel? // the engine's suggestion at decision time (for contrast)
+  actorUserId     String
+  createdAt       DateTime                  @default(now())
+  scenario        UnderwritingScenario      @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
 
   @@unique([scenarioId, sequence])
   @@index([organizationId])
@@ -1198,27 +1208,27 @@ enum SensitivityMetric {
 }
 
 model SensitivityAnalysis {
-  id                   String            @id @default(cuid())
-  organizationId       String
-  financingCaseId      String            @unique
-  targetMetric         SensitivityMetric
+  id                 String            @id @default(cuid())
+  organizationId     String
+  financingCaseId    String            @unique
+  targetMetric       SensitivityMetric
   // X axis (required). An assumption key from the fixed allow-list + a deterministic
   // evenly-spaced range (SE-5). Steps 1..11; the full matrix is capped at 121 cells.
-  xKey                 AssumptionKey
-  xMin                 Float
-  xMax                 Float
-  xSteps               Int
+  xKey               AssumptionKey
+  xMin               Float
+  xMax               Float
+  xSteps             Int
   // Y axis (optional — absent ⇒ a one-axis/degenerate analysis).
-  yKey                 AssumptionKey?
-  yMin                 Float?
-  yMax                 Float?
-  ySteps               Int?
+  yKey               AssumptionKey?
+  yMin               Float?
+  yMax               Float?
+  ySteps             Int?
   // Fingerprint = f(financingCaseVersion, canonical spec, lineage).
-  sensitivityVersion   String
-  calcLibVersion       Int
-  createdAt            DateTime          @default(now())
-  financingCase        FinancingCase     @relation(fields: [financingCaseId], references: [id], onDelete: Cascade)
-  cells                SensitivityCell[]
+  sensitivityVersion String
+  calcLibVersion     Int
+  createdAt          DateTime          @default(now())
+  financingCase      FinancingCase     @relation(fields: [financingCaseId], references: [id], onDelete: Cascade)
+  cells              SensitivityCell[]
 
   @@index([organizationId])
   @@map("sensitivity_analyses")
@@ -1325,28 +1335,50 @@ model Note {
 }
 
 model Document {
-  id               String       @id @default(cuid())
-  organizationId   String
-  opportunityId    String?
-  propertyId       String?
-  sellerId         String?
-  buyerId          String?
-  uploaderId       String?
-  title            String
-  documentType     DocumentType
-  storageKey       String
-  originalFilename String?
-  mimeType         String?
-  fileSizeBytes    Int?
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  opportunity      Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
-  property         Property?    @relation(fields: [propertyId], references: [id], onDelete: SetNull)
-  seller           Seller?      @relation(fields: [sellerId], references: [id], onDelete: SetNull)
-  buyer            Buyer?       @relation(fields: [buyerId], references: [id], onDelete: SetNull)
-  uploader         User?        @relation(fields: [uploaderId], references: [id], onDelete: SetNull)
+  id                       String         @id @default(cuid())
+  organizationId           String
+  opportunityId            String?
+  propertyId               String?
+  sellerId                 String?
+  buyerId                  String?
+  uploaderId               String?
+  title                    String
+  documentType             DocumentType
+  storageKey               String
+  originalFilename         String?
+  mimeType                 String?
+  fileSizeBytes            Int?
+  // Provenance discriminator (v1.3, offer-memo generation). Existing rows and every
+  // human upload are UPLOADED; an offer memo produced from a model is GENERATED.
+  origin                   DocumentOrigin @default(UPLOADED)
+  // Generation provenance (OM-G) — NULL for UPLOADED documents; the service enforces
+  // that a GENERATED offer memo carries the complete set. A generated memo is an
+  // immutable, append-only artifact (OM-H): these snapshot exactly what it was built
+  // from and are never mutated after creation.
+  sourceScenarioId         String? // the LOCKED scenario the memo was generated from
+  sourceScenarioVersion    Int? // that scenario's human version number (v1, v2, …)
+  scenarioVersionSnapshot  String? // the scenario fingerprint at generation (OM-4)
+  findingsVersionSnapshot  String? // the findings fingerprint at generation, if any
+  decisionIdSnapshot       String? // the current decision captured, if one existed
+  decisionSequenceSnapshot Int? // that decision's per-scenario sequence
+  templateVersion          Int? // OFFER_MEMO_TEMPLATE_VERSION (OM-5)
+  generatorVersion         Int? // OFFER_MEMO_GENERATOR_VERSION (OM-5)
+  snapshotSchemaVersion    Int? // OFFER_MEMO_SNAPSHOT_SCHEMA_VERSION (OM-5)
+  contentSnapshot          Json? // the canonical source snapshot the renderer consumed (OM-4)
+  contentSha256            String? // SHA-256 of the final stored bytes — historical evidence (OM-6)
+  generatedById            String? // the user who generated it (scalar, mirrors decision.actorUserId)
+  generatedAt              DateTime? // generation timestamp captured into the snapshot
+  generationSequence       Int? // monotonic per (sourceScenarioId, documentType) — append-only (OM-7)
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+  organization             Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity              Opportunity?   @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  property                 Property?      @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  seller                   Seller?        @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  buyer                    Buyer?         @relation(fields: [buyerId], references: [id], onDelete: SetNull)
+  uploader                 User?          @relation(fields: [uploaderId], references: [id], onDelete: SetNull)
 
+  @@unique([sourceScenarioId, documentType, generationSequence])
   @@index([organizationId])
   @@map("documents")
 }
