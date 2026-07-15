@@ -53,6 +53,14 @@ Seven intelligence slices, spine-first ([Volume 12 §9](./COMMERCIAL_INTELLIGENC
 - **Commit 1d-3b is complete — merge is the only workflow permitted to perform structural identity change, and it is atomic with decision resolution.**
 - 🎉 **Slice 1 implementation is complete** (1a/1a-2 → 1b-1/1b-2 → 1c → 1d-1 → 1d-2a → 1d-2b → 1d-3a → 1d-3b). Code merged, tested, built, and production-database-current. **Not yet user-accessible** pending the D5 frontend redeploy.
 
+### Slice 1 production closure (pending — gated on D5)
+Slice 1 is **implementation-complete** but **not yet production-closed**. It is closed only after the frontend is actually serving the new build and verified. Do **not** begin Slice 2 (Property Intelligence) architecture-lock until this sequence completes:
+1. **Resolve [D5](./TECHNICAL_DEBT.md)** — operator deploys the current build to the PM2 instance (chown `.next` + rebuild + `pm2 restart`, or repoint PM2 to `.next-isolated`).
+2. **Verify the live UI** as an **ADMIN** (owners, candidates, `/owners/merges`, refresh) and as a **non-ADMIN** (merge workspace denied).
+3. **Create the acceptance record** `docs/releases/V1_2_SLICE_1_ACCEPTANCE.md` — the formal production sign-off (architecture approved · code merged · tests passed · production migration complete · documentation synchronized · frontend deployed · PM2 verified · ADMIN + non-ADMIN user acceptance verified · slice officially closed). This answers *"what constitutes a successful production release?"* — distinct from the [retrospective](./SLICE_1_RETROSPECTIVE.md)'s *"what did we learn?"*
+4. **Mark Slice 1 fully closed** (this doc + Dashboard).
+5. **Only then** begin the Slice 2 architecture lock.
+
 ## Architecture notes
 - New data lands as **structured columns + a provenance ledger**, org-scoped, additive (no breaking changes to core records).
 - **Deterministic enrichment only** (imports, joins, calculations). Any inference is out of scope until 2.0.
