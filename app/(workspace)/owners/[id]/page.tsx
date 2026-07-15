@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Icon } from "@/components/icons";
-import { OwnerProvenance } from "@/components/owner-provenance";
+import { FieldProvenanceCard } from "@/components/field-provenance";
 import { OwnerRefreshForm } from "@/components/owner-refresh-form";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -68,14 +68,14 @@ export default async function OwnerDetailPage({ params }: { params: { id: string
 
       {/* Projected fields with provenance: Projected Value → Winning Signal → Signal History. */}
       <div className="grid gap-4 sm:grid-cols-2">
-        <OwnerProvenance
+        <FieldProvenanceCard
           fieldLabel="Owner name"
           projectedValue={owner.displayName}
           provenance={nameProv}
           canWrite={canWrite}
           clearAction={canWrite ? clearOverrideAction.bind(null, owner.id, "displayName") : undefined}
         />
-        <OwnerProvenance
+        <FieldProvenanceCard
           fieldLabel="Entity type"
           projectedValue={owner.entityType}
           provenance={typeProv}

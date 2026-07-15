@@ -13,6 +13,8 @@ import { createOwner } from "../lib/owners.ts";
 import { propertyManualAdapter, PROPERTY_MANUAL_ADAPTER_VERSION } from "../lib/intelligence/sources/property-manual-adapter.ts";
 import { manualAdapter } from "../lib/intelligence/sources/manual-adapter.ts";
 import { runRefresh } from "../lib/intelligence/refresh.ts";
+import { rebuildProperty } from "../lib/intelligence/property-projection.ts";
+import { listRefreshJobsForEntity } from "../lib/refresh-jobs.ts";
 
 const TAG = "e2e-property-refresh";
 assertTestDatabase();
@@ -74,6 +76,22 @@ try {
   assert((await prisma.intelligenceSignal.count({ where: { entityId: owner.id, entityType: "PROPERTY" } })) === 0, "no PROPERTY-typed signal exists on the owner");
   assert((await prisma.refreshJob.count({ where: { targetEntityId: p.id, targetEntityType: "OWNER" } })) === 0, "no OWNER-typed refresh job targets the property");
   assert((await prisma.refreshJob.count({ where: { targetEntityId: owner.id, targetEntityType: "PROPERTY" } })) === 0, "no PROPERTY-typed refresh job targets the owner");
+
+  console.log("\n[6] 2b detail-page surface — history query, out-of-range rejection, refresh→reconstruction:");
+  // (a) The exact history the Property detail page renders: newest-first, source-stamped.
+  const hist = await listRefreshJobsForEntity(a.id, "PROPERTY", p.id);
+  assert(hist.length > 0 && hist[0].sourceKey === "manual:property", "refresh history lists newest-first via manual:property");
+  assert(hist.some((j) => j.id === job1.id), "the accepted refresh job appears in the entity history");
+  // (b) An out-of-range year (the client min/max boundary) is rejected by normalization,
+  //     so the run FAILS with a reason — never a silent projection change.
+  const oor = await runRefresh(a.id, propertyManualAdapter, pInput(p.id, [{ fieldKey: "yearBuilt", value: "1500" }], { requestKey: "oor-1" }));
+  assert(oor.status === "FAILED" && /1600 and 2100|rejected/.test(oor.error ?? ""), "out-of-range yearBuilt (1500) → FAILED with a range reason");
+  assert((await pcol(p.id)).yearBuilt === 2001, "projection unchanged by the rejected out-of-range run");
+  // (c) A refresh-driven signal reconstructs byte-for-byte (refresh shares the ledger write path).
+  const liveP = await pcol(p.id);
+  await prisma.property.update({ where: { id: p.id }, data: { yearBuilt: 1, squareFeet: 1 } });
+  await rebuildProperty(a.id, p.id);
+  assert(JSON.stringify(await pcol(p.id)) === JSON.stringify(liveP), "refresh-driven projection reconstructs from the ledger");
 } finally {
   console.log("\nCleaning up throwaway orgs (cascade)...");
   for (const id of orgIds) {

@@ -1,10 +1,16 @@
 import { Badge } from "@/components/ui/badge";
 
-// Per-field provenance display (v1.2, Commit 1d-1). Presentation mirrors the
-// architecture — Projected Value → Winning Signal → Signal History (Projection →
-// Signal → Observation). Pure consumer: it reads projected values + the ledger
-// read API (getFieldProvenance); it never influences them (Projection ≠
-// Presentation). No client state — every render reflects the current ledger.
+// Per-field provenance display (v1.2). Presentation mirrors the architecture —
+// Projected Value → Winning Signal → Signal History (Projection → Signal →
+// Observation). Pure consumer: it reads projected values + the ledger read API
+// (getFieldProvenance); it never influences them (Projection ≠ Presentation). No
+// client state — every render reflects the current ledger.
+//
+// Entity-agnostic by construction: nothing here references a specific entity. It
+// was generalized from the Owner-only component once Property became a second real
+// consumer (v1.2 Commit 2b) — see the Engineering Playbook rule "generalize only
+// after a second real consumer exists". Both Owner and Property detail pages render
+// it; the field label + values are props.
 
 type AcceptedSignal = {
   value: string;
@@ -28,7 +34,7 @@ function fmtDate(d: Date) {
   return new Date(d).toISOString().slice(0, 10);
 }
 
-export function OwnerProvenance({
+export function FieldProvenanceCard({
   fieldLabel,
   projectedValue,
   provenance,
