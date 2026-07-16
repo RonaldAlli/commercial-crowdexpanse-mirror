@@ -1,7 +1,7 @@
 # ADR-0004 — Schedule-triggered in 2.0.1; defer the transactional outbox to 2.0.2
 
 **Status:** Decision **accepted** within the FOUNDER RATIFIED Automation architecture
-(2026-07-16). **Implementation PENDING FOUNDER APPROVAL FOR IMPLEMENTATION** (Phase 2.0.1).
+(2026-07-16). **Implementation FOUNDER APPROVED FOR IMPLEMENTATION** (Phase 2.0.1).
 
 ## Context
 

@@ -1,7 +1,7 @@
 # ADR-0002 — A dedicated `crowdexpanse-automation` PM2 process
 
 **Status:** Decision **accepted** within the FOUNDER RATIFIED Automation architecture
-(2026-07-16). **Implementation PENDING FOUNDER APPROVAL FOR IMPLEMENTATION** (Phase 2.0.1).
+(2026-07-16). **Implementation FOUNDER APPROVED FOR IMPLEMENTATION** (Phase 2.0.1).
 
 ## Context
 

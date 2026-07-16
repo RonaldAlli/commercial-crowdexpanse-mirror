@@ -1,6 +1,6 @@
 # Version 2.0 · Phase 2.0.1 — Test Plan
 
-> **Status: PENDING FOUNDER APPROVAL FOR IMPLEMENTATION.** This is a planning document only.
+> **Status: FOUNDER APPROVED FOR IMPLEMENTATION** (approved 2026-07-16 · Founder: Ronald Delroy Anthony Allicock). This is the test plan for the approved implementation.
 > **No test code, implementation code, schema change, migration, feature branch, or
 > production change has been created.** Nothing here runs until the Founder approves the
 > phase. All commands below are for the future authorized build.
@@ -194,4 +194,4 @@ Formal pass/fail wiring of these into the phase's Definition of Done lives in th
 
 ---
 
-*End of Phase 2.0.1 Test Plan — PENDING FOUNDER APPROVAL FOR IMPLEMENTATION.*
+*End of Phase 2.0.1 Test Plan — FOUNDER APPROVED FOR IMPLEMENTATION.*

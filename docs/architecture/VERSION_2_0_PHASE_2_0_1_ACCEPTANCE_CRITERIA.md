@@ -1,6 +1,6 @@
 # Version 2.0 · Phase 2.0.1 — Acceptance Criteria
 
-> **Status: PENDING FOUNDER APPROVAL FOR IMPLEMENTATION.** These criteria define what
+> **Status: FOUNDER APPROVED FOR IMPLEMENTATION** (approved 2026-07-16 · Founder: Ronald Delroy Anthony Allicock). These criteria define what
 > "done" means for the phase *when it is authorized to build*. They are not yet satisfied and
 > nothing has been implemented.
 >
@@ -82,4 +82,4 @@ All of AC-1…AC-31 pass **and**:
 
 ---
 
-*End of Phase 2.0.1 Acceptance Criteria — PENDING FOUNDER APPROVAL FOR IMPLEMENTATION.*
+*End of Phase 2.0.1 Acceptance Criteria — FOUNDER APPROVED FOR IMPLEMENTATION.*

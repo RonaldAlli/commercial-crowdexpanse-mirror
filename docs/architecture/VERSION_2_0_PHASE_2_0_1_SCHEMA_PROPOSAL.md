@@ -1,6 +1,6 @@
 # Version 2.0 · Phase 2.0.1 — Schema Proposal
 
-> **Status: PENDING FOUNDER APPROVAL FOR IMPLEMENTATION.** Proposed Prisma schema only.
+> **Status: FOUNDER APPROVED FOR IMPLEMENTATION** (approved 2026-07-16 · Founder: Ronald Delroy Anthony Allicock). Proposed Prisma schema — authored on a feature branch, not yet applied to production.
 > **No schema has been changed; no migration has been generated; no `prisma migrate` command
 > has been run.** The Prisma blocks below are illustrative of the intended shape, to be
 > authored exactly only after approval. Prod remains at **26 migrations**; this proposes the
@@ -289,4 +289,4 @@ TX-A/TL-9/LB-8) because they are on the automation process's hot polling path fr
 
 ---
 
-*End of Phase 2.0.1 Schema Proposal — PENDING FOUNDER APPROVAL FOR IMPLEMENTATION.*
+*End of Phase 2.0.1 Schema Proposal — FOUNDER APPROVED FOR IMPLEMENTATION.*

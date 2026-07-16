@@ -4,7 +4,7 @@
 > The **decisions** sit within the **FOUNDER RATIFIED** [Automation Architecture
 > Lock](../AUTOMATION_ARCHITECTURE_LOCK.md) (2026-07-16, invariants AU-1…AU-13). The
 > **Phase 2.0.1 implementation** they inform is
-> **PENDING FOUNDER APPROVAL FOR IMPLEMENTATION** — nothing here authorizes code, schema,
+> **FOUNDER APPROVED FOR IMPLEMENTATION** — nothing here authorizes code, schema,
 > migration, or production change.
 >
 > Governed by the [Phase 2.0.1 Implementation Plan](../VERSION_2_0_PHASE_2_0_1_IMPLEMENTATION_PLAN.md)

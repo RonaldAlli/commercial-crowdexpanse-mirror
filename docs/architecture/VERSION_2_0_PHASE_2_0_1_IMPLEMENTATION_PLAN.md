@@ -1,7 +1,11 @@
 # Version 2.0 · Phase 2.0.1 — Automation Foundation, Job Execution & Audit
 ## Repository-Grounded Implementation Plan
 
-> **Status: PENDING FOUNDER APPROVAL FOR IMPLEMENTATION.** This is a planning document
+> **Status: FOUNDER APPROVED FOR IMPLEMENTATION** — approved **2026-07-16** by **Founder:
+> Ronald Delroy Anthony Allicock**. Implementation is authorized on a dedicated feature branch
+> (`feature/v2.0.1-automation-foundation`) per this plan; it does **not** authorize merge to
+> `main`, production deploy, applying migration 27 to production, or starting the automation
+> process in production — those remain gated on separate Founder acceptance. This is a planning document
 > only. **No implementation code, no Prisma schema change, no migration, no feature branch,
 > no production change, no new package, no worker/queue/scheduler/service/policy/UI** has been
 > created. Nothing here is authorized to build until the Founder approves this package.
@@ -514,4 +518,4 @@ runs until Founder approval.**
 
 ---
 
-*End of Phase 2.0.1 Implementation Plan — PENDING FOUNDER APPROVAL FOR IMPLEMENTATION.*
+*End of Phase 2.0.1 Implementation Plan — FOUNDER APPROVED FOR IMPLEMENTATION.*
