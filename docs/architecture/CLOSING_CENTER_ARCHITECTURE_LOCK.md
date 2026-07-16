@@ -425,6 +425,8 @@ Opportunity ──1:1── AssignmentRecord
 - **LB-10 — Bounded query contract.** Bounded by the existing page size (20). **No** pagination removal, per-row service/DB calls, N+1, `ActivityLog` fetch, or document/snapshot payloads — only the minimal Closing selects.
 - **LB-11 — Navigation ownership.** The cluster links to the Opportunity detail / Closing Center anchor and nothing more — **no** inline actions, transitions, waivers, terminal resolutions, or document generation. The list stays a summary surface.
 - **LB-12 — Graceful projection.** Missing Checklist / Escrow / Financing / Assignment data must never break or remove an Opportunity row.
+- **LB-13 — Badge stability.** The badge cluster never changes **height** as a status appears or disappears — it stays on a single reserved row (`flex-nowrap` + `min-h`), so rows never jump while closing progresses; extra width is absorbed by the table's existing horizontal scroll, never by growing the row.
+- **LB-14 — Projection completeness.** **Every** rendered badge — including the readiness chip's label + tone (`Ready` / `N blockers` / `Closing not started`) — is produced by `projectClosingBadges`; the UI renders it verbatim and **never knows more than the projection** (no status/label/tone derived in the component), preventing later divergence.
 
 **Recorded explicitly (Slice 7 introduces NONE of these):** no new persistence · **no migration** · **no index** · **no new service** · **no new RBAC** · **no `ActivityLog` query** · **no Board change** · no inline mutation · no duplicated Closing calculation (TX-6) · no new filters/sort keys · no read-through into the frozen V1.3 underwriting engine · no weakening/bypass of the PAID + readiness gate · no dependency change.
 

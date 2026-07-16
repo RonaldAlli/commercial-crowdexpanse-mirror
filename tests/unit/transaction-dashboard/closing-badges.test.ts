@@ -71,6 +71,25 @@ test("readiness equals the authoritative closingProgress/blockingItems (no forke
   assert.equal(b.readiness?.blockerCount, blockingItems(items).length);
 });
 
+// --- LB-14: the readiness chip (label + tone) is produced by the projection, not the UI --------
+
+test("the closing chip carries label + tone for every readiness state", () => {
+  // Not started → neutral "Closing not started".
+  assert.deepEqual(projectClosingBadges(input({ stage: "UNDER_CONTRACT", checklistItems: null })).closing, {
+    label: "Closing not started",
+    tone: "neutral",
+  });
+  // Ready → success "Ready".
+  assert.deepEqual(projectClosingBadges(input({ checklistItems: [req("COMPLETE")] })).closing, { label: "Ready", tone: "success" });
+  // One blocker → danger, singular.
+  assert.deepEqual(projectClosingBadges(input({ checklistItems: [req("PENDING")] })).closing, { label: "1 blocker", tone: "danger" });
+  // Multiple blockers → danger, plural.
+  assert.deepEqual(projectClosingBadges(input({ checklistItems: [req("PENDING"), req("PENDING"), req("PENDING")] })).closing, {
+    label: "3 blockers",
+    tone: "danger",
+  });
+});
+
 // --- domain chips (present / absent / labels + tones) -----------------------------------------
 
 test("present domain records project labeled + toned chips", () => {

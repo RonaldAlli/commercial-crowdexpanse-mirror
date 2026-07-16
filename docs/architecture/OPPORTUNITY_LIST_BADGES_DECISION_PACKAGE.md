@@ -10,9 +10,10 @@
 > Closing is relevant**. **Display rules:** early-stage Opportunities with no Closing
 > activity stay visually quiet (no cluster, no row of "Not started" badges); an
 > Opportunity **at or beyond `UNDER_CONTRACT` without a checklist** shows a concise
-> **"Closing not started"**. Founder added four invariants — **LB-9 Stage-aware
+> **"Closing not started"**. Founder added four invariants at ratification — **LB-9 Stage-aware
 > visibility, LB-10 Bounded query contract, LB-11 Navigation ownership, LB-12 Graceful
-> projection** (see §8) — and ratified LB-1…LB-8 as written. The authoritative statement
+> projection** — and, on approving #7 for release, two more: **LB-13 Badge stability** and
+> **LB-14 Projection completeness** (see §8); LB-1…LB-8 ratified as written. The authoritative statement
 > now lives in `CLOSING_CENTER_ARCHITECTURE_LOCK.md` (Slice 7); this package is preserved
 > as the decision record. Implementation proceeds on a dedicated feature branch and
 > **stops before merge**. After release, Version 1.4 moves into formal acceptance /
@@ -241,6 +242,14 @@ engine · weaken/bypass the PAID + readiness gate · add a mutating action.
 - **LB-12 — Graceful projection.** Missing Checklist / Escrow / Financing / Assignment
   data must never break or remove an Opportunity row — it degrades to a null chip / quiet
   state (TD-11 posture).
+- **LB-13 — Badge stability.** The cluster never changes **height** as a status appears or
+  disappears (single reserved row via `flex-nowrap` + `min-h`); rows never jump while
+  closing progresses. Extra width is absorbed by the table's existing horizontal scroll.
+  (Founder addition, 2026-07-16.)
+- **LB-14 — Projection completeness.** Every rendered badge — including the readiness
+  chip's label + tone — is produced by `projectClosingBadges`; the UI renders it verbatim
+  and never knows more than the projection, preventing subtle later divergence. (Founder
+  addition, 2026-07-16.)
 
 ---
 

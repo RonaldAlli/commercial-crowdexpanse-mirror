@@ -190,6 +190,9 @@ export type ClosingBadgeSummary = {
   closed: boolean; // PAID
   checklistStarted: boolean; // false + visible → "Closing not started"
   readiness: { ready: boolean; blockerCount: number } | null; // null when no checklist started
+  // LB-14 Projection Completeness — the readiness chip's label + tone are produced HERE, so the UI
+  // renders it verbatim and never re-derives "Ready" / "N blockers" / "Closing not started" itself.
+  closing: StatusChip;
   escrow: StatusChip | null;
   financing: StatusChip | null;
   assignment: StatusChip | null;
@@ -199,17 +202,24 @@ export type ClosingBadgeSummary = {
  * Project the compact closing-badge summary for one Opportunity (LB-1/LB-2). Visibility is
  * stage-aware (LB-9): closing-relevant stage OR any closing domain record present. Readiness reuses
  * the authoritative `closingProgress`/`blockingItems` (TX-6); status chips reuse the domain helpers.
- * Missing records degrade to null, never an error (LB-4/LB-12). Never mutates `input`.
+ * Every rendered badge — including the readiness chip — is produced here (LB-14). Missing records
+ * degrade to null, never an error (LB-4/LB-12). Never mutates `input`.
  */
 export function projectClosingBadges(input: ClosingBadgeInput): ClosingBadgeSummary {
   const { stage, checklistItems, escrow, financing, assignment } = input;
   const hasClosingActivity = checklistItems !== null || escrow !== null || financing !== null || assignment !== null;
   const readiness = checklistItems ? { ready: closingProgress(checklistItems).ready, blockerCount: blockingItems(checklistItems).length } : null;
+  const closing: StatusChip = readiness
+    ? readiness.ready
+      ? { label: "Ready", tone: "success" }
+      : { label: `${readiness.blockerCount} ${readiness.blockerCount === 1 ? "blocker" : "blockers"}`, tone: "danger" }
+    : { label: "Closing not started", tone: "neutral" };
   return {
     visible: isClosingRelevantStage(stage) || hasClosingActivity,
     closed: stage === CLOSED_STAGE,
     checklistStarted: checklistItems !== null,
     readiness,
+    closing,
     escrow: escrow ? { label: escrowStatusLabel(escrow.status), tone: escrowStatusTone(escrow.status) } : null,
     financing: financing ? { label: financingStatusLabel(financing.status), tone: financingStatusTone(financing.status) } : null,
     assignment: assignment ? { label: assignmentStatusLabel(assignment.status), tone: assignmentStatusTone(assignment.status) } : null,

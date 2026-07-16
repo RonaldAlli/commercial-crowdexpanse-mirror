@@ -52,6 +52,21 @@ test.describe("opportunity-list closing badges (ADMIN)", () => {
     await expect(row).not.toContainText("Ready");
   });
 
+  test("badge clusters keep a stable height regardless of chip count (LB-13)", async ({ page }) => {
+    await page.setViewportSize(DESKTOP);
+    await page.goto(LIST);
+    // A full 4-chip cluster (blockers + Escrow + Financing + Assignment) vs. a single-chip cluster
+    // ("Closing not started"). On the desktop table they must occupy the same reserved height so
+    // rows never jump as closing progresses.
+    const full = clusterLink(page, M.opportunities.active);
+    const single = clusterLink(page, M.opportunities.empty);
+    await expect(full).toBeVisible();
+    await expect(single).toBeVisible();
+    const [fb, sb] = [await full.boundingBox(), await single.boundingBox()];
+    expect(fb && sb).toBeTruthy();
+    expect(Math.abs((fb!.height) - (sb!.height))).toBeLessThanOrEqual(1);
+  });
+
   test("the badge cluster links OUT to the Closing Center anchor (LB-11)", async ({ page }) => {
     await page.goto(LIST);
     const link = clusterLink(page, M.opportunities.active).first();
