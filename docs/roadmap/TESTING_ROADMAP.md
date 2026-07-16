@@ -49,6 +49,7 @@ The codebase was already lint-clean under Next defaults — PQ-2 adds *enforceme
 
 ## Conventions
 - Every E2E creates throwaway `e2e-*` orgs and cascade-cleans them; the guard blocks non-`_test` DBs.
+- **Runner reliability ([D16](./TECHNICAL_DEBT.md)):** the sequential runner spawns one short-lived `tsx` child per script, each loading Prisma's native engine; on Node 20 a child can rarely die with **SIGSEGV (exit 139)** during native teardown (transient, not a test failure — re-run passes). Planned hardening: make `e2e-all.mjs` retry a script **once on a signal death** (distinct from an assertion-failure exit, which must still fail fast); the Node 22+ upgrade removes the root cause (and clears [D11]).
 - Every fixed bug gets a test that would have caught it (regression).
 - Pure logic lives in `lib/*` with no Prisma, so it's unit-testable in isolation.
 - CI is the gate: distinct blocking steps — **Typecheck → Lint → Unit → E2E → Build** — must all pass before merge. Locally, `test:ci` (typecheck + unit + E2E) plus an explicit `npm run lint`.
