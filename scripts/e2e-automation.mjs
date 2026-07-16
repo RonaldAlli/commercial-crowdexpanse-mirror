@@ -21,6 +21,9 @@ import {
   sourceExistsInOrg,
 } from "../lib/automation/job-service.ts";
 import { nextStatusAfterFailure, nextAttemptAt } from "../lib/automation/lifecycle.ts";
+import { runExecutorOnce, startExecutorLoop } from "../lib/automation/executor.ts";
+import { reapStaleJobs } from "../lib/automation/reaper.ts";
+import { runSchedulerOnce, supersedeOlderOccurrences } from "../lib/automation/scheduler.ts";
 
 const TAG = "e2e-automation";
 assertTestDatabase();
@@ -170,6 +173,101 @@ try {
   assert((await sourceExistsInOrg(a.id, "opportunity", oppA.id)) === true, "a same-org opportunity source validates");
   assert((await sourceExistsInOrg(a.id, "opportunity", oppB.id)) === false, "a cross-org source fails closed");
   assert((await sourceExistsInOrg(a.id, "unknown", oppA.id)) === false, "an unknown source type fails closed");
+
+  // ── Commit 4: executor / reaper / scheduler ──────────────────────────────────
+  const handler = (policy, perform) => ({
+    fake_type: {
+      automationType: "fake_type", policyKey: "fake", policyVersion: 1,
+      gatherContext: async () => ({ context: {}, fingerprint: "fp" }),
+      policy, perform,
+    },
+  });
+
+  console.log("\n[12] Importing the executor/reaper/scheduler starts NO loop (no side effects):");
+  const jSide = await enqueueJob(mkInput(a.id, "src-side", { automationType: "sidecheck_type", occurrenceKey: "f-side" }));
+  await markQueued(jSide.id, new Date());
+  await new Promise((r) => setTimeout(r, 30));
+  assert((await getJob(a.id, jSide.id)).status === "QUEUED", "a queued job is untouched until an executor is explicitly run");
+
+  console.log("\n[13] Executor runs an ALLOW handler → SUCCEEDED, producedDomainEffect=false:");
+  let performed = 0;
+  const jf1 = await enqueueJob(mkInput(a.id, "src-13", { automationType: "fake_type", occurrenceKey: "f-13" }));
+  await markQueued(jf1.id, new Date());
+  await runExecutorOnce(handler(() => ({ kind: "ALLOW" }), async () => { performed++; return { producedDomainEffect: false }; }), new Date());
+  const jf1ex = (await listJobExecutions(a.id, jf1.id))[0];
+  assert((await getJob(a.id, jf1.id)).status === "SUCCEEDED", "ALLOW job finalizes SUCCEEDED");
+  assert(performed === 1, "perform() ran exactly once on ALLOW");
+  assert(jf1ex.outcome === "SUCCEEDED" && jf1ex.producedDomainEffect === false && jf1ex.policyDecision === "ALLOW", "execution: SUCCEEDED, no domain effect, decision ALLOW");
+  assert((await getJob(a.id, jSide.id)).status === "DEAD_LETTERED", "the unknown-type side job dead-lettered (no handler)");
+
+  console.log("\n[14] Policy gate: DENY/NO_ACTION/STALE_CONTEXT → NOOP, perform() never called:");
+  for (const [kind, occ] of [["DENY", "f-14a"], ["NO_ACTION", "f-14b"], ["STALE_CONTEXT", "f-14c"]]) {
+    let gated = 0;
+    const j = await enqueueJob(mkInput(a.id, "src-" + occ, { automationType: "fake_type", occurrenceKey: occ }));
+    await markQueued(j.id, new Date());
+    await runExecutorOnce(handler(() => ({ kind, reason: "r" }), async () => { gated++; return { producedDomainEffect: false }; }), new Date());
+    const ex = (await listJobExecutions(a.id, j.id))[0];
+    assert((await getJob(a.id, j.id)).status === "SUCCEEDED" && ex.outcome === "NOOP", `${kind} → job SUCCEEDED, execution NOOP`);
+    assert(ex.policyDecision === kind, `${kind} decision recorded`);
+    assert(gated === 0, `${kind}: perform() was NOT called (policy gate)`);
+  }
+
+  console.log("\n[15] Handler error → classified failure (retry vs dead-letter):");
+  const errH = (msg) => handler(() => ({ kind: "ALLOW" }), async () => { throw new Error(msg); });
+  const jt = await enqueueJob(mkInput(a.id, "src-15a", { automationType: "fake_type", occurrenceKey: "f-15a", maxAttempts: 3 }));
+  await markQueued(jt.id, new Date());
+  await runExecutorOnce(errH("transient boom"), new Date());
+  const jtEx = (await listJobExecutions(a.id, jt.id))[0];
+  assert((await getJob(a.id, jt.id)).status === "RETRY_SCHEDULED", "a transient (UNKNOWN) error schedules a retry");
+  assert(jtEx.outcome === "FAILED" && jtEx.failureClass === "UNKNOWN" && jtEx.error.length > 0, "attempt FAILED, UNKNOWN, error recorded");
+  const jp = await enqueueJob(mkInput(a.id, "src-15b", { automationType: "fake_type", occurrenceKey: "f-15b" }));
+  await markQueued(jp.id, new Date());
+  await runExecutorOnce(errH("invalid input"), new Date());
+  assert((await getJob(a.id, jp.id)).status === "DEAD_LETTERED", "a validation error dead-letters");
+  const jo = await enqueueJob(mkInput(a.id, "src-15c", { automationType: "fake_type", occurrenceKey: "f-15c" }));
+  await markQueued(jo.id, new Date());
+  await runExecutorOnce(errH("organization mismatch"), new Date());
+  assert((await listJobExecutions(a.id, jo.id))[0].failureClass === "ORG_SCOPE_VIOLATION", "org-scope error classified ORG_SCOPE_VIOLATION");
+
+  console.log("\n[16] Reaper recovers a stale RUNNING lease (crash recovery), idempotently:");
+  const jr = await enqueueJob(mkInput(a.id, "src-16", { automationType: "fake_type", occurrenceKey: "f-16", maxAttempts: 3 }));
+  await markQueued(jr.id, new Date());
+  const claimedR = (await claimDueJobs(new Date(), 10)).find((j) => j.id === jr.id);
+  assert(claimedR.status === "RUNNING", "job claimed RUNNING (simulated in-flight)");
+  await prisma.automationJob.update({ where: { id: jr.id }, data: { leaseExpiresAt: new Date(Date.now() - 1000) } });
+  assert((await reapStaleJobs(new Date())) >= 1, "reaper recovered the stale job");
+  assert((await getJob(a.id, jr.id)).status === "RETRY_SCHEDULED", "stale RUNNING → RETRY_SCHEDULED (attempts remain)");
+  const jrEx = (await listJobExecutions(a.id, jr.id)).find((e) => e.error && e.error.includes("lease expired"));
+  assert(jrEx && jrEx.outcome === "FAILED" && jrEx.failureClass === "UNKNOWN", "an abandoned execution row was recorded");
+  assert((await reapStaleJobs(new Date())) === 0, "a second reaper pass is a no-op (idempotent)");
+  const jr2 = await enqueueJob(mkInput(a.id, "src-16b", { automationType: "fake_type", occurrenceKey: "f-16b" }));
+  await markQueued(jr2.id, new Date());
+  await claimDueJobs(new Date(), 10);
+  await reapStaleJobs(new Date());
+  assert((await getJob(a.id, jr2.id)).status === "RUNNING", "a job with a valid (fresh) lease is not reaped");
+
+  console.log("\n[17] Scheduler enumerates orgs, seeds per org, and supersedes stale occurrences:");
+  const seededOrgs = new Set();
+  const sched = await runSchedulerOnce({ fake_type: async (orgId) => { seededOrgs.add(orgId); return 1; } }, new Date());
+  assert(sched.orgs >= 2 && seededOrgs.has(a.id) && seededOrgs.has(b.id), "scheduler ran the seeder once per org (single-org scoping)");
+  const s1 = await enqueueJob(mkInput(a.id, "src-17", { automationType: "fake_type", occurrenceKey: "occ-old" }));
+  const s2 = await enqueueJob(mkInput(a.id, "src-17", { automationType: "fake_type", occurrenceKey: "occ-new" }));
+  assert((await supersedeOlderOccurrences(a.id, "fake_type", "opportunity", "src-17", "occ-new")) === 1, "an older non-terminal occurrence is superseded");
+  assert((await getJob(a.id, s1.id)).status === "SUPERSEDED", "the old occurrence is SUPERSEDED");
+  assert((await getJob(a.id, s2.id)).status !== "SUPERSEDED", "the kept occurrence is untouched");
+
+  console.log("\n[18] Executor loop: explicit start, processes work, graceful stop halts claiming:");
+  let loopPerformed = 0;
+  const jl = await enqueueJob(mkInput(a.id, "src-18", { automationType: "fake_type", occurrenceKey: "f-18" }));
+  await markQueued(jl.id, new Date());
+  const loop = startExecutorLoop(handler(() => ({ kind: "ALLOW" }), async () => { loopPerformed++; return { producedDomainEffect: false }; }), { idleMs: 20 });
+  for (let i = 0; i < 50 && (await getJob(a.id, jl.id)).status !== "SUCCEEDED"; i++) await new Promise((r) => setTimeout(r, 20));
+  await loop.stop();
+  assert((await getJob(a.id, jl.id)).status === "SUCCEEDED" && loopPerformed >= 1, "the loop processed a queued job via the handler");
+  const jl2 = await enqueueJob(mkInput(a.id, "src-18b", { automationType: "fake_type", occurrenceKey: "f-18b" }));
+  await markQueued(jl2.id, new Date());
+  await new Promise((r) => setTimeout(r, 60));
+  assert((await getJob(a.id, jl2.id)).status === "QUEUED", "after stop() the loop claims no new work");
 } finally {
   console.log("\nCleaning up throwaway orgs (cascade)...");
   for (const id of orgIds) await prisma.organization.delete({ where: { id } }).catch((e) => console.log(`  cleanup warn: ${e.message}`));
