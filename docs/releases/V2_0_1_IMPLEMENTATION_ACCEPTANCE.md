@@ -1,13 +1,19 @@
 # Version 2.0 · Phase 2.0.1 (Automation Foundation) — Implementation Acceptance Package
 
-> **Status: ⏳ PENDING FOUNDER ACCEPTANCE.**
-> - **Implementation complete on branch:** `feature/v2.0.1-automation-foundation` (pushed to
->   gitea `origin` + `github` mirror; all three tips at **`040a26b`**).
-> - **NOT merged, NOT deployed, NOT applied to production.** Prod remains at **26 migrations**,
->   one PM2 app (`crowdexpanse-commercial`), the automation process **not running**.
-> - **Frozen refs untouched:** `main` @ `1760c9a`, `release/1.3` @ `d341c0a`, `release/1.4` @
->   `ece38aa`, `v1.3.0` @ `bca39f4`, `v1.4.0` @ `c1133ad`.
-> - **D15 (deprecated `DealAnalysis` removal) untouched.**
+> **Status: ✅ FOUNDER ACCEPTED (2026-07-16).**
+> - **Accepting authority:** Founder — Ronald Delroy Anthony Allicock.
+> - **Acceptance date:** 2026-07-16.
+> - **Accepted implementation branch:** `feature/v2.0.1-automation-foundation`.
+> - **Accepted reviewed branch tip:** **`18b835d`** (this Founder-Acceptance documentation edit
+>   advances the branch tip by one docs-only commit above the reviewed tip).
+> - **Scope of acceptance:** the Phase 2.0.1 implementation *design* and *feature-branch
+>   implementation* (Commits 1–7 + the focused NUL-byte correction + review package). It does
+>   **not** authorize Phase 2.0.2. Production rollout proceeds separately, staged, under an
+>   explicit kill-switch and dark-start sequence.
+> - **At acceptance (pre-merge):** prod remains at **26 migrations**, one PM2 app
+>   (`crowdexpanse-commercial`), the automation process **not running**; frozen refs untouched
+>   (`main` @ `1760c9a`, `release/1.3` @ `d341c0a`, `release/1.4` @ `ece38aa`, `v1.3.0` @
+>   `bca39f4`, `v1.4.0` @ `c1133ad`); D15 untouched.
 >
 > This package requests Founder acceptance of the *implementation*. Per the two-step process
 > ([release-acceptance-process](../architecture/)), acceptance authorizes the separate rollout;
@@ -105,9 +111,25 @@ reserved `AutomationExecution.activityLogId` (one-way link preserved).
 
 ---
 
-## Requested decision
+## Decision — GRANTED
 
-**Accept the Phase 2.0.1 implementation.** On acceptance, the separate rollout (Rollout Plan §3,
-Runbook §1) may proceed: FF-merge to `main`, dual-push, `prisma migrate deploy` (26 → 27), then
-— as a later, deliberate, kill-switched step — start `crowdexpanse-automation` dark → observing.
-No merge, deploy, migration, or process start will occur before that explicit approval.
+**The Phase 2.0.1 implementation is FOUNDER ACCEPTED (2026-07-16, Ronald Delroy Anthony
+Allicock; accepted reviewed tip `18b835d`).** This authorizes the separate, staged rollout
+(Rollout Plan §3, Runbook §1): a strict fast-forward merge to `main`, dual-remote sync, then the
+controlled production rollout — `prisma migrate deploy` (26 → 27) with the executor deployed
+**disabled**, followed by an explicit **dark-start → observing** sequence behind the
+`AUTOMATION_SCHEDULER_ENABLED` kill-switch. Production acceptance is a **separate** later gate
+(`V2_0_1_PRODUCTION_ACCEPTANCE.md`, PENDING FOUNDER PRODUCTION ACCEPTANCE). **Phase 2.0.2 is
+NOT authorized.**
+
+### Founder-accepted decisions & limitations (conscious acceptance)
+DB-backed queue (no external broker) · `crowdexpanse-automation` as the first out-of-request PM2
+process · schedule/poll-based job creation (transactional-outbox triggering deferred to 2.0.2) ·
+policies as versioned pure code (not DB-configurable) · no hard per-org concurrency cap yet · no
+forced cancellation of an active execution · graceful-shutdown + leases + stale-job reaping as
+the recovery model · one-way `ActivityLog → AutomationExecution` linkage · migration 27's
+additive `ActivityLog` attribution fields · the closing-readiness observer as the **only**
+registered automation · the proof job read-only and always `producedDomainEffect = false` · **no**
+email/SMS/task/document/stage/checklist/PAID/underwriting/AI capability authorized by this phase ·
+the executor deployed disabled and started only under the explicit dark-launch sequence · Phase
+2.0.2 separately gated and not authorized.

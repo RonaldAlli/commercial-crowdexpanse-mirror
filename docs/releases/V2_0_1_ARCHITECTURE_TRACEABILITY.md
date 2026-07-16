@@ -1,7 +1,8 @@
 # Version 2.0 · Phase 2.0.1 — Architecture Traceability Matrix
 
-> **Status: ⏳ PENDING FOUNDER ACCEPTANCE.** Read-only review aid. No code, schema, migration,
-> or production state is changed by this document. It maps every ratified Version 2.0 Automation
+> **Status: ✅ FOUNDER ACCEPTED (2026-07-16 · Founder: Ronald Delroy Anthony Allicock · accepted
+> reviewed tip `18b835d`).** Read-only review aid. No code, schema, migration, or production
+> state is changed by this document. It maps every ratified Version 2.0 Automation
 > refinement (A1–A8) and invariant (AU-1…AU-13) to its implementing code, enforcing mechanism,
 > proving test, acceptance evidence, and any limitation or deferral — grounded in the actual
 > repository at branch `feature/v2.0.1-automation-foundation`.
@@ -298,4 +299,4 @@ Decisions to consciously accept before merge and rollout. Presented neutrally �
 
 ---
 
-*End of Phase 2.0.1 Architecture Traceability Matrix — PENDING FOUNDER ACCEPTANCE.*
+*End of Phase 2.0.1 Architecture Traceability Matrix — FOUNDER ACCEPTED (2026-07-16).*
