@@ -254,3 +254,74 @@ Opportunity
 - **Migration:** additive only (1 enum + 1 table, 0 destructive); prod is a clean slate so there is no legacy data to reconcile.
 - **Affected modules:** additive migration · pure `lib/financing.ts` · `lib/financing-service.ts` · `lib/permissions.ts` (+`canResolveFinancing`, reuse `CLOSING`) · financing server actions · Opportunity detail financing card (+ a read-only underwriting-debt reference panel, FC-0) · unit + `scripts/e2e-financing.mjs`.
 - **Scope exclusions (this slice):** monetary/amount fields · a `Party`/lender entity · multi-lender / multiple-application tracking · a generic `FinancingDocument` table (until the doc set grows) · a `FinancingEvent` ledger · date-triggered reminders / scheduler · any write into or coupling with the underwriting engine · Assignments/dashboard (later slices).
+
+---
+
+# Slice 4 — Assignments
+
+> **Delivery status:** RATIFIED 2026-07-16 (AS-A…AS-N, AS-1…AS-15). The core wholesale transaction: assignment-agreement generation, assignor/assignee parties, the assignment fee, and execution. First Closing Center slice that BRIDGES two frameworks — the operational Closing workflow (a new first-class record) and the v1.3 generated-document infrastructure (CC-F: the agreement inherits the Offer-Memo framework). Human workflow, strictly OUTSIDE the underwriting engine.
+
+## 15. Assignments — ratified decisions (AS-A…AS-N)
+
+- **AS-A** *Ownership.* A first-class `AssignmentRecord`, 1:1 with `Opportunity` (org-scoped, cascade), NOT a checklist item and NOT part of the underwriting engine. Mirrors `EscrowRecord`/`FinancingRecord` (idempotent `ensureAssignment`, the six-file domain pattern).
+- **AS-B** *Lifecycle (lean).* `NOT_STARTED → DRAFTED → EXECUTED`, with a `CANCELLED` off-ramp. NO `SENT`/`SIGNED`/e-sign/DocuSign states until a real electronic-signature integration exists. `DRAFTED` is reached by generating the agreement; `EXECUTED`/`CANCELLED` are terminal.
+- **AS-C** *Parties (hybrid).* Optional **scalar references** to existing rows — `assignorSellerId` (defaults from `Opportunity.sellerId`), `assigneeBuyerId` (a confirmed `BuyerMatch` buyer) — **no FK** (house idiom), PLUS free-text fallback (`assignorName`/`assignorContact`/`assigneeName`/`assigneeContact`) for off-system parties. No `Party` domain (AS-11).
+- **AS-D** *Assignment fee.* The fee's single source of truth stays `Opportunity.assignmentFeeUsd` — NOT duplicated as a live field on the record. It is **snapshotted only upon execution** (`executedFeeUsdSnapshot`), preserving operational history + auditability + single source of truth.
+- **AS-E** *Generated agreement (CC-F, Option 3).* The agreement inherits the Offer-Memo generated-document framework (immutable `GENERATED` Document + canonical snapshot + SHA-256 + append-only `generationSequence` + provenance). New `DocumentType.ASSIGNMENT_AGREEMENT`; new pure renderer `lib/documents/assignment-agreement.ts`; new service on the identical recipe. The Document model is anchored on the Opportunity, not a scenario: add a nullable `Document.sourceOpportunityId` + a new `@@unique([sourceOpportunityId, documentType, generationSequence])`. Offer-memo rows carry `sourceOpportunityId = null`, so their unique key, `sourceScenario*` fields, and behavior are **untouched** (AS-8). The Document model is NOT generalized to a polymorphic source yet.
+- **AS-F** *PAID gate.* Unchanged and composed exactly as today (`canMoveStage AND isClosingReady`). Assignments gates PAID **only** via a required `ASSIGNMENT` checklist item — never an `if assignment.executed` branch. Flow is Checklist → Policy → Gate.
+- **AS-G** *RBAC.* Ordinary work (parties, generate/regenerate the draft) = `CLOSING` write (reuse). Terminal execute/cancel = new ADMIN-only `canExecuteAssignment(role)` (mirrors `canResolveEscrow`/`canResolveFinancing`). Agreement generation additionally requires `DOCUMENT` `CREATE` (dual-check, exactly like offer-memo).
+- **AS-H** *Terminal snapshot (no ledger).* On EXECUTED (and CANCELLED) capture `resolvedById`/`resolvedAt`/`resolutionReason` and, for EXECUTED, the immutable snapshot (fee, contract value, party names, generated-agreement doc id) INSIDE the record, then freeze it — Financing FC-J/FC-I pattern, NO `AssignmentEvent` table. The generated agreement Document already provides immutable evidence.
+- **AS-I** *Underwriting boundary (strong).* The agreement template must NEVER read Scenario / FinancingCase / ScenarioResult / Findings / Recommendation / Decision / Offer-Memo. Assignments belong entirely to operational Closing. No `lib/analysis.ts` touch, no underwriting seam.
+- **AS-J** *Default checklist item.* Seed ONE required `ASSIGNMENT` item ("Assignment agreement executed") into the default closing template — a sensible default, still org-customizable.
+- **AS-L** *Generated-agreement freshness.* Draft agreements are regenerated from CURRENT operational data until execution. Once `EXECUTED`, generation is DISABLED and the executed document is the immutable, legally-operative artifact — removing ambiguity about which version governs.
+- **AS-M** *Agreement version display.* Multiple pre-execution drafts are shown as `Draft 1 / 2 / 3` via the existing generated-document `generationSequence` (never overwritten). After `EXECUTED`, the executed agreement is highlighted; prior drafts are retained as history.
+- **AS-N** *Opportunity summary (future UI).* A small Assignment status (`Drafted` / `Executed` / `Cancelled`) surfaces on the Opportunity page header — a status indicator, not new architecture.
+
+## 16. Assignments — locked invariants (AS-1…AS-15)
+
+- **AS-1** Human operational workflow; never reads/writes the underwriting engine or the 1.3 locks/lineage/fingerprints.
+- **AS-2** Exactly one `AssignmentRecord` per `Opportunity`; org-scoped; cascade-owned.
+- **AS-3** The assignment fee's single source of truth is `Opportunity.assignmentFeeUsd`; the record holds only an execution snapshot, never a divergent live copy.
+- **AS-4** Terminal states (EXECUTED / CANCELLED) are explicit, reasoned, actor+timestamped, freeze the record, and are ADMIN-only.
+- **AS-5** Every state change writes an `ActivityLog` event.
+- **AS-6** The `PAID` gate is composed-with, never weakened; Assignments gates `PAID` only via a required `ASSIGNMENT` checklist item.
+- **AS-7** The generated agreement inherits the Offer-Memo framework (immutable `GENERATED` Document, snapshot + SHA-256 + append-only sequence + provenance).
+- **AS-8** The shared `Document` model is extended ADDITIVELY only; the frozen v1.3 offer-memo generation path (its unique key, `sourceScenario*` fields, and behavior) is untouched.
+- **AS-9** The status-transition guard + execution-snapshot builder are pure and unit-tested.
+- **AS-10** The agreement references only operational data — never underwriting outputs.
+- **AS-11** Parties reference existing Buyer/Seller by scalar id (no FK) or free-text; no `Party` entity is introduced.
+- **AS-12** Draft agreements may be regenerated; executed agreements become immutable historical artifacts (generation disabled once EXECUTED).
+- **AS-13** Assignment execution never modifies underwriting outputs.
+- **AS-14** Assignment generation reads only operational Opportunity, property, party, and financial-summary data defined by the Assignment domain.
+- **AS-15** Generated Assignment agreements follow the same deterministic document-generation guarantees as the Offer Memo (deterministic render, file-first, SHA-256, append-only) while remaining independently versioned.
+
+## 17. Assignments — model (slice 4)
+
+```
+Opportunity ──1:1── AssignmentRecord
+   │  (assignmentFeeUsd, contractValueUsd — fee SoT stays here, AS-D)
+   │
+   └── AssignmentRecord {
+         status  NOT_STARTED → DRAFTED → EXECUTED | CANCELLED  (AS-B)
+         — parties (AS-C, scalar-id no FK + free-text) —
+         assignorSellerId?, assignorName?, assignorContact?,
+         assigneeBuyerId?,  assigneeName?,  assigneeContact?,
+         — terminal resolution (AS-H, set on EXECUTED/CANCELLED, then frozen) —
+         resolvedById?, resolvedAt?, resolutionReason?,
+         — execution snapshot (AS-D/AS-H, EXECUTED only) —
+         executedFeeUsdSnapshot?, executedContractValueUsdSnapshot?,
+         executedAssignorNameSnapshot?, executedAssigneeNameSnapshot?,
+         executedAgreementDocumentIdSnapshot?
+       }
+
+   generated agreement (CC-F / AS-E) ─▶ Document {
+     documentType: ASSIGNMENT_AGREEMENT, origin: GENERATED,
+     sourceOpportunityId (NEW anchor), generationSequence (append-only, AS-M),
+     contentSnapshot + contentSha256 (deterministic, AS-15) }
+     @@unique([sourceOpportunityId, documentType, generationSequence])  ← offer-memo untouched (AS-8)
+```
+
+- **Boundaries/security:** every assignment read/write is org-scoped + RBAC-checked server-side; execute/cancel is ADMIN-only; agreement generation is dual-checked (`CLOSING` write + `DOCUMENT` create); all changes audited; cross-tenant access impossible. Assignments never touch `lib/analysis.ts` or any underwriting/offer-memo surface (AS-1/AS-10/AS-13).
+- **Migration:** additive only (1 enum + 1 table + `DocumentType.ASSIGNMENT_AGREEMENT` + `Document.sourceOpportunityId` + one new unique key, 0 destructive); the fee column already exists.
+- **Affected modules:** additive migration · pure `lib/assignment.ts` + `lib/documents/assignment-agreement.ts` · `lib/documents/assignment-agreement-service.ts` (CC-F recipe) · `lib/assignment-service.ts` · `lib/permissions.ts` (+`canExecuteAssignment`, reuse `CLOSING`) · `lib/closing.ts` (+default `ASSIGNMENT` item, AS-J) · assignment server actions · Opportunity detail assignment card (accordion section) + AS-N header summary · unit + `scripts/e2e-assignment.mjs` + Playwright visual coverage.
+- **Scope exclusions (this slice):** electronic signature / DocuSign / send-for-signature · a `Party` entity · polymorphic `Document.source` generalization · multi-assignee tracking · date-triggered reminders · any write into or coupling with the underwriting engine · Transaction Dashboard (Slice 5).

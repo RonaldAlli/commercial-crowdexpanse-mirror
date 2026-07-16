@@ -57,6 +57,14 @@ const CRITICAL = [
   // Financing (Closing Slice 3) — the pure lifecycle guard + FC-J terminal-snapshot builder
   // (no Prisma/clock). Transition legality + snapshot fidelity are load-bearing (FC-10/FC-J).
   "lib/financing.ts",
+  // Assignments (Closing Slice 4) — the pure lifecycle guard + terminal execution-snapshot
+  // builder (no Prisma/clock). Transition legality + snapshot fidelity are load-bearing
+  // (AS-9/AS-D/AS-H).
+  "lib/assignment.ts",
+  // Assignment agreement generation — the pure snapshot assembler + deterministic HTML
+  // renderer (no Prisma/clock/randomness). Determinism + escaping are load-bearing, reading
+  // only operational data (AS-14/AS-15).
+  "lib/documents/assignment-agreement.ts",
 ];
 const TRACKED = [
   ...CRITICAL,

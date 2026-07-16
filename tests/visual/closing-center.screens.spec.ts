@@ -37,6 +37,20 @@ test.describe("desktop screenshots", () => {
     await page.locator(CLOSING_CENTER).screenshot({ path: shot("desktop-financing-open") });
   });
 
+  test("desktop — Assignment open (drafts + execute control)", async ({ page }) => {
+    await page.goto(oppPath(M.opportunities.active));
+    await trigger(page, "Assignment").click();
+    await expect(region(page, "Assignment")).toContainText("Draft 2");
+    await page.locator(CLOSING_CENTER).screenshot({ path: shot("desktop-assignment-open") });
+  });
+
+  test("desktop — executed assignment immutable snapshot", async ({ page }) => {
+    await page.goto(oppPath(M.opportunities.terminal));
+    await trigger(page, "Assignment").click();
+    await expect(region(page, "Assignment")).toContainText("Executed terms (immutable)");
+    await page.locator(CLOSING_CENTER).screenshot({ path: shot("desktop-assignment-executed") });
+  });
+
   test("desktop — ADMIN terminal-resolution controls", async ({ page }) => {
     await page.goto(oppPath(M.opportunities.active));
     await trigger(page, "Escrow").click();
@@ -94,5 +108,12 @@ test.describe("mobile screenshots", () => {
     await trigger(page, "Escrow").click();
     await expect(region(page, "Escrow")).toContainText("First American Title Insurance Company");
     await page.locator(CLOSING_CENTER).screenshot({ path: shot("mobile-escrow-long-holder") });
+  });
+
+  test("mobile — expanded Assignment with a long assignee value", async ({ page }) => {
+    await page.goto(oppPath(M.opportunities.active));
+    await trigger(page, "Assignment").click();
+    await expect(region(page, "Assignment")).toContainText("Southeastern Value-Add Multifamily Opportunity Fund IV");
+    await page.locator(CLOSING_CENTER).screenshot({ path: shot("mobile-assignment-long-assignee") });
   });
 });

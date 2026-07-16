@@ -22,6 +22,7 @@ import { createPropertyRecord } from "../../lib/properties.ts";
 import { ensureClosingChecklist, completeChecklistItem } from "../../lib/closing-service.ts";
 import { openEscrow, markEscrowDeposited, resolveEscrow } from "../../lib/escrow-service.ts";
 import { startFinancing, advanceFinancingStatus, setFinancingLender, resolveFinancing } from "../../lib/financing-service.ts";
+import { startAssignment, setAssignmentParties, generateAssignmentDraft, executeAssignment } from "../../lib/assignment-service.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ARTIFACTS = join(HERE, ".artifacts");
@@ -35,6 +36,7 @@ const SESSION_TTL_SECONDS = 60 * 60 * 8;
 const LONG_HOLDER = "First American Title Insurance Company of the Southeast — Regional Commercial Escrow Services Division, 191 Peachtree Street NE, Suite 2400, Atlanta, Georgia 30303";
 const LONG_LENDER = "Metropolitan Community Development Bank & Trust — Commercial Real Estate Lending Group, Southeastern Regional Underwriting & Closing Office";
 const LONG_BLOCKER = "Phase II Environmental Site Assessment — subsurface soil and groundwater sampling with full laboratory analysis, vapor-intrusion evaluation, and regulatory-agency coordination and sign-off";
+const LONG_ASSIGNEE = "Southeastern Value-Add Multifamily Opportunity Fund IV, a Delaware limited partnership by its general partner SEVA Capital Management LLC";
 
 assertTestDatabase();
 
@@ -120,6 +122,13 @@ async function main() {
   await prisma.financingCaseResult.create({
     data: { organizationId: org.id, financingCaseId: fc.id, financingCaseVersion: "visual-seed-fc-v1", calcLibVersion: 1, sizedLoanUsd: 4200000, dscr: 1.35, debtYieldPct: 9.2, bindingConstraint: "DSCR" },
   });
+  // Assignment in the DRAFTED state (with a generated draft + long assignee to exercise wrapping);
+  // an ADMIN viewer sees the Execute control, a non-admin sees the admin-only note.
+  await prisma.opportunity.update({ where: { id: active.id }, data: { contractValueUsd: 6_500_000, assignmentFeeUsd: 185_000 } });
+  await startAssignment(org.id, active.id, admin.id);
+  await setAssignmentParties(org.id, active.id, admin.id, { assignorName: "Oakleaf Holdings LLC", assignorContact: "seller@oakleaf.example", assigneeName: LONG_ASSIGNEE, assigneeContact: "acquisitions@seva-capital.example.com" });
+  await generateAssignmentDraft(org.id, active.id, { id: admin.id, display: admin.name });
+  await generateAssignmentDraft(org.id, active.id, { id: admin.id, display: admin.name }); // a second versioned draft (AS-M)
 
   // --- Opportunity 3: ready + terminal escrow & financing -------------------
   const terminal = (await mkOpp(org.id, "Summit Ridge Portfolio (ready, terminal states)", "Summit Ridge Portfolio")).opp;
@@ -134,6 +143,12 @@ async function main() {
   await advanceFinancingStatus(org.id, terminal.id, admin.id, "COMMITTED");
   await advanceFinancingStatus(org.id, terminal.id, admin.id, "CLEARED");
   await resolveFinancing(org.id, terminal.id, admin.id, "FUNDED", "Loan funded at closing");
+  // Assignment in the EXECUTED terminal state — the immutable executed-terms snapshot renders.
+  await prisma.opportunity.update({ where: { id: terminal.id }, data: { contractValueUsd: 9_250_000, assignmentFeeUsd: 250_000 } });
+  await startAssignment(org.id, terminal.id, admin.id);
+  await setAssignmentParties(org.id, terminal.id, admin.id, { assignorName: "Summit Ridge Sellers LP", assigneeName: "Blue Harbor Real Estate Partners" });
+  await generateAssignmentDraft(org.id, terminal.id, { id: admin.id, display: admin.name });
+  await executeAssignment(org.id, terminal.id, admin.id, "Executed and recorded at closing");
 
   // --- storageState per user + manifest -------------------------------------
   const authFiles = {};

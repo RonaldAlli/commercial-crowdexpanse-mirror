@@ -51,6 +51,9 @@ enum DocumentType {
   CONTRACT
   DUE_DILIGENCE
   PHOTO
+  // Generated wholesale assignment agreement (v1.4 Slice 4, AS-E). Inherits the
+  // Offer-Memo generated-document framework; anchored on the Opportunity, not a scenario.
+  ASSIGNMENT_AGREEMENT
   OTHER
 }
 
@@ -301,6 +304,7 @@ model Organization {
   escrowRecords          EscrowRecord[]
   escrowEvents           EscrowEvent[]
   financingRecords       FinancingRecord[]
+  assignmentRecords      AssignmentRecord[]
 
   @@map("organizations")
 }
@@ -836,6 +840,7 @@ model Opportunity {
   closingChecklist ClosingChecklist?
   escrow           EscrowRecord?
   financing        FinancingRecord?
+  assignment       AssignmentRecord?
   tasks            Task[]
   notes            Note[]
   documents        Document[]
@@ -1440,6 +1445,11 @@ model Document {
   generatedById            String? // the user who generated it (scalar, mirrors decision.actorUserId)
   generatedAt              DateTime? // generation timestamp captured into the snapshot
   generationSequence       Int? // monotonic per (sourceScenarioId, documentType) — append-only (OM-7)
+  // Opportunity-anchored generation source (v1.4 Slice 4, AS-E). NULL for scenario-anchored
+  // (offer-memo) and uploaded documents; set for a generated ASSIGNMENT_AGREEMENT so the
+  // append-only generationSequence is scoped per Opportunity. Keeps the offer-memo path
+  // (sourceScenarioId + its unique key) untouched (AS-8).
+  sourceOpportunityId      String?
   createdAt                DateTime       @default(now())
   updatedAt                DateTime       @updatedAt
   organization             Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -1450,6 +1460,10 @@ model Document {
   uploader                 User?          @relation(fields: [uploaderId], references: [id], onDelete: SetNull)
 
   @@unique([sourceScenarioId, documentType, generationSequence])
+  // AS-E: opportunity-anchored generated docs (assignment agreement) get their own
+  // append-only sequence. Offer-memo/uploaded rows have sourceOpportunityId = NULL, which
+  // Postgres treats as distinct, so this never collides with them (AS-8).
+  @@unique([sourceOpportunityId, documentType, generationSequence])
   @@index([organizationId])
   @@map("documents")
 }
@@ -1550,31 +1564,31 @@ model ClosingChecklistItem {
 // Money is whole-USD Int (EC-C); holder is free-text (EC-D); proof is a scalar Document id
 // (EC-F). Escrow never touches the underwriting engine (EC-1/EC-9/EC-10).
 model EscrowRecord {
-  id                     String        @id @default(cuid())
-  organizationId         String
-  opportunityId          String        @unique
-  status                 EscrowStatus  @default(NOT_OPENED)
-  earnestAmountUsd       Int?
-  escrowHolderName       String?
-  escrowHolderContact    String?
-  openedDate             DateTime?
-  earnestDueDate         DateTime?
-  depositedDate          DateTime?
-  contingencyDeadline    DateTime?
+  id                       String        @id @default(cuid())
+  organizationId           String
+  opportunityId            String        @unique
+  status                   EscrowStatus  @default(NOT_OPENED)
+  earnestAmountUsd         Int?
+  escrowHolderName         String?
+  escrowHolderContact      String?
+  openedDate               DateTime?
+  earnestDueDate           DateTime?
+  depositedDate            DateTime?
+  contingencyDeadline      DateTime?
   proofOfDepositDocumentId String?
   // Milestone attribution (who/when), mirroring the closing-item stamp pattern.
-  openedById             String?
-  openedAt               DateTime?
-  depositedById          String?
-  depositedAt            DateTime?
-  resolvedById           String?
-  resolvedAt             DateTime?
-  resolutionReason       String?
-  createdAt              DateTime      @default(now())
-  updatedAt              DateTime      @updatedAt
-  organization           Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  opportunity            Opportunity   @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
-  events                 EscrowEvent[]
+  openedById               String?
+  openedAt                 DateTime?
+  depositedById            String?
+  depositedAt              DateTime?
+  resolvedById             String?
+  resolvedAt               DateTime?
+  resolutionReason         String?
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
+  organization             Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity              Opportunity   @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  events                   EscrowEvent[]
 
   @@index([organizationId])
   @@map("escrow_records")
@@ -1611,39 +1625,85 @@ model EscrowEvent {
 // transition the service captures the FC-J snapshot (below) and FREEZES the record. Money is
 // deliberately absent (FC-C/FC-5); lender is free-text (FC-D); documents are scalar ids (FC-E).
 model FinancingRecord {
-  id                         String          @id @default(cuid())
-  organizationId             String
-  opportunityId              String          @unique
-  status                     FinancingStatus @default(NOT_STARTED)
-  lenderName                 String?
-  lenderContact              String?
+  id                                     String          @id @default(cuid())
+  organizationId                         String
+  opportunityId                          String          @unique
+  status                                 FinancingStatus @default(NOT_STARTED)
+  lenderName                             String?
+  lenderContact                          String?
   // Independently-recorded milestone dates (FC-B) — the history (no event ledger, FC-I).
-  applicationSubmittedDate   DateTime?
-  appraisalOrderedDate       DateTime?
-  appraisalCompletedDate     DateTime?
-  commitmentReceivedDate     DateTime?
-  conditionsReceivedDate     DateTime?
-  conditionsSatisfiedDate    DateTime?
-  closingPackageReceivedDate DateTime?
-  fundedDate                 DateTime?
+  applicationSubmittedDate               DateTime?
+  appraisalOrderedDate                   DateTime?
+  appraisalCompletedDate                 DateTime?
+  commitmentReceivedDate                 DateTime?
+  conditionsReceivedDate                 DateTime?
+  conditionsSatisfiedDate                DateTime?
+  closingPackageReceivedDate             DateTime?
+  fundedDate                             DateTime?
   // Owned documents (FC-E) — scalar ids, no FK. Commitment letter + appraisal only this slice.
-  commitmentLetterDocumentId String?
-  appraisalDocumentId        String?
+  commitmentLetterDocumentId             String?
+  appraisalDocumentId                    String?
   // FC-J terminal snapshot — captured inside the record before it freezes, so a terminal
   // outcome is a durable historical fact without a separate event table (FC-I/FC-J).
-  resolvedById                          String?
-  resolvedAt                            DateTime?
-  resolutionReason                      String?
-  resolutionLenderNameSnapshot          String?
+  resolvedById                           String?
+  resolvedAt                             DateTime?
+  resolutionReason                       String?
+  resolutionLenderNameSnapshot           String?
   resolutionCommitmentDocumentIdSnapshot String?
   resolutionAppraisalDocumentIdSnapshot  String?
-  createdAt                  DateTime        @default(now())
-  updatedAt                  DateTime        @updatedAt
-  organization               Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  opportunity                Opportunity     @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  createdAt                              DateTime        @default(now())
+  updatedAt                              DateTime        @updatedAt
+  organization                           Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity                            Opportunity     @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
   @@map("financing_records")
+}
+
+// The wholesale assignment lifecycle (v1.4 Slice 4, AS-B). Human operational workflow —
+// never part of the underwriting engine (AS-1). Terminal states freeze the record (AS-4).
+enum AssignmentStatus {
+  NOT_STARTED
+  DRAFTED
+  EXECUTED
+  CANCELLED
+}
+
+// The core wholesale transaction record (v1.4 Slice 4, AS-A): 1:1 with an Opportunity,
+// carrying the assignor/assignee parties (AS-C, scalar-id-no-FK + free-text), the lifecycle,
+// and an immutable execution snapshot (AS-D/AS-H). The assignment FEE's single source of
+// truth stays on Opportunity.assignmentFeeUsd (AS-3) — this record only snapshots it at
+// execution. The generated agreement lives in Document (ASSIGNMENT_AGREEMENT, AS-E), not here.
+model AssignmentRecord {
+  id                                  String           @id @default(cuid())
+  organizationId                      String
+  opportunityId                       String           @unique
+  status                              AssignmentStatus @default(NOT_STARTED)
+  // Parties (AS-C) — optional scalar references to existing Seller/Buyer rows (no FK, house
+  // idiom) with free-text fallback for off-system parties. No Party entity (AS-11).
+  assignorSellerId                    String?
+  assignorName                        String?
+  assignorContact                     String?
+  assigneeBuyerId                     String?
+  assigneeName                        String?
+  assigneeContact                     String?
+  // Terminal resolution (AS-H, FC-J pattern) — set on EXECUTED or CANCELLED; freezes the record.
+  resolvedById                        String?
+  resolvedAt                          DateTime?
+  resolutionReason                    String?
+  // Execution snapshot (AS-D/AS-H) — captured only on EXECUTED, an immutable historical fact.
+  executedFeeUsdSnapshot              Int?
+  executedContractValueUsdSnapshot    Int?
+  executedAssignorNameSnapshot        String?
+  executedAssigneeNameSnapshot        String?
+  executedAgreementDocumentIdSnapshot String?
+  createdAt                           DateTime         @default(now())
+  updatedAt                           DateTime         @updatedAt
+  organization                        Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity                         Opportunity      @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("assignment_records")
 }
 
 model BuyerMatch {

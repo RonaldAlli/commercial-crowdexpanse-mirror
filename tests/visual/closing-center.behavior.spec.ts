@@ -43,6 +43,7 @@ test.describe("accordion behavior (ADMIN)", () => {
     await expect(region(page, "Escrow")).toBeHidden();
     await expect(trigger(page, "Escrow")).toContainText("Deposited");
     await expect(trigger(page, "Financing")).toContainText("Clear to close");
+    await expect(trigger(page, "Assignment")).toContainText("Drafted");
   });
 
   test("keyboard: trigger is focusable; Enter and Space toggle the section", async ({ page }) => {
@@ -103,6 +104,28 @@ test.describe("accordion behavior (ADMIN)", () => {
     await expect(fin).toContainText("1.35x");
   });
 
+  test("Assignment section: drafted status, versioned drafts, and ADMIN execute control", async ({ page }) => {
+    await page.goto(oppPath(M.opportunities.active));
+    const asn = trigger(page, "Assignment");
+    await expect(asn).toHaveAttribute("aria-expanded", "false");
+    await asn.click();
+    const region4 = region(page, "Assignment");
+    await expect(region4).toBeVisible();
+    // Versioned drafts (AS-M) + the long assignee value wraps rather than overflowing.
+    await expect(region4).toContainText("Draft 1");
+    await expect(region4).toContainText("Draft 2");
+    await expect(region4).toContainText("Southeastern Value-Add Multifamily Opportunity Fund IV");
+    // ADMIN sees the execute control (DRAFTED → EXECUTED, AS-G).
+    await expect(region4.getByRole("button", { name: "Execute assignment" })).toBeVisible();
+  });
+
+  test("AS-N: the opportunity header shows an at-a-glance assignment summary badge", async ({ page }) => {
+    await page.goto(oppPath(M.opportunities.active));
+    const stageCard = page.locator("article").filter({ hasText: "Stage" }).first();
+    await expect(stageCard).toContainText("Assignment");
+    await expect(stageCard).toContainText("Drafted");
+  });
+
   test("no unexpected console errors on the Closing Center page", async ({ page }) => {
     const errors: string[] = [];
     page.on("console", (msg) => { if (msg.type() === "error") errors.push(msg.text()); });
@@ -131,6 +154,25 @@ test.describe("empty + terminal states (ADMIN)", () => {
     await expect(page.locator(CLOSING_CENTER)).toContainText("Ready to close");
     await expect(trigger(page, "Escrow")).toContainText("Released");
     await expect(trigger(page, "Financing")).toContainText("Funded");
+    await expect(trigger(page, "Assignment")).toContainText("Executed");
+  });
+
+  test("executed assignment shows the immutable executed-terms snapshot", async ({ page }) => {
+    await page.goto(oppPath(M.opportunities.terminal));
+    await trigger(page, "Assignment").click();
+    const region4 = region(page, "Assignment");
+    await expect(region4).toContainText("Executed terms (immutable)");
+    await expect(region4).toContainText("Frozen");
+    // Fee snapshot at execution ($250,000) renders; the record no longer offers a Regenerate control.
+    await expect(region4).toContainText("$250,000");
+    await expect(region4.getByRole("button", { name: /Regenerate draft/ })).toHaveCount(0);
+  });
+
+  test("empty opportunity's assignment section is not-started with a start control", async ({ page }) => {
+    await page.goto(oppPath(M.opportunities.empty));
+    await expect(trigger(page, "Assignment")).toContainText("Not started");
+    await trigger(page, "Assignment").click();
+    await expect(region(page, "Assignment").getByRole("button", { name: "Start assignment tracking" })).toBeVisible();
   });
 });
 
@@ -151,6 +193,17 @@ test.describe("role-gated terminal controls", () => {
     await trigger(page, "Escrow").click();
     await expect(region(page, "Escrow")).toContainText("admin action");
     await expect(region(page, "Escrow").getByRole("button", { name: "Released" })).toHaveCount(0);
+    await ctx.close();
+  });
+
+  test("non-admin CLOSING writer sees the admin-only note instead of Execute assignment", async ({ browser }) => {
+    const ctx = await browser.newContext({ storageState: authFile("writer") });
+    const page = await ctx.newPage();
+    await page.goto(oppPath(M.opportunities.active));
+    await trigger(page, "Assignment").click();
+    const region4 = region(page, "Assignment");
+    await expect(region4).toContainText("Executing the assignment is an admin action");
+    await expect(region4.getByRole("button", { name: "Execute assignment" })).toHaveCount(0);
     await ctx.close();
   });
 });

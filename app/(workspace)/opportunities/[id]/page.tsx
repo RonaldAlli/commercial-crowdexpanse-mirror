@@ -11,16 +11,20 @@ import { GenerateMatchesButton, MatchRowControls } from "@/components/match-cont
 import { ClosingChecklist, StartClosingChecklistButton, type ChecklistItemView } from "@/components/closing-checklist";
 import { EscrowCard, type EscrowView } from "@/components/escrow-card";
 import { FinancingCard, type FinancingView, type FinancingUnderwritingRef } from "@/components/financing-card";
+import { AssignmentCard, type AssignmentView, type AssignmentDraft } from "@/components/assignment-card";
 import { AccordionSection } from "@/components/accordion-section";
 import { requireUser } from "@/lib/auth";
-import { can, canMoveStage, canWaiveClosingItem, canResolveEscrow, canResolveFinancing } from "@/lib/permissions";
+import { can, canMoveStage, canWaiveClosingItem, canResolveEscrow, canResolveFinancing, canExecuteAssignment } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { blockingItems, closingProgress, closingReadinessSummary } from "@/lib/closing";
 import { escrowStatusLabel, escrowStatusTone } from "@/lib/escrow";
 import { financingStatusLabel, financingStatusTone } from "@/lib/financing";
+import { assignmentStatusLabel, assignmentStatusTone } from "@/lib/assignment";
 import { getClosingChecklist } from "@/lib/closing-service";
 import { getEscrowRecord } from "@/lib/escrow-service";
 import { getFinancingRecord } from "@/lib/financing-service";
+import { getAssignmentRecord } from "@/lib/assignment-service";
+import { listGeneratedAgreements } from "@/lib/documents/assignment-agreement-service";
 import { getActiveScenarioResult } from "@/lib/underwriting";
 import { checklistCategoryLabel } from "@/lib/closing-options";
 import { matchStatusLabel, matchStatusTone } from "@/lib/match-options";
@@ -68,10 +72,17 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
     getFinancingRecord(user.organizationId, opportunity.id),
     getActiveScenarioResult(user.organizationId, opportunity.id),
   ]);
+  // Assignment (v1.4 Slice 4). Read-only here — a CLOSING-write user starts it explicitly.
+  // Its generated agreement drafts are Documents-owned (append-only, AS-M).
+  const [assignment, assignmentDrafts] = await Promise.all([
+    getAssignmentRecord(user.organizationId, opportunity.id),
+    listGeneratedAgreements(user.organizationId, opportunity.id),
+  ]);
   const canWriteClosing = can(user.role, "UPDATE", "CLOSING");
   const canWaiveClosing = canWaiveClosingItem(user.role);
   const canResolveEscrowNow = canResolveEscrow(user.role);
   const canResolveFinancingNow = canResolveFinancing(user.role);
+  const canExecuteAssignmentNow = canExecuteAssignment(user.role);
   // Members are only needed for the checklist; documents are shared by the closing evidence
   // picker, the escrow proof-of-deposit picker, and the financing document links.
   const [closingMembers, opportunityDocuments] =
@@ -161,6 +172,30 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
         resolutionLenderNameSnapshot: financing.resolutionLenderNameSnapshot,
       }
     : null;
+  // Assignment view (v1.4 Slice 4). Parties + immutable execution snapshot; the fee/contract
+  // value shown come from the Opportunity (read-only here, AS-3).
+  const assignmentView: AssignmentView | null = assignment
+    ? {
+        status: assignment.status,
+        assignorName: assignment.assignorName,
+        assignorContact: assignment.assignorContact,
+        assigneeName: assignment.assigneeName,
+        assigneeContact: assignment.assigneeContact,
+        resolvedAt: assignment.resolvedAt ? assignment.resolvedAt.toISOString() : null,
+        resolutionReason: assignment.resolutionReason,
+        executedFeeUsdSnapshot: assignment.executedFeeUsdSnapshot,
+        executedContractValueUsdSnapshot: assignment.executedContractValueUsdSnapshot,
+        executedAssignorNameSnapshot: assignment.executedAssignorNameSnapshot,
+        executedAssigneeNameSnapshot: assignment.executedAssigneeNameSnapshot,
+        executedAgreementDocumentIdSnapshot: assignment.executedAgreementDocumentIdSnapshot,
+      }
+    : null;
+  const assignmentDraftViews: AssignmentDraft[] = assignmentDrafts.map((d) => ({
+    id: d.id,
+    generationSequence: d.generationSequence ?? 0,
+    generatedAt: d.generatedAt ? d.generatedAt.toISOString() : null,
+  }));
+
   // FC-0: read-only reference to the active scenario's primary financing case debt. Displayed
   // for context only; never copied, cached, or persisted into the FinancingRecord.
   const primaryCaseResult = activeScenario?.financingCases[0]?.result ?? null;
@@ -191,6 +226,11 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
   const escrowStatusToneVal = escrowView ? escrowStatusTone(escrowView.status) : "neutral";
   const financingStatusText = financingView ? financingStatusLabel(financingView.status) : "Not started";
   const financingStatusToneVal = financingView ? financingStatusTone(financingView.status) : "neutral";
+  const assignmentStatusText = assignmentView ? assignmentStatusLabel(assignmentView.status) : "Not started";
+  const assignmentStatusToneVal = assignmentView ? assignmentStatusTone(assignmentView.status) : "neutral";
+  // AS-N: a small at-a-glance assignment summary on the opportunity header — shown only once the
+  // assignment is past NOT_STARTED (Drafted / Executed / Cancelled).
+  const showAssignmentHeaderBadge = assignmentView != null && assignmentView.status !== "NOT_STARTED";
 
   const terms: { label: string; value: string | null }[] = [
     { label: "Source", value: opportunity.source },
@@ -246,9 +286,15 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
         <div className="space-y-6 lg:col-span-2">
           <article className="card p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <p className="eyebrow">Stage</p>
                 <Badge tone="info" dot>{stageLabel(opportunity.stage)}</Badge>
+                {showAssignmentHeaderBadge ? (
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-xs text-slate-400">Assignment</span>
+                    <Badge tone={assignmentStatusToneVal}>{assignmentStatusText}</Badge>
+                  </span>
+                ) : null}
               </div>
               {moveableStages.length > 1 ? (
                 <StageSelect action={moveOpportunityStage.bind(null, opportunity.id)} current={opportunity.stage} stages={moveableStages} />
@@ -281,7 +327,7 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 id="closing-center-heading" className="text-base font-semibold text-slate-900">Closing Center</h2>
-                  <p className="text-xs text-slate-500">Due diligence, escrow, and financing for this opportunity.</p>
+                  <p className="text-xs text-slate-500">Due diligence, escrow, financing, and assignment for this opportunity.</p>
                 </div>
                 {readiness ? (
                   <Badge tone={readiness.ready ? "success" : "warning"} dot>
@@ -366,6 +412,18 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
                   underwritingRef={underwritingRef}
                   canWrite={canWriteClosing}
                   canResolve={canResolveFinancingNow}
+                />
+              </AccordionSection>
+
+              <AccordionSection title="Assignment" status={assignmentStatusText} statusTone={assignmentStatusToneVal}>
+                <AssignmentCard
+                  opportunityId={opportunity.id}
+                  assignment={assignmentView}
+                  drafts={assignmentDraftViews}
+                  feeUsd={opportunity.assignmentFeeUsd}
+                  contractValueUsd={opportunity.contractValueUsd}
+                  canWrite={canWriteClosing}
+                  canExecute={canExecuteAssignmentNow}
                 />
               </AccordionSection>
             </div>

@@ -93,5 +93,9 @@ export const DEFAULT_CLOSING_TEMPLATE: { name: string; items: TemplateItemSeed[]
     { category: "DUE_DILIGENCE", label: "Financials / T12 verification", required: true, completionEvidenceType: "DOCUMENT" },
     { category: "DUE_DILIGENCE", label: "Legal / contract review", required: true, completionEvidenceType: "MANUAL" },
     { category: "DUE_DILIGENCE", label: "Environmental review", required: false, completionEvidenceType: "DOCUMENT" },
+    // AS-J: assignment deals gate PAID on an executed assignment agreement. Seeded as a single
+    // REQUIRED ASSIGNMENT item (evidence = the executed generated agreement Document); a
+    // non-assignment deal clears it via the reasoned ADMIN waive (canWaiveClosingItem, CC-5).
+    { category: "ASSIGNMENT", label: "Assignment agreement executed", required: true, completionEvidenceType: "DOCUMENT" },
   ],
 };

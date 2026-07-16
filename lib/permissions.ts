@@ -149,6 +149,15 @@ export function canResolveFinancing(role: UserRole): boolean {
   return role === ADMIN;
 }
 
+// Executing an assignment captures the terminal AS-D/AS-H snapshot and FREEZES the record
+// (an immutable historical fact + the executed agreement becomes non-regenerable, AS-12), so
+// it is the strictest assignment action: ADMIN only (a distinct check, like canResolveFinancing)
+// — AS-G. Ordinary assignment work (draft/regenerate the agreement, set parties, cancel) is
+// CLOSING write. Execution never touches underwriting (AS-13).
+export function canExecuteAssignment(role: UserRole): boolean {
+  return role === ADMIN;
+}
+
 export function canMoveStage(role: UserRole, current: OpportunityStage, target: OpportunityStage): boolean {
   const c = idx(current);
   const t = idx(target);
