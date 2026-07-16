@@ -3,9 +3,13 @@
 // read time from events the system ALREADY recorded in ActivityLog (TL-1). NO Prisma, NO clock,
 // NO I/O; plain data in, new arrays out; never mutates its input (TL-4). It classifies each
 // PERSISTED event into a closed category set and orders them deterministically — it NEVER
-// synthesizes an entry with no underlying event (TL-10 Event Integrity). For events that
-// correspond to an immutable snapshot it emits a REFERENCE that links OUT to the authoritative
-// artifact rather than copying its data (TL-11 Snapshot Reference). It reuses the Closing domain
+// synthesizes an entry with no underlying event (TL-10 Event Integrity). Any unrecognized event
+// family is classified as `other` with its label/body preserved — never discarded — so the
+// timeline stays forward-compatible with future Closing slices (TL-12 Unknown Event Forward
+// Compatibility). For events that correspond to an immutable snapshot it emits a REFERENCE that
+// links OUT to the authoritative artifact rather than copying its data (TL-11 Snapshot Reference);
+// when the caller signals that artifact is unavailable, ONLY the hyperlink is suppressed — the
+// event itself always survives (TL-13 Snapshot Link Failure). It reuses the Closing domain
 // vocabulary and never re-derives readiness/blocker/milestone/status (TX-4 Projection
 // Composition). Design authority: docs/architecture/CLOSING_CENTER_ARCHITECTURE_LOCK.md
 // (Slice 6 — Transaction Timeline) + docs/architecture/TRANSACTION_TIMELINE_DECISION_PACKAGE.md.
@@ -139,20 +143,36 @@ export type TimelineEntry = {
   reference: SnapshotReference | null; // TL-11
 };
 
+/**
+ * Options for projecting entries. `isReferenceAvailable` is the TL-13 seam: an I/O-free predicate
+ * (the caller decides availability — the pure module never does I/O) that, when it returns false
+ * for an event, SUPPRESSES only that entry's snapshot hyperlink while the entry itself always
+ * renders. Omitted → every reference is considered available (today's references target durable
+ * page anchors/routes, so none dangle; the seam future-proofs artifact-specific links).
+ */
+export type TimelineProjectionOptions = { isReferenceAvailable?: (event: TimelineInputEvent) => boolean };
+
 /** Project ONE persisted event into a presentation-neutral entry. Pure; copies, never mutates. */
-export function projectTimelineEntry(event: TimelineInputEvent, opportunityId: string): TimelineEntry {
+export function projectTimelineEntry(
+  event: TimelineInputEvent,
+  opportunityId: string,
+  options?: TimelineProjectionOptions,
+): TimelineEntry {
   const category = classifyEvent(event.eventType);
+  const candidate = snapshotReference(event.eventType, opportunityId);
+  // TL-13: a known-unavailable artifact suppresses ONLY the link — never the event.
+  const reference = candidate && (options?.isReferenceAvailable?.(event) ?? true) ? candidate : null;
   return {
     id: event.id,
     category,
     categoryLabel: CATEGORY_LABEL[category],
     tone: CATEGORY_TONE[category],
-    title: event.eventLabel,
+    title: event.eventLabel, // TL-10/TL-12: the recorded label, verbatim — never synthesized
     detail: event.eventBody,
     actorName: event.actorName && event.actorName.trim().length > 0 ? event.actorName : "System",
     occurredAtMs: event.occurredAtMs,
     occurredAtIso: new Date(event.occurredAtMs).toISOString(),
-    reference: snapshotReference(event.eventType, opportunityId),
+    reference,
   };
 }
 
@@ -183,9 +203,14 @@ export function sortTimelineEntries(entries: TimelineEntry[], order: TimelineOrd
 }
 
 /** Map + order a page of persisted events into the timeline projection. Pure. */
-export function projectTimeline(events: TimelineInputEvent[], opportunityId: string, order: TimelineOrder): TimelineEntry[] {
+export function projectTimeline(
+  events: TimelineInputEvent[],
+  opportunityId: string,
+  order: TimelineOrder,
+  options?: TimelineProjectionOptions,
+): TimelineEntry[] {
   return sortTimelineEntries(
-    events.map((e) => projectTimelineEntry(e, opportunityId)),
+    events.map((e) => projectTimelineEntry(e, opportunityId, options)),
     order,
   );
 }

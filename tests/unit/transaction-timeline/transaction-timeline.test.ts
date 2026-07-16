@@ -141,3 +141,46 @@ test("sortTimelineEntries returns a new array and never mutates its input", () =
 test("projectTimeline on empty input yields an empty array", () => {
   assert.deepEqual(projectTimeline([], OPP, "newest"), []);
 });
+
+// --- TL-12: unknown event forward compatibility ------------------------------------------------
+
+test("an unrecognized future event is classified other, keeps its label/body, and is never dropped", () => {
+  const future = ev({ id: "f1", eventType: "somethingnew.happened", eventLabel: "Something new happened", eventBody: "future detail" });
+  const entry = projectTimelineEntry(future, OPP);
+  assert.equal(entry.category, "other");
+  assert.equal(entry.categoryLabel, "Activity");
+  assert.equal(entry.title, "Something new happened"); // preserved verbatim, never synthesized
+  assert.equal(entry.detail, "future detail");
+  assert.equal(entry.reference, null); // unknown event has no immutable-snapshot reference
+  // It survives projection alongside known events (not discarded).
+  const out = projectTimeline([future, ev({ id: "known", eventType: "escrow.opened" })], OPP, "oldest");
+  assert.deepEqual(out.map((e) => e.id).sort(), ["f1", "known"]);
+});
+
+// --- TL-13: snapshot link failure — suppress only the hyperlink, never the event ---------------
+
+test("an unavailable snapshot artifact suppresses only the reference; the entry still renders fully", () => {
+  const e = ev({ id: "e1", eventType: "escrow.opened", eventLabel: "Escrow opened", eventBody: "Holder: X" });
+  // Reference present when available (default).
+  assert.ok(projectTimelineEntry(e, OPP).reference);
+  // With the artifact reported unavailable, the link is suppressed but the entry is intact.
+  const suppressed = projectTimelineEntry(e, OPP, { isReferenceAvailable: () => false });
+  assert.equal(suppressed.reference, null);
+  assert.equal(suppressed.id, "e1");
+  assert.equal(suppressed.title, "Escrow opened");
+  assert.equal(suppressed.detail, "Holder: X");
+  assert.equal(suppressed.category, "escrow");
+});
+
+test("projectTimeline threads availability per-event — history survives missing references", () => {
+  const events = [
+    ev({ id: "keep", eventType: "underwriting.decided", occurredAtMs: t("2026-07-02T00:00:00.000Z") }),
+    ev({ id: "gone", eventType: "escrow.opened", occurredAtMs: t("2026-07-01T00:00:00.000Z") }),
+  ];
+  const out = projectTimeline(events, OPP, "oldest", { isReferenceAvailable: (e) => e.id !== "gone" });
+  // Both events remain (no suppression of the event itself).
+  assert.deepEqual(out.map((e) => e.id), ["gone", "keep"]);
+  // Only the unavailable one loses its link.
+  assert.equal(out.find((e) => e.id === "gone")?.reference, null);
+  assert.ok(out.find((e) => e.id === "keep")?.reference);
+});

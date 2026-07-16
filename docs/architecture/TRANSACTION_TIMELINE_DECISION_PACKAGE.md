@@ -8,11 +8,13 @@
 > **TX-5 Projection Version** approved as a reservation only (do not implement); **mount
 > point** = the Opportunity detail page beside the Closing Center (no separate top-level
 > route); **default ordering** = newest-first with an oldest-first toggle; **scope
-> exclusions + invariants** approved. Founder added two invariants: **TL-10 Event
-> Integrity** and **TL-11 Snapshot Reference** (see §7). The authoritative statement now
-> lives in `CLOSING_CENTER_ARCHITECTURE_LOCK.md` (TX-0 section); this package is
-> preserved as the decision record. Implementation proceeds on a dedicated feature
-> branch and **stops before merge**.
+> exclusions + invariants** approved. Founder added **TL-10 Event Integrity** and
+> **TL-11 Snapshot Reference** at ratification, and — on approving TX-0 for release —
+> two further invariants: **TL-12 Unknown Event Forward Compatibility** and **TL-13
+> Snapshot Link Failure** (see §7). The authoritative statement now lives in
+> `CLOSING_CENTER_ARCHITECTURE_LOCK.md` (TX-0 section); this package is preserved as the
+> decision record. Implementation proceeds on a dedicated feature branch and **stops
+> before merge**.
 >
 > **Slice context:** Closing Center, Version 1.4. The Transaction Dashboard (Slice 5)
 > is LIVE and accepted. TX-0 (Transaction Timeline) was reserved during Slice-5
@@ -381,6 +383,16 @@ into the frozen V1.3 underwriting **engine** (only reads already-recorded
   snapshot (`EscrowEvent`, `UnderwritingDecision`, a generated Assignment Agreement or
   Offer Memo document), the entry **links back to the authoritative artifact** rather than
   copying its data. Projection, not duplication.
+- **TL-12** Unknown Event Forward Compatibility — an unrecognized `eventType` is
+  **displayed**, classified as **`other`**, with its label/body **preserved**, and
+  **never silently discarded**; the timeline stays forward-compatible with future Closing
+  slices. (Founder addition, 2026-07-16.)
+- **TL-13** Snapshot Link Failure — a deleted/unavailable referenced artifact suppresses
+  **only the hyperlink**, never the event; history survives missing references.
+  Implemented as an I/O-free injected availability predicate (`isReferenceAvailable`) so
+  the pure module does no I/O; omitted → references treated as available (today's
+  references target durable page anchors/routes, so none dangle). (Founder addition,
+  2026-07-16.)
 
 ---
 
