@@ -62,12 +62,11 @@ try {
     data: { organizationId: a.id, name: "Closer", email: `closer-${process.pid}@example.com`, hashedPassword: "x", role: UserRole.ACQUISITIONS },
   });
 
-  console.log("\n[1] First use seeds the org's default template — Due Diligence + one Assignment item (CC-G/AS-J):");
+  console.log("\n[1] First use seeds the org's default DUE_DILIGENCE template (CC-G):");
   const tmpl = await getOrSeedActiveTemplate(a.id);
   assert(tmpl.isDefault && tmpl.isActive && tmpl.version === 1, "seeded template is the active default at version 1");
   assert(tmpl.items.length === DEFAULT_CLOSING_TEMPLATE.items.length, "template item count matches the code-defined default");
-  assert(tmpl.items.every((i) => ["DUE_DILIGENCE", "ASSIGNMENT"].includes(i.category)), "seeded items are Due Diligence + the AS-J Assignment item");
-  assert(tmpl.items.filter((i) => i.category === "ASSIGNMENT").length === 1, "exactly one required Assignment item is seeded (AS-J)");
+  assert(tmpl.items.every((i) => i.category === "DUE_DILIGENCE"), "every seeded item is Due Diligence (AS-J revised — no domain auto-seeds the template)");
   const seedAgain = await getOrSeedActiveTemplate(a.id);
   assert(seedAgain.id === tmpl.id, "seeding is idempotent — the active template is reused, not duplicated");
   assert((await prisma.closingChecklistTemplate.count({ where: { organizationId: a.id } })) === 1, "exactly one template exists after repeated seeding");

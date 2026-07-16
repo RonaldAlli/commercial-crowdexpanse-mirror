@@ -147,19 +147,21 @@ try {
   assert(cancelled.status === "CANCELLED" && cancelled.resolutionReason === "Buyer walked", "NOT_STARTED → CANCELLED works with a reason");
   await throws(() => generateAssignmentDraft(a.id, cOpp.id, actor), "a cancelled assignment cannot generate an agreement");
 
-  console.log("\n[10] AS-F/AS-J — PAID gates on a REQUIRED ASSIGNMENT item; executing does NOT auto-complete it:");
+  console.log("\n[10] AS-J (revised) — the default template seeds NO ASSIGNMENT item; the gate composes over a CONFIGURED one, and executing never auto-completes it:");
   const gOpp = await mkOpp(a.id, (await mkProp(a.id, "Gate Asset")).id, { title: "Gate Deal", contractValueUsd: 500_000, assignmentFeeUsd: 20_000 });
   const cl = await ensureClosingChecklist(a.id, gOpp.id);
-  const assignItem = cl.items.find((i) => i.category === "ASSIGNMENT");
-  assert(assignItem && assignItem.required, "the default checklist seeds a REQUIRED ASSIGNMENT item (AS-J)");
-  // Complete every required item EXCEPT the assignment one → still blocked.
-  for (const it of cl.items.filter((i) => i.required && i.id !== assignItem.id)) await completeChecklistItem(a.id, it.id, actor.id);
-  assert((await isOpportunityClosingReady(a.id, gOpp.id)) === false, "PAID is blocked while the required ASSIGNMENT item is outstanding");
+  assert(cl.items.every((i) => i.category !== "ASSIGNMENT"), "the default checklist seeds NO ASSIGNMENT item — Closing policy stays configurable (AS-J revised, consistent with escrow/financing)");
+  // Complete every default required item → ready; assignment plays no part unless configured.
+  for (const it of cl.items.filter((i) => i.required)) await completeChecklistItem(a.id, it.id, actor.id);
+  assert((await isOpportunityClosingReady(a.id, gOpp.id)) === true, "PAID is ready on the default template with no assignment involvement");
+  // An org that runs assignment deals CONFIGURES a required ASSIGNMENT item itself (like escrow/financing).
+  const assignItem = await prisma.closingChecklistItem.create({ data: { organizationId: a.id, checklistId: cl.id, category: "ASSIGNMENT", label: "Assignment agreement executed", required: true, completionEvidenceType: "DOCUMENT", position: 99, status: "PENDING" } });
+  assert((await isOpportunityClosingReady(a.id, gOpp.id)) === false, "a configured required ASSIGNMENT item re-blocks PAID (the gate composes over it)");
   await startAssignment(a.id, gOpp.id, actor.id);
   await generateAssignmentDraft(a.id, gOpp.id, actor);
   await executeAssignment(a.id, gOpp.id, actor.id, "done");
-  const item2 = (await prisma.closingChecklist.findFirst({ where: { opportunityId: gOpp.id }, include: { items: true } })).items.find((i) => i.category === "ASSIGNMENT");
-  assert(item2.status === "PENDING", "executing the assignment does NOT auto-complete the checklist item (no hidden coupling — AS-F)");
+  const item2 = (await prisma.closingChecklist.findFirst({ where: { opportunityId: gOpp.id }, include: { items: true } })).items.find((i) => i.id === assignItem.id);
+  assert(item2.status === "PENDING", "executing the assignment does NOT auto-complete the configured item (no hidden coupling)");
   assert((await isOpportunityClosingReady(a.id, gOpp.id)) === false, "PAID stays blocked until a human explicitly completes the ASSIGNMENT item");
   await completeChecklistItem(a.id, item2.id, actor.id);
   assert((await isOpportunityClosingReady(a.id, gOpp.id)) === true, "PAID becomes ready once the ASSIGNMENT item is explicitly completed (the gate is composed, never bypassed)");

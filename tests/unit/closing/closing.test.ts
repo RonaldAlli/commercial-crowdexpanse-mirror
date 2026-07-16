@@ -129,15 +129,12 @@ test("a required item cannot be marked NOT_APPLICABLE (must be WAIVED instead)",
   assert.equal(isValidStatusTransition(true, "PENDING"), true);
 });
 
-// --- default template data (CC-G / AS-J) -------------------------------------
-test("the default template ships Due Diligence items plus one required Assignment item", () => {
+// --- default template data (CC-G) --------------------------------------------
+test("the default template ships Due Diligence items with declared evidence types", () => {
   assert.ok(DEFAULT_CLOSING_TEMPLATE.items.length > 0);
-  // Slice 1 seeded DUE_DILIGENCE; Slice 4 (AS-J) adds exactly one required ASSIGNMENT item.
-  assert.ok(DEFAULT_CLOSING_TEMPLATE.items.every((i) => ["DUE_DILIGENCE", "ASSIGNMENT"].includes(i.category)));
-  const assignmentItems = DEFAULT_CLOSING_TEMPLATE.items.filter((i) => i.category === "ASSIGNMENT");
-  assert.equal(assignmentItems.length, 1, "exactly one seeded ASSIGNMENT item (AS-J)");
-  assert.ok(assignmentItems[0].required, "the seeded assignment item gates PAID (required)");
-  assert.equal(assignmentItems[0].completionEvidenceType, "DOCUMENT", "its evidence is the executed agreement Document");
+  // AS-J (revised): Assignments do NOT seed the template — the default stays Due Diligence only,
+  // keeping Closing policy configurable (consistent with Escrow/Financing).
+  assert.ok(DEFAULT_CLOSING_TEMPLATE.items.every((i) => i.category === "DUE_DILIGENCE"));
   assert.ok(DEFAULT_CLOSING_TEMPLATE.items.some((i) => i.required));
   assert.ok(DEFAULT_CLOSING_TEMPLATE.items.every((i) => ["NONE", "DOCUMENT", "TASK", "MANUAL"].includes(i.completionEvidenceType)));
 });
