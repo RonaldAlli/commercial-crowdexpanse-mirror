@@ -10,7 +10,7 @@ deterministic underwriting engine. It reuses the existing platforms (Documents, 
 ActivityLog, the pipeline) rather than reinventing them, and it gates the irreversible
 `PAID` milestone behind a satisfied closing checklist.
 
-> **Delivery status:** **Slices 1 & 2 are LIVE in production.** **Slice 1** (Closing Foundation + Due Diligence + the PAID gate) — 2026-07-15; all CC decisions/invariants implemented as ratified, including the refinement that a blocked PAID move explains which required items remain. **Slice 2 — Escrow** (§8–10 below, EC-A…EC-J / EC-1…EC-11) — 2026-07-16; prod **24 migrations**, serving `hJJCViPhweeyHioi_UMkP`, `main` @ `53847f4`. Later slices (Financing, Assignments, dashboard, list-level progress) remain deferred. **Version 1.4 is not complete.**
+> **Delivery status:** **Slices 1, 2 & 3 are LIVE in production.** **Slice 1** (Closing Foundation + Due Diligence + the PAID gate) — 2026-07-15; all CC decisions/invariants implemented as ratified, including the refinement that a blocked PAID move explains which required items remain. **Slice 2 — Escrow** (§8–10 below, EC-A…EC-J / EC-1…EC-11) — 2026-07-16; prod **24 migrations**, serving `hJJCViPhweeyHioi_UMkP`, `main` @ `53847f4`. **Slice 3 — Financing** (§11–14 below, FC-0…FC-J / FC-1…FC-15) — 2026-07-16; prod **25 migrations**, serving `YJdWgq0rNRz7tPNraoOhD`, `main` @ `a29067a`; all FC decisions/invariants implemented as ratified, including FC-15 (the underwriting reference is an ephemeral read-only view) and FC-J's lighter-than-Escrow snapshot-in-record (no separate ledger, FC-I). Later slices (Assignments, dashboard, list-level progress) remain deferred. **Version 1.4 is not complete.**
 
 ## 1. Scope
 
