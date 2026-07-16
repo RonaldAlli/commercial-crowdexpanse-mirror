@@ -6,6 +6,7 @@ import {
   blockingItems,
   closingBlockMessage,
   closingProgress,
+  closingReadinessSummary,
   isValidStatusTransition,
   DEFAULT_CLOSING_TEMPLATE,
   type GateItem,
@@ -75,6 +76,48 @@ test("closingBlockMessage lists exactly the outstanding required item labels", (
 test("closingBlockMessage uses the singular noun for a single outstanding item", () => {
   const msg = closingBlockMessage([labeled("Legal review", true, "PENDING")]);
   assert.equal(msg, "Cannot move to Paid — 1 required item outstanding: Legal review");
+});
+
+// --- Closing Center readiness header (v1.4, Option C) ------------------------
+// The accordion container's persistent header renders EXACTLY this summary, which is a
+// pure composition of closingProgress + blockingItems + closingBlockMessage — never a
+// second readiness calculation. These tests pin that equivalence so the header can never
+// disagree with the PAID gate.
+test("closingReadinessSummary composes the authoritative helpers (not-ready case)", () => {
+  const items = [
+    labeled("Title", true, "PENDING"),
+    labeled("Inspection", true, "COMPLETE"),
+    labeled("Legal", true, "WAIVED"),
+    labeled("Env", false, "PENDING"),
+  ];
+  const s = closingReadinessSummary(items);
+  const progress = closingProgress(items);
+  // Numbers are exactly closingProgress's — no independent recount.
+  assert.equal(s.ready, progress.ready);
+  assert.equal(s.requiredTotal, progress.requiredTotal);
+  assert.equal(s.requiredSatisfied, progress.requiredSatisfied);
+  assert.equal(s.ready, false);
+  assert.equal(s.requiredTotal, 3);
+  assert.equal(s.requiredSatisfied, 2);
+  // Outstanding count == blockingItems length; message == closingBlockMessage (same source).
+  assert.equal(s.outstandingCount, blockingItems(items).length);
+  assert.equal(s.outstandingCount, 1);
+  assert.equal(s.blockMessage, closingBlockMessage(items));
+  assert.ok(s.blockMessage && s.blockMessage.includes("Title"));
+});
+
+test("closingReadinessSummary reports ready with a null message when all required are satisfied", () => {
+  const items = [labeled("Title", true, "COMPLETE"), labeled("Env", false, "PENDING")];
+  const s = closingReadinessSummary(items);
+  assert.equal(s.ready, true);
+  assert.equal(s.outstandingCount, 0);
+  assert.equal(s.blockMessage, null);
+  assert.equal(s.blockMessage, closingBlockMessage(items));
+});
+
+test("closingReadinessSummary on an empty checklist is ready/zero (empty-state header)", () => {
+  const s = closingReadinessSummary([]);
+  assert.deepEqual(s, { ready: true, requiredTotal: 0, requiredSatisfied: 0, outstandingCount: 0, blockMessage: null });
 });
 
 // --- transition guard (CC-5) -------------------------------------------------

@@ -11,10 +11,13 @@ import { GenerateMatchesButton, MatchRowControls } from "@/components/match-cont
 import { ClosingChecklist, StartClosingChecklistButton, type ChecklistItemView } from "@/components/closing-checklist";
 import { EscrowCard, type EscrowView } from "@/components/escrow-card";
 import { FinancingCard, type FinancingView, type FinancingUnderwritingRef } from "@/components/financing-card";
+import { AccordionSection } from "@/components/accordion-section";
 import { requireUser } from "@/lib/auth";
 import { can, canMoveStage, canWaiveClosingItem, canResolveEscrow, canResolveFinancing } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { blockingItems, closingProgress } from "@/lib/closing";
+import { blockingItems, closingProgress, closingReadinessSummary } from "@/lib/closing";
+import { escrowStatusLabel, escrowStatusTone } from "@/lib/escrow";
+import { financingStatusLabel, financingStatusTone } from "@/lib/financing";
 import { getClosingChecklist } from "@/lib/closing-service";
 import { getEscrowRecord } from "@/lib/escrow-service";
 import { getFinancingRecord } from "@/lib/financing-service";
@@ -174,6 +177,21 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
   // itself rather than silently hiding the option (server enforcement is unchanged).
   const closingBlockers = closing && !closingStats?.ready ? blockingItems(closing.items).map((i) => i.label) : [];
 
+  // Closing Center container (v1.4, Option C) — presentation only. The persistent readiness
+  // header renders exactly the authoritative summary (a pure composition of the existing
+  // closingProgress / blockingItems / closingBlockMessage helpers — no second calculation),
+  // and each accordion section shows its domain's current status in the header without being
+  // opened. The Checklist section defaults open because it governs PAID readiness.
+  const readiness = closing ? closingReadinessSummary(closing.items) : null;
+  const checklistStatus = readiness
+    ? `${readiness.requiredSatisfied} of ${readiness.requiredTotal} required complete`
+    : "Not started";
+  const checklistStatusTone = readiness ? (readiness.ready ? "success" : "warning") : "neutral";
+  const escrowStatusText = escrowView ? escrowStatusLabel(escrowView.status) : "Not opened";
+  const escrowStatusToneVal = escrowView ? escrowStatusTone(escrowView.status) : "neutral";
+  const financingStatusText = financingView ? financingStatusLabel(financingView.status) : "Not started";
+  const financingStatusToneVal = financingView ? financingStatusTone(financingView.status) : "neutral";
+
   const terms: { label: string; value: string | null }[] = [
     { label: "Source", value: opportunity.source },
     { label: "Priority", value: opportunity.priority },
@@ -254,103 +272,104 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
             ) : null}
           </article>
 
-          <article className="card">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
-              <div>
-                <h2 className="text-base font-semibold text-slate-900">Closing Checklist</h2>
-                <p className="text-xs text-slate-500">
-                  Due-diligence items that must be satisfied before this opportunity can move to Paid.
-                </p>
-              </div>
-              {closingStats ? (
-                <Badge tone={closingStats.ready ? "success" : "warning"} dot>
-                  {closingStats.ready
-                    ? "Ready to close"
-                    : `${closingStats.requiredSatisfied}/${closingStats.requiredTotal} required`}
-                </Badge>
-              ) : null}
-            </div>
-            {closing && closingBlockers.length > 0 ? (
-              <div className="border-b border-amber-100 bg-amber-50 px-5 py-4">
-                <p className="text-sm font-semibold text-amber-900">Cannot move to Paid yet</p>
-                <p className="mt-0.5 text-xs text-amber-800">
-                  {closingBlockers.length} required {closingBlockers.length === 1 ? "item" : "items"} outstanding:
-                </p>
-                <ul className="mt-2 space-y-1">
-                  {closingBlockers.map((label) => (
-                    <li key={label} className="flex items-center gap-2 text-xs text-amber-900">
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
-                      {label}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            {closing ? (
-              <div className="divide-y divide-slate-100">
-                {Array.from(closingItemsByCategory.entries()).map(([category, items]) => (
-                  <div key={category}>
-                    <p className="eyebrow px-5 pt-4">{checklistCategoryLabel(category)}</p>
-                    <ClosingChecklist
-                      opportunityId={opportunity.id}
-                      items={items}
-                      members={closingMembers}
-                      documents={opportunityDocuments}
-                      canWrite={canWriteClosing}
-                      canWaive={canWaiveClosing}
-                    />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="px-5 py-6">
-                {canWriteClosing ? (
-                  <div className="flex flex-col items-start gap-2">
-                    <p className="text-sm text-slate-500">
-                      No closing checklist yet. Start one from your organization’s standard template.
-                    </p>
-                    <StartClosingChecklistButton opportunityId={opportunity.id} />
-                  </div>
+          {/* Closing Center — one grouped operational workspace (v1.4, Option C). A pure
+              presentation container: a persistent readiness header + accordion sections over
+              the SAME self-contained domain cards, each receiving the SAME props as before. */}
+          <section className="card" aria-labelledby="closing-center-heading">
+            {/* Persistent readiness header — renders exactly the authoritative summary. */}
+            <div className="border-b border-slate-100 px-5 py-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 id="closing-center-heading" className="text-base font-semibold text-slate-900">Closing Center</h2>
+                  <p className="text-xs text-slate-500">Due diligence, escrow, and financing for this opportunity.</p>
+                </div>
+                {readiness ? (
+                  <Badge tone={readiness.ready ? "success" : "warning"} dot>
+                    {readiness.ready ? "Ready to close" : `${readiness.requiredSatisfied}/${readiness.requiredTotal} required`}
+                  </Badge>
                 ) : (
-                  <p className="text-sm text-slate-500">No closing checklist has been started for this opportunity.</p>
+                  <Badge tone="neutral" dot>Checklist not started</Badge>
                 )}
               </div>
-            )}
-          </article>
-
-          <article className="card">
-            <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className="text-base font-semibold text-slate-900">Escrow</h2>
-              <p className="text-xs text-slate-500">
-                Earnest money, holder, and key dates. Terminal outcomes (released / refunded / forfeited) are admin-only and recorded as immutable history.
-              </p>
+              {readiness && !readiness.ready ? (
+                <div className="mt-3 rounded-lg border border-amber-100 bg-amber-50 px-4 py-3">
+                  <p className="text-sm font-semibold text-amber-900">
+                    Not ready for Paid — {readiness.outstandingCount} required {readiness.outstandingCount === 1 ? "item" : "items"} outstanding
+                  </p>
+                  {closingBlockers.length > 0 ? (
+                    <ul className="mt-2 space-y-1">
+                      {closingBlockers.map((label) => (
+                        <li key={label} className="flex items-center gap-2 text-xs text-amber-900">
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                          <span className="break-words">{label}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ) : readiness ? (
+                <p className="mt-2 text-xs font-medium text-emerald-700">All required items satisfied — this opportunity can move to Paid.</p>
+              ) : null}
             </div>
-            <EscrowCard
-              opportunityId={opportunity.id}
-              escrow={escrowView}
-              documents={opportunityDocuments}
-              canWrite={canWriteClosing}
-              canResolve={canResolveEscrowNow}
-              escrowChecklistItem={escrowChecklistItem}
-            />
-          </article>
 
-          <article className="card">
-            <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className="text-base font-semibold text-slate-900">Financing</h2>
-              <p className="text-xs text-slate-500">
-                The lender&rsquo;s process — application through funding. Terminal outcomes (funded / denied / withdrawn) are admin-only and freeze the record. Underwritten debt is shown for reference only and never edited here.
-              </p>
+            {/* Accordion sections — each header shows its status without being opened. */}
+            <div className="divide-y divide-slate-100">
+              <AccordionSection title="Closing Checklist" status={checklistStatus} statusTone={checklistStatusTone} defaultOpen>
+                {closing ? (
+                  <div className="divide-y divide-slate-100 pb-2">
+                    {Array.from(closingItemsByCategory.entries()).map(([category, items]) => (
+                      <div key={category}>
+                        <p className="eyebrow px-5 pt-4">{checklistCategoryLabel(category)}</p>
+                        <ClosingChecklist
+                          opportunityId={opportunity.id}
+                          items={items}
+                          members={closingMembers}
+                          documents={opportunityDocuments}
+                          canWrite={canWriteClosing}
+                          canWaive={canWaiveClosing}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-5 py-6">
+                    {canWriteClosing ? (
+                      <div className="flex flex-col items-start gap-2">
+                        <p className="text-sm text-slate-500">
+                          No closing checklist yet. Start one from your organization&rsquo;s standard template.
+                        </p>
+                        <StartClosingChecklistButton opportunityId={opportunity.id} />
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-500">No closing checklist has been started for this opportunity.</p>
+                    )}
+                  </div>
+                )}
+              </AccordionSection>
+
+              <AccordionSection title="Escrow" status={escrowStatusText} statusTone={escrowStatusToneVal}>
+                <EscrowCard
+                  opportunityId={opportunity.id}
+                  escrow={escrowView}
+                  documents={opportunityDocuments}
+                  canWrite={canWriteClosing}
+                  canResolve={canResolveEscrowNow}
+                  escrowChecklistItem={escrowChecklistItem}
+                />
+              </AccordionSection>
+
+              <AccordionSection title="Financing" status={financingStatusText} statusTone={financingStatusToneVal}>
+                <FinancingCard
+                  opportunityId={opportunity.id}
+                  financing={financingView}
+                  documents={opportunityDocuments}
+                  underwritingRef={underwritingRef}
+                  canWrite={canWriteClosing}
+                  canResolve={canResolveFinancingNow}
+                />
+              </AccordionSection>
             </div>
-            <FinancingCard
-              opportunityId={opportunity.id}
-              financing={financingView}
-              documents={opportunityDocuments}
-              underwritingRef={underwritingRef}
-              canWrite={canWriteClosing}
-              canResolve={canResolveFinancingNow}
-            />
-          </article>
+          </section>
         </div>
 
         <div className="space-y-6 lg:col-span-1">

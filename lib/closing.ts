@@ -42,6 +42,25 @@ export function closingProgress(items: GateItem[]): { requiredTotal: number; req
   return { requiredTotal: required.length, requiredSatisfied: satisfied, ready: isClosingReady(items) };
 }
 
+/**
+ * The Closing Center header view-model — a pure COMPOSITION of the three authoritative
+ * helpers (closingProgress ∘ blockingItems ∘ closingBlockMessage), never a second readiness
+ * calculation. The accordion container renders exactly this, so its summary can never
+ * disagree with the PAID gate. Pure; no Prisma/clock/side-effects.
+ */
+export function closingReadinessSummary<T extends GateItem & { label: string }>(
+  items: T[],
+): { ready: boolean; requiredTotal: number; requiredSatisfied: number; outstandingCount: number; blockMessage: string | null } {
+  const progress = closingProgress(items);
+  return {
+    ready: progress.ready,
+    requiredTotal: progress.requiredTotal,
+    requiredSatisfied: progress.requiredSatisfied,
+    outstandingCount: blockingItems(items).length,
+    blockMessage: closingBlockMessage(items),
+  };
+}
+
 /** Whether a target status is a valid transition for an item (guards the service/UI). */
 export function isValidStatusTransition(required: boolean, target: ChecklistItemStatus): boolean {
   // A REQUIRED item is never NOT_APPLICABLE — removing it from the gate is a WAIVE
