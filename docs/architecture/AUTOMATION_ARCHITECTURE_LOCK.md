@@ -1,6 +1,9 @@
 # Automation Architecture Lock (Version 2.0)
 
-> **Status: PENDING FOUNDER RATIFICATION — conceptual architecture only.** No
+> **Status: FOUNDER RATIFIED — conceptual architecture only** (ratified 2026-07-16 by
+> Founder: Ronald Delroy Anthony Allicock). Ratification accepts the architecture,
+> refinements A1–A8, and invariants AU-1…AU-13 as the governing conceptual lock; it does
+> **not** authorize implementation code, schema, migrations, or production change. No
 > implementation, no schema, no migration, no production change. This lock defines the
 > **Automation** domain's responsibilities, ownership boundaries, layering, and invariants
 > so that — when ratified and built slice by slice — automation extends the platform through

@@ -1,6 +1,10 @@
 # Version 2.0 (Automation & AI) — Architecture Decision Package
 
-> **Status: PENDING FOUNDER RATIFICATION.** Architecture determination only. **No
+> **Status: FOUNDER RATIFIED** (2026-07-16 · Founder: Ronald Delroy Anthony Allicock).
+> Ratification accepts the D1–D10 determinations, refinements A1–A8, capability-permission
+> matrix, prohibited-autonomous-action classification, two-ledger model, and the
+> deterministic-first roadmap. It does **not** authorize implementation code. Architecture
+> determination only. **No
 > implementation code; no change to any frozen 1.3/1.4 branch, lock, boundary, engine,
 > lifecycle, PAID gate, or production state.** Grounded in the [Version 2.0 Discovery
 > Report](./VERSION_2_0_DISCOVERY.md), the [Automation Architecture Lock](./AUTOMATION_ARCHITECTURE_LOCK.md)

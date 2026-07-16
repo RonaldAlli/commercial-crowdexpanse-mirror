@@ -1,6 +1,7 @@
 # Version 2.0 (Automation & AI) — Repository Discovery Report
 
-> **Status: PENDING FOUNDER RATIFICATION.** Discovery + architecture determination only.
+> **Status: FOUNDER RATIFIED** (2026-07-16 · Founder: Ronald Delroy Anthony Allicock).
+> Discovery + architecture determination only.
 > **No implementation code was written; no frozen 1.3/1.4 branch, lock, boundary, engine,
 > lifecycle, PAID gate, or production state was touched.** `main` and the authoritative
 > repository docs are the source of truth. Companions: [Version 2.0 Decision Package](./VERSION_2_0_DECISION_PACKAGE.md)

@@ -182,11 +182,13 @@ volume justifies it; Board-level closing badges (LB-7); and the D15 `DealAnalysi
 
 ---
 
-## 6. The Automation domain (Version 2.0 — PROPOSED, pending ratification)
+## 6. The Automation domain (Version 2.0 — FOUNDER RATIFIED architecture, not built)
 
-> Specified conceptually in the [Automation Architecture Lock](./AUTOMATION_ARCHITECTURE_LOCK.md)
-> (invariants AU-1…AU-13). **Not built.** Shown here so the whole-platform picture already
-> reserves its place as a **cross-cutting orchestration layer** — never a new source of truth.
+> Conceptual architecture **FOUNDER RATIFIED 2026-07-16** (Founder: Ronald Delroy Anthony
+> Allicock); specified in the [Automation Architecture Lock](./AUTOMATION_ARCHITECTURE_LOCK.md)
+> (invariants AU-1…AU-13). Ratification governs the design only — **not built, no code/schema/
+> migration authorized.** Shown here so the whole-platform picture already reserves its place
+> as a **cross-cutting orchestration layer** — never a new source of truth.
 
 Automation sits *beside* the spine as a bounded orchestration domain that **reads** projections
 and events, **evaluates policy**, **calls existing domain services** through the same human seams
