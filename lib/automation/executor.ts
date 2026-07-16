@@ -14,6 +14,8 @@ import { claimDueJobs, finalizeJob } from "./job-service";
 import { nextStatusAfterFailure, nextAttemptAt } from "./lifecycle";
 import { sanitizeError } from "./idempotency";
 import { CLAIM_BATCH, IDLE_BACKOFF_MS } from "./types";
+import { automationPrincipalKey } from "./principal";
+import { recordAutomationActivity } from "./activity";
 
 /**
  * A per-automation-type handler. `gatherContext` performs the org-scoped read-only work and
@@ -29,7 +31,7 @@ export type AutomationHandler = {
   perform(
     job: AutomationJob,
     context: PolicyContext,
-  ): Promise<{ producedDomainEffect: boolean; observationSummary?: string | null; activityLogId?: string | null }>;
+  ): Promise<{ producedDomainEffect: boolean; observationSummary?: string | null }>;
 };
 
 export type HandlerRegistry = Record<string, AutomationHandler>;
@@ -48,19 +50,29 @@ export function classifyError(err: unknown): AutomationFailureClass {
 export async function runClaimedJob(handler: AutomationHandler, job: AutomationJob): Promise<AutomationJob> {
   const startedAt = new Date();
   const attemptNumber = job.runningAttempt ?? job.attempts;
-  const principalKey = `automation:${handler.automationType}`;
+  const principalKey = automationPrincipalKey(handler.automationType);
   try {
     const { context, fingerprint } = await handler.gatherContext(job);
     const decision = handler.policy(context); // AU-4: mandatory, executor-driven, before perform
     if (decision.kind === "ALLOW") {
       const res = await handler.perform(job, context);
-      const { job: updated } = await finalizeJob({
+      const { job: updated, execution } = await finalizeJob({
         job, attemptNumber, outcome: "SUCCEEDED",
         policyKey: handler.policyKey, policyVersion: handler.policyVersion, policyDecision: "ALLOW",
         contextFingerprint: fingerprint, startedAt, finishedAt: new Date(), principalKey,
-        producedDomainEffect: res.producedDomainEffect, activityLogId: res.activityLogId ?? null,
-        nextStatus: "SUCCEEDED",
+        producedDomainEffect: res.producedDomainEffect, nextStatus: "SUCCEEDED",
       });
+      // Post-commit, best-effort, AUTOMATION-attributed ActivityLog — ONLY for a business-visible
+      // observation. Operational mechanics (claims/retries/leases) are never logged here.
+      if (res.observationSummary) {
+        await recordAutomationActivity({
+          organizationId: job.organizationId,
+          execution,
+          eventType: `automation.${handler.automationType}.observed`,
+          eventLabel: res.observationSummary,
+          opportunityId: job.sourceType === "opportunity" ? job.sourceId : null,
+        });
+      }
       return updated;
     }
     // Non-ALLOW → the policy gate stops here; perform() is NEVER reached. Clean NOOP.

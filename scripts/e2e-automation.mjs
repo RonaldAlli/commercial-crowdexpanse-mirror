@@ -24,6 +24,8 @@ import { nextStatusAfterFailure, nextAttemptAt } from "../lib/automation/lifecyc
 import { runExecutorOnce, startExecutorLoop } from "../lib/automation/executor.ts";
 import { reapStaleJobs } from "../lib/automation/reaper.ts";
 import { runSchedulerOnce, supersedeOlderOccurrences } from "../lib/automation/scheduler.ts";
+import { recordAutomationActivity } from "../lib/automation/activity.ts";
+import { classifyEvent } from "../lib/transaction-timeline.ts";
 
 const TAG = "e2e-automation";
 assertTestDatabase();
@@ -268,6 +270,42 @@ try {
   await markQueued(jl2.id, new Date());
   await new Promise((r) => setTimeout(r, 60));
   assert((await getJob(a.id, jl2.id)).status === "QUEUED", "after stop() the loop claims no new work");
+
+  // ── Commit 5: Automation Principal + ActivityLog compatibility ────────────────
+  console.log("\n[19] Automation ActivityLog attribution (business observation only):");
+  const j19 = await enqueueJob(mkInput(a.id, oppA.id, { automationType: "fake_type", occurrenceKey: "f-19" }));
+  await markQueued(j19.id, new Date());
+  await runExecutorOnce(handler(() => ({ kind: "ALLOW" }), async () => ({ producedDomainEffect: false, observationSummary: "Closing readiness observed" })), new Date());
+  const ex19 = (await listJobExecutions(a.id, j19.id))[0];
+  const log19 = await prisma.activityLog.findFirst({ where: { organizationId: a.id, automationExecutionId: ex19.id } });
+  assert(log19 !== null, "an ActivityLog row is emitted for a business observation");
+  assert(log19.actorType === "AUTOMATION" && log19.actorId === null, "attributed to AUTOMATION, never a user (AU-3)");
+  assert(log19.automationExecutionId === ex19.id, "linked to the originating execution");
+  assert(log19.eventType === "automation.fake_type.observed", "honest automation.* event type");
+  assert(log19.opportunityId === oppA.id, "linked to the source opportunity");
+
+  console.log("\n[20] ActivityLog backward compatibility (human + system events unchanged):");
+  const user = await prisma.user.create({ data: { organizationId: a.id, name: "H", email: `h-${process.pid}@example.com`, hashedPassword: "x", role: UserRole.ADMIN } });
+  const humanRow = await prisma.activityLog.create({ data: { organizationId: a.id, actorId: user.id, eventType: "opportunity.updated", eventLabel: "Updated" } });
+  assert(humanRow.actorType === "USER", "a human event defaults to actorType USER (no behavior change)");
+  const sysRow = await prisma.activityLog.create({ data: { organizationId: a.id, actorId: null, eventType: "system.note", eventLabel: "System" } });
+  assert(sysRow.actorType === "USER" && sysRow.actorId === null, "a null-actor system event keeps existing semantics");
+  assert((await prisma.activityLog.findMany({ where: { organizationId: a.id, actorType: "USER" } })).length >= 2, "existing rows query normally by actorType");
+
+  console.log("\n[21] Cross-org ActivityLog linkage is rejected (fail closed):");
+  const crossId = await recordAutomationActivity({ organizationId: b.id, execution: { id: ex19.id, organizationId: a.id }, eventType: "automation.x.observed", eventLabel: "x" });
+  assert(crossId === null, "linking org B activity to an org A execution is refused");
+
+  console.log("\n[22] Operational mechanics never write ActivityLog (two-ledger separation):");
+  const beforeAuto = await prisma.activityLog.count({ where: { organizationId: a.id, actorType: "AUTOMATION" } });
+  const j22 = await enqueueJob(mkInput(a.id, oppA.id, { automationType: "fake_type", occurrenceKey: "f-22" }));
+  await markQueued(j22.id, new Date());
+  await runExecutorOnce(handler(() => ({ kind: "ALLOW" }), async () => ({ producedDomainEffect: false })), new Date());
+  assert((await prisma.activityLog.count({ where: { organizationId: a.id, actorType: "AUTOMATION" } })) === beforeAuto, "a job with no business observation writes NO ActivityLog row");
+  assert((await listJobExecutions(a.id, j22.id))[0].outcome === "SUCCEEDED", "the job still recorded its operational execution row");
+
+  console.log("\n[23] Transaction Timeline forward-compatibility for automation events:");
+  assert(typeof classifyEvent("automation.fake_type.observed") === "string", "an unknown automation.* event classifies without throwing (forward-compatible)");
 } finally {
   console.log("\nCleaning up throwaway orgs (cascade)...");
   for (const id of orgIds) await prisma.organization.delete({ where: { id } }).catch((e) => console.log(`  cleanup warn: ${e.message}`));
