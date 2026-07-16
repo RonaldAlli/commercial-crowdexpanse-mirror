@@ -305,6 +305,8 @@ model Organization {
   escrowEvents           EscrowEvent[]
   financingRecords       FinancingRecord[]
   assignmentRecords      AssignmentRecord[]
+  automationJobs         AutomationJob[]
+  automationExecutions   AutomationExecution[]
 
   @@map("organizations")
 }
@@ -1747,24 +1749,201 @@ model Invitation {
 }
 
 model ActivityLog {
-  id             String       @id @default(cuid())
-  organizationId String
-  opportunityId  String?
-  propertyId     String?
-  sellerId       String?
-  buyerId        String?
-  actorId        String?
-  eventType      String
-  eventLabel     String
-  eventBody      String?
-  createdAt      DateTime     @default(now())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  opportunity    Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
-  property       Property?    @relation(fields: [propertyId], references: [id], onDelete: SetNull)
-  seller         Seller?      @relation(fields: [sellerId], references: [id], onDelete: SetNull)
-  buyer          Buyer?       @relation(fields: [buyerId], references: [id], onDelete: SetNull)
-  actor          User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  id                    String       @id @default(cuid())
+  organizationId        String
+  opportunityId         String?
+  propertyId            String?
+  sellerId              String?
+  buyerId               String?
+  actorId               String?
+  // v2.0.1 (additive) — explicit authorship without overloading the User FK.
+  // Every existing row and every human write defaults to USER: zero behavior change.
+  // automationExecutionId is a scalar (history-safe, no FK) linking an automation-emitted
+  // row to the AutomationExecution that produced it; actorId stays null for automation.
+  actorType             ActorType    @default(USER)
+  automationExecutionId String?
+  eventType             String
+  eventLabel            String
+  eventBody             String?
+  createdAt             DateTime     @default(now())
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity           Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  property              Property?    @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  seller                Seller?      @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  buyer                 Buyer?       @relation(fields: [buyerId], references: [id], onDelete: SetNull)
+  actor                 User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
   @@map("activity_log")
+}
+
+// ── Automation domain (Version 2.0, Phase 2.0.1) ─────────────────────────────
+// The Automation spine: a bounded orchestration domain that reads projections,
+// evaluates policy, and records its own execution — it never owns authoritative
+// business state (AU-1). AutomationJob = mutable lifecycle / queue row;
+// AutomationExecution = immutable, insert-only attempt ledger (A8/AU-8).
+// Design authority: AUTOMATION_ARCHITECTURE_LOCK.md + VERSION_2_0_PHASE_2_0_1_*.
+
+// Job lifecycle (mutable, on AutomationJob). Terminal: SUCCEEDED, DEAD_LETTERED,
+// CANCELLED, SUPERSEDED. FAILED is deliberately NOT here — a failed *attempt* is an
+// AutomationExecution outcome; a job that can no longer succeed ends DEAD_LETTERED.
+enum AutomationJobStatus {
+  PENDING
+  QUEUED
+  RUNNING
+  RETRY_SCHEDULED
+  SUCCEEDED
+  DEAD_LETTERED
+  CANCELLED
+  SUPERSEDED
+}
+
+// Immutable per-attempt outcome (on AutomationExecution). Mirrors the RefreshJob
+// terminal trio (SUCCEEDED / NOOP / FAILED).
+enum AutomationExecutionOutcome {
+  SUCCEEDED
+  NOOP
+  FAILED
+}
+
+// Why a job ran. 2.0.1 uses SCHEDULE; DOMAIN_EVENT/WEBHOOK/MANUAL are reserved for
+// later phases (event-driven transactional outbox, external callbacks, operator runs).
+enum AutomationTriggerType {
+  SCHEDULE
+  DOMAIN_EVENT
+  WEBHOOK
+  MANUAL
+}
+
+// Structured policy decision (no such enum existed in the codebase before 2.0.1).
+// REQUIRE_APPROVAL is reserved — the 2.0.1 read-only proof job never uses it.
+enum AutomationPolicyDecision {
+  ALLOW
+  DENY
+  REQUIRE_APPROVAL
+  NO_ACTION
+  STALE_CONTEXT
+}
+
+// Failure taxonomy (expands the email outbox's binary `permanent` flag). Retry/alert/
+// dead-letter behavior per class is defined in the Implementation Plan §9.
+enum AutomationFailureClass {
+  TRANSIENT_INFRASTRUCTURE
+  DATABASE_CONTENTION
+  DEPENDENCY_UNAVAILABLE
+  POLICY_DENIED
+  STALE_CONTEXT
+  VALIDATION_FAILURE
+  PERMISSION_FAILURE
+  ORG_SCOPE_VIOLATION
+  INVARIANT_VIOLATION
+  UNKNOWN
+}
+
+// The principal that performed the work. AUTOMATION never impersonates a user (AU-3).
+enum AutomationPrincipalType {
+  AUTOMATION
+  SYSTEM
+  WEBHOOK
+}
+
+// Discriminates ActivityLog authorship without overloading the User FK. Existing rows
+// and all human writes default to USER — no behavior change.
+enum ActorType {
+  USER
+  SYSTEM
+  AUTOMATION
+  WEBHOOK
+}
+
+// The durable unit of automation intent and its mutable lifecycle. Also the queue row:
+// the executor claims due jobs with SELECT ... FOR UPDATE SKIP LOCKED. Idempotency anchor
+// is the compound unique below (RefreshJob precedent, extended). This row is UPDATED as it
+// moves through its lifecycle; the immutable audit lives in AutomationExecution.
+model AutomationJob {
+  id             String                @id @default(cuid())
+  organizationId String
+  automationType String
+  status         AutomationJobStatus   @default(PENDING)
+  triggerType    AutomationTriggerType @default(SCHEDULE)
+
+  // Idempotency scope (Determination 4)
+  sourceType    String
+  sourceId      String // scalar, NOT an FK (history-safe; may be cross-domain)
+  policyKey     String
+  policyVersion Int
+  occurrenceKey String // deterministic bucket (e.g. "2026-07-16T14" per target)
+
+  // Scheduling / retry
+  attempts       Int       @default(0)
+  maxAttempts    Int       @default(5)
+  availableAt    DateTime  @default(now())
+  nextAttemptAt  DateTime?
+  leaseExpiresAt DateTime?
+  runningAttempt Int?
+
+  // Bookkeeping
+  correlationId    String?
+  causationId      String?
+  lastFailureClass AutomationFailureClass?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  executions   AutomationExecution[]
+
+  @@unique([organizationId, automationType, sourceType, sourceId, policyVersion, occurrenceKey], name: "automation_job_idempotency")
+  @@index([status, availableAt])
+  @@index([status, nextAttemptAt])
+  @@index([status, leaseExpiresAt])
+  @@index([organizationId, status])
+  @@map("automation_jobs")
+}
+
+// One IMMUTABLE row per attempt (completed or abandoned). INSERT-ONLY — never updated,
+// never deleted (AU-8). Written inside the same $transaction that finalizes the job's
+// status. This is the operational ledger that complements (never replaces) ActivityLog.
+model AutomationExecution {
+  id              String @id @default(cuid())
+  organizationId  String
+  automationJobId String
+  attemptNumber   Int
+
+  automationType String
+  triggerType    AutomationTriggerType
+  triggerRef     String?
+
+  policyKey          String
+  policyVersion      Int
+  policyDecision     AutomationPolicyDecision
+  contextFingerprint String // SHA-256 of the canonicalized context (no raw body stored)
+
+  startedAt  DateTime
+  finishedAt DateTime
+  durationMs Int
+
+  outcome              AutomationExecutionOutcome
+  producedDomainEffect Boolean                    @default(false) // ALWAYS false in 2.0.1
+  retryAllowed         Boolean                    @default(false)
+  failureClass         AutomationFailureClass?
+  error                String?
+
+  principalType    AutomationPrincipalType @default(AUTOMATION)
+  principalKey     String
+  approvedByUserId String? // reserved for future REQUIRE_APPROVAL commits (scalar)
+
+  correlationId String?
+  causationId   String?
+  activityLogId String? // scalar; set only if the best-effort mirror succeeded
+
+  createdAt DateTime @default(now())
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  job          AutomationJob @relation(fields: [automationJobId], references: [id], onDelete: Cascade)
+
+  @@unique([automationJobId, attemptNumber], name: "automation_execution_attempt")
+  @@index([organizationId, createdAt])
+  @@index([organizationId, outcome])
+  @@index([automationJobId])
+  @@map("automation_executions")
 }
