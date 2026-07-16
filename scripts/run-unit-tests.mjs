@@ -50,6 +50,10 @@ const CRITICAL = [
   // Closing Center — the pure PAID-gate predicate + progress/transition helpers
   // (no Prisma/clock). The gate is load-bearing (CC-2/CC-3).
   "lib/closing.ts",
+  // Escrow (Closing Slice 2) — the pure lifecycle guard + immutable terminal-snapshot
+  // builder (no Prisma/clock). Transition legality + snapshot fidelity are load-bearing
+  // (EC-8/EC-I/EC-11).
+  "lib/escrow.ts",
 ];
 const TRACKED = [
   ...CRITICAL,

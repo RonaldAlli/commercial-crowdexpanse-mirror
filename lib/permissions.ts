@@ -133,6 +133,14 @@ export function canWaiveClosingItem(role: UserRole): boolean {
   return role === ADMIN;
 }
 
+// Resolving escrow to a TERMINAL money outcome (released / refunded / forfeited) moves real
+// funds and writes an immutable historical fact, so it is the strictest escrow action:
+// ADMIN only (a distinct check, like canWaiveClosingItem) — EC-G/EC-4. Ordinary escrow work
+// (open / set amount+dates+holder / mark deposited / link proof) is CLOSING write.
+export function canResolveEscrow(role: UserRole): boolean {
+  return role === ADMIN;
+}
+
 export function canMoveStage(role: UserRole, current: OpportunityStage, target: OpportunityStage): boolean {
   const c = idx(current);
   const t = idx(target);

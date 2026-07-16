@@ -9,11 +9,13 @@ import { StageSelect } from "@/components/stage-select";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { GenerateMatchesButton, MatchRowControls } from "@/components/match-controls";
 import { ClosingChecklist, StartClosingChecklistButton, type ChecklistItemView } from "@/components/closing-checklist";
+import { EscrowCard, type EscrowView } from "@/components/escrow-card";
 import { requireUser } from "@/lib/auth";
-import { can, canMoveStage, canWaiveClosingItem } from "@/lib/permissions";
+import { can, canMoveStage, canWaiveClosingItem, canResolveEscrow } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { blockingItems, closingProgress } from "@/lib/closing";
 import { getClosingChecklist } from "@/lib/closing-service";
+import { getEscrowRecord } from "@/lib/escrow-service";
 import { checklistCategoryLabel } from "@/lib/closing-options";
 import { matchStatusLabel, matchStatusTone } from "@/lib/match-options";
 import { STAGE_OPTIONS, stageLabel } from "@/lib/opportunity-options";
@@ -52,22 +54,30 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
   // Closing Center (v1.4). Read-only here — we never instantiate on view; a
   // CLOSING-write user starts the checklist explicitly (StartClosingChecklistButton).
   const closing = await getClosingChecklist(user.organizationId, opportunity.id);
+  // Escrow (v1.4 Slice 2). Read-only here — a CLOSING-write user opens it explicitly.
+  const escrow = await getEscrowRecord(user.organizationId, opportunity.id);
   const canWriteClosing = can(user.role, "UPDATE", "CLOSING");
   const canWaiveClosing = canWaiveClosingItem(user.role);
-  const [closingMembers, closingDocuments] = closing
-    ? await Promise.all([
-        prisma.user.findMany({
-          where: { organizationId: user.organizationId, lifecycleState: "ACTIVE" },
-          select: { id: true, name: true },
-          orderBy: { name: "asc" },
-        }),
-        prisma.document.findMany({
-          where: { organizationId: user.organizationId, opportunityId: opportunity.id },
-          select: { id: true, title: true },
-          orderBy: { createdAt: "desc" },
-        }),
-      ])
-    : [[], []];
+  const canResolveEscrowNow = canResolveEscrow(user.role);
+  // Members are only needed for the checklist; documents are shared by the closing
+  // evidence picker and the escrow proof-of-deposit picker, so fetch them if either exists.
+  const [closingMembers, opportunityDocuments] =
+    closing || escrow
+      ? await Promise.all([
+          closing
+            ? prisma.user.findMany({
+                where: { organizationId: user.organizationId, lifecycleState: "ACTIVE" },
+                select: { id: true, name: true },
+                orderBy: { name: "asc" },
+              })
+            : Promise.resolve([] as { id: string; name: string }[]),
+          prisma.document.findMany({
+            where: { organizationId: user.organizationId, opportunityId: opportunity.id },
+            select: { id: true, title: true },
+            orderBy: { createdAt: "desc" },
+          }),
+        ])
+      : [[], []];
 
   // Group items by category (DD-only in slice 1) and map to the client view shape.
   const closingItemsByCategory = new Map<string, ChecklistItemView[]>();
@@ -89,6 +99,34 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
     closingItemsByCategory.set(it.category, bucket);
   }
   const closingStats = closing ? closingProgress(closing.items) : null;
+
+  // Escrow view + the optional EC-J checklist-sync target (an ESCROW-category item, if any).
+  const iso = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
+  const escrowView: EscrowView | null = escrow
+    ? {
+        status: escrow.status,
+        earnestAmountUsd: escrow.earnestAmountUsd,
+        escrowHolderName: escrow.escrowHolderName,
+        escrowHolderContact: escrow.escrowHolderContact,
+        earnestDueDate: iso(escrow.earnestDueDate),
+        depositedDate: iso(escrow.depositedDate),
+        contingencyDeadline: iso(escrow.contingencyDeadline),
+        proofOfDepositDocumentId: escrow.proofOfDepositDocumentId,
+        resolutionReason: escrow.resolutionReason,
+        events: escrow.events.map((ev) => ({
+          type: ev.type,
+          amountUsdSnapshot: ev.amountUsdSnapshot,
+          holderNameSnapshot: ev.holderNameSnapshot,
+          proofDocumentIdSnapshot: ev.proofDocumentIdSnapshot,
+          reason: ev.reason,
+          occurredAt: ev.occurredAt.toISOString(),
+        })),
+      }
+    : null;
+  const escrowChecklistItem = (() => {
+    const it = closing?.items.find((i) => i.category === "ESCROW");
+    return it ? { id: it.id, label: it.label, status: it.status } : null;
+  })();
   // The required items still blocking a move to Paid — surfaced so the gate explains
   // itself rather than silently hiding the option (server enforcement is unchanged).
   const closingBlockers = closing && !closingStats?.ready ? blockingItems(closing.items).map((i) => i.label) : [];
@@ -214,7 +252,7 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
                       opportunityId={opportunity.id}
                       items={items}
                       members={closingMembers}
-                      documents={closingDocuments}
+                      documents={opportunityDocuments}
                       canWrite={canWriteClosing}
                       canWaive={canWaiveClosing}
                     />
@@ -235,6 +273,23 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
                 )}
               </div>
             )}
+          </article>
+
+          <article className="card">
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h2 className="text-base font-semibold text-slate-900">Escrow</h2>
+              <p className="text-xs text-slate-500">
+                Earnest money, holder, and key dates. Terminal outcomes (released / refunded / forfeited) are admin-only and recorded as immutable history.
+              </p>
+            </div>
+            <EscrowCard
+              opportunityId={opportunity.id}
+              escrow={escrowView}
+              documents={opportunityDocuments}
+              canWrite={canWriteClosing}
+              canResolve={canResolveEscrowNow}
+              escrowChecklistItem={escrowChecklistItem}
+            />
           </article>
         </div>
 

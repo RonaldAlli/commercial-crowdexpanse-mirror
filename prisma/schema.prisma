@@ -92,6 +92,26 @@ enum CompletionEvidenceType {
   MANUAL
 }
 
+// Closing Center Slice 2 — Escrow (EC-B). The deposit lifecycle: NOT_OPENED → OPENED →
+// DEPOSITED → one terminal of RELEASED / REFUNDED / FORFEITED. Transitions are validated
+// by the pure guard in lib/escrow.ts.
+enum EscrowStatus {
+  NOT_OPENED
+  OPENED
+  DEPOSITED
+  RELEASED
+  REFUNDED
+  FORFEITED
+}
+
+// The terminal financial outcomes captured as immutable, append-only EscrowEvent snapshots
+// (EC-I/EC-11). Only terminal transitions are historical facts worth freezing.
+enum EscrowEventType {
+  RELEASED
+  REFUNDED
+  FORFEITED
+}
+
 enum MatchStatus {
   NEW
   REVIEWING
@@ -263,6 +283,8 @@ model Organization {
   underwritings          Underwriting[]
   closingTemplates       ClosingChecklistTemplate[]
   closingChecklists      ClosingChecklist[]
+  escrowRecords          EscrowRecord[]
+  escrowEvents           EscrowEvent[]
 
   @@map("organizations")
 }
@@ -796,6 +818,7 @@ model Opportunity {
   analysis         DealAnalysis?
   underwriting     Underwriting?
   closingChecklist ClosingChecklist?
+  escrow           EscrowRecord?
   tasks            Task[]
   notes            Note[]
   documents        Document[]
@@ -1501,6 +1524,65 @@ model ClosingChecklistItem {
   @@index([organizationId])
   @@index([checklistId])
   @@map("closing_checklist_items")
+}
+
+// Closing Center Slice 2 — Escrow (EC-A). A first-class financial record, 1:1 with an
+// Opportunity, org-scoped and cascade-owned. Holds MUTABLE operational escrow state through
+// the NOT_OPENED→OPENED→DEPOSITED lifecycle (EC-B). On a terminal transition an immutable
+// EscrowEvent snapshot is written (EC-I) and the service freezes this record (EC-11).
+// Money is whole-USD Int (EC-C); holder is free-text (EC-D); proof is a scalar Document id
+// (EC-F). Escrow never touches the underwriting engine (EC-1/EC-9/EC-10).
+model EscrowRecord {
+  id                     String        @id @default(cuid())
+  organizationId         String
+  opportunityId          String        @unique
+  status                 EscrowStatus  @default(NOT_OPENED)
+  earnestAmountUsd       Int?
+  escrowHolderName       String?
+  escrowHolderContact    String?
+  openedDate             DateTime?
+  earnestDueDate         DateTime?
+  depositedDate          DateTime?
+  contingencyDeadline    DateTime?
+  proofOfDepositDocumentId String?
+  // Milestone attribution (who/when), mirroring the closing-item stamp pattern.
+  openedById             String?
+  openedAt               DateTime?
+  depositedById          String?
+  depositedAt            DateTime?
+  resolvedById           String?
+  resolvedAt             DateTime?
+  resolutionReason       String?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+  organization           Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity            Opportunity   @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  events                 EscrowEvent[]
+
+  @@index([organizationId])
+  @@map("escrow_records")
+}
+
+// The immutable, append-only historical fact of a TERMINAL escrow outcome (EC-I/EC-11).
+// It SNAPSHOTS the amount/holder/proof/actor/timestamp at resolution so later edits to the
+// mutable EscrowRecord can never rewrite what happened. Never updated or deleted.
+model EscrowEvent {
+  id                      String          @id @default(cuid())
+  organizationId          String
+  escrowRecordId          String
+  type                    EscrowEventType
+  amountUsdSnapshot       Int?
+  holderNameSnapshot      String?
+  proofDocumentIdSnapshot String?
+  actorId                 String?
+  reason                  String?
+  occurredAt              DateTime        @default(now())
+  organization            Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  escrowRecord            EscrowRecord    @relation(fields: [escrowRecordId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([escrowRecordId])
+  @@map("escrow_events")
 }
 
 model BuyerMatch {
