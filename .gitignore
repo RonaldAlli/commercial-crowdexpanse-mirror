@@ -12,7 +12,14 @@
 # next.js
 /.next/
 /.next-isolated/
+/.next-visual/
 /out/
+
+# playwright (test-only; never committed) — binaries, reports, auth state, screenshots
+/test-results/
+/playwright-report/
+/blob-report/
+/tests/visual/.artifacts/
 
 # production
 /build

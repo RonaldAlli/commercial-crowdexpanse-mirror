@@ -118,3 +118,15 @@ Explicitly deferred: no timeline model, no event bus, no new emission code. When
 ---
 
 **Bottom line:** the architecture needs nothing. The presentation should gain a **Closing Center container (recommended: accordion) before Slice 4**, and the **Closing Timeline** should be reserved as a future read-only projection. Both are presentation/consumer concerns layered over the sound, unchanged domain.
+
+---
+
+## Outcome — Option C implemented + visually verified (2026-07-16)
+
+**Decision:** Option C (accordion) was approved and implemented as a UI-only preparation slice on `feat/closing-center-accordion` — a labelled **Closing Center** container with a persistent readiness header (rendering the authoritative `closingReadinessSummary`, a pure composition of `closingProgress`/`blockingItems`/`closingBlockMessage`) over accessible accordion sections for Closing Checklist / Escrow / Financing. Each existing domain card is unchanged and receives the same props; the container is pure layout. No schema/service/action/RBAC/lifecycle/PAID-gate change.
+
+**Visual review:** verified in a real browser (Chromium via the new Playwright harness, `tests/visual/`) against the `_test` DB across **desktop 1440×1000 / tablet 900×1100 / mobile 390×844**. **24/24 automated checks pass** (default-open Checklist; Escrow/Financing toggle with `aria-expanded` tracking; status badge visible while collapsed; keyboard Enter/Space toggle + focusability; collapsed content hidden/not focusable; toggles issue no POST/PATCH/PUT/DELETE; ADMIN vs non-admin terminal controls; empty + terminal states; FC-0 read-only reference incl. the "No active underwriting available." empty state; PAID blocked-state explanation matches the authoritative outstanding set; no console/hydration errors). **10 screenshots** captured as review evidence.
+
+**Defects found:** none. Long values (blocker labels, escrow-holder, lender) wrap without horizontal overflow; the FC-0 reference panel is responsive (4-col desktop → 1-col mobile); the readiness header remains understandable on narrow screens; role-gating renders correctly. (One capture-only artifact: the page's sticky top-nav appears mid-image in tall full-element screenshots — it stays pinned in normal use; not a layout defect.)
+
+Released state and prod verification are recorded at release time in `VERSION_1_4.md`.

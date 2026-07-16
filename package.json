@@ -26,7 +26,11 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:migrate:status": "prisma migrate status",
     "db:push": "prisma db push",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "playwright:install": "playwright install chromium",
+    "test:visual": "npm run build:isolated && playwright test",
+    "test:visual:closing": "playwright test tests/visual/closing-center.behavior.spec.ts",
+    "test:visual:screens": "playwright test tests/visual/closing-center.screens.spec.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -39,6 +43,7 @@
     "react-dom": "^18"
   },
   "devDependencies": {
+    "@playwright/test": "1.61.1",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.1",
     "@types/react": "^18",
