@@ -1,12 +1,18 @@
 # Version 1.4 (Closing Center) — Acceptance Record & Closeout
 
-> **Status: ⏳ PENDING FOUNDER ACCEPTANCE (2026-07-16).** This record consolidates the
-> formal Version 1.4 closeout (five reviews below) and requests acceptance. Per the
-> two-step release-acceptance process, **nothing is frozen or tagged yet**: only after
-> explicit founder approval will 1.4 be marked ACCEPTED and then frozen (`release/1.4`
-> branch + `v1.4.0` tag + release notes). **This closeout does not start Version 2.0 and
-> does not touch D15** (the deprecated `DealAnalysis` removal remains a separately-reviewed
-> cleanup).
+> **Status: ✅ ACCEPTED · RELEASED · FROZEN (2026-07-16).**
+> - **Accepting authority:** Founder (Ronald Allicock).
+> - **Acceptance date:** 2026-07-16.
+> - **Frozen at:** branch **`release/1.4`** + annotated tag **`v1.4.0`**, both at the
+>   acceptance commit on `main` (this closeout commit; `git rev-parse v1.4.0`).
+> - **Production at acceptance:** 26 migrations, schema up to date, serving build
+>   `pgfa3y2AzXBEWuUkYQ6Fo`.
+>
+> Version 1.4 (Closing Center) is **feature-complete, accepted, released, and frozen** as
+> the stable baseline for Version 2.0 (Automation & AI). No feature work lands on
+> `release/1.4`. The five closeout reviews are below. **This closeout does not start
+> Version 2.0, does not modify D15** (the deprecated `DealAnalysis` removal remains a
+> separately-reviewed cleanup), and changes no frozen 1.4 architecture.
 
 ---
 
@@ -161,21 +167,22 @@ Release notes are **drafted at freeze time**, after acceptance (per the process 
 
 ---
 
-## Acceptance record — PENDING FOUNDER ACCEPTANCE
+## Acceptance record — ACCEPTED
 
-Requesting acceptance of **Version 1.4 (Closing Center)** as **feature-complete**: Slices
-1–7 plus the accordion UI-preparation slice, LIVE in production, with the architecture,
-UI, performance, technical-debt, and documentation reviews above.
+**Version 1.4 (Closing Center)** is accepted as **feature-complete**: Slices 1–7 plus the
+accordion UI-preparation slice, LIVE in production, with the architecture, UI, performance,
+technical-debt, and documentation reviews above.
 
-**On explicit founder approval (two-step process), the closeout will then:**
-1. Flip this record to **ACCEPTED** (dated, with the accepted-commit SHA).
-2. Create the frozen release branch **`release/1.4`** and tag **`v1.4.0`** at the closeout
-   commit.
-3. Write **`V1_4_RELEASE_NOTE.md`**.
-4. Record the freeze in the Architecture Lock and project memory.
+- **Accepted by:** Founder (Ronald Allicock) — 2026-07-16.
+- **Frozen:** branch **`release/1.4`** + annotated tag **`v1.4.0`** at the acceptance
+  commit (`git rev-parse v1.4.0`). No feature work lands on `release/1.4`.
+- **Release note:** [`V1_4_RELEASE_NOTE.md`](./V1_4_RELEASE_NOTE.md).
+- **Recorded** in the Executive Dashboard, Engineering Master Plan, Version 1.4 roadmap,
+  and project memory as **ACCEPTED · RELEASED · FROZEN**.
 
-**Until then, nothing is frozen or tagged.** No Version 2.0 (Automation & AI) work begins
-until 1.4 is accepted and frozen. D15 remains a separate, later, reviewed cleanup.
+**Not done by this closeout (deliberately):** no Version 2.0 (Automation & AI) work; no
+change to D15 (the deprecated `DealAnalysis` removal remains a separate, later, reviewed
+cleanup); no change to any frozen 1.4 architecture.
 
 **Standing accepted caveat carried into 1.4 (unchanged):** D4 — no guaranteed off-host DR
 copy until R2 is provisioned and the backup cron is scheduled.
