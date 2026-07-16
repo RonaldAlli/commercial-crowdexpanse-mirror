@@ -10,7 +10,7 @@
 import type { AssignmentStatus, EscrowStatus, FinancingStatus, OpportunityStage } from "@prisma/client";
 
 import type { Tone } from "@/components/ui/badge";
-import { blockingItems, closingReadinessSummary, type GateItem } from "@/lib/closing";
+import { blockingItems, closingProgress, closingReadinessSummary, type GateItem } from "@/lib/closing";
 import { escrowStatusLabel, escrowStatusTone } from "@/lib/escrow";
 import { financingStatusLabel, financingStatusTone } from "@/lib/financing";
 import { assignmentStatusLabel, assignmentStatusTone } from "@/lib/assignment";
@@ -158,6 +158,61 @@ export function projectTransactionRow(input: TransactionProjectionInput, referen
     nextMilestone: selectNextMilestone(milestoneCandidates(input), referenceMs),
     responsibleParties,
     href: `/opportunities/${opportunity.id}`,
+  };
+}
+
+// --- Opportunity-list closing badges (Slice 7 / Roadmap #7 — TX-6 Projection Reuse) ----------
+// A compact, presentation-neutral summary of one deal's closing health for the Opportunity LIST,
+// derived from the SAME authoritative primitives the dashboard row uses — `closingProgress` +
+// `blockingItems` for readiness/blocker-count and the domain status label/tone helpers — so a
+// badge can NEVER disagree with the Dashboard or the Closing Center (TX-6: one source, many
+// consumers; no re-derivation). Pure; no clock, no Prisma, never mutates input. Needs NO
+// referenceMs (no milestone on the list) and NO ownerName (no responsible party on the list), so
+// the list query stays minimal and skips the owner-name lookup (LB-3/LB-10).
+
+/** Closing-relevant = at or beyond UNDER_CONTRACT (in-flight or PAID) — the LB-9 stage gate. */
+export function isClosingRelevantStage(stage: OpportunityStage): boolean {
+  return isInFlightStage(stage) || stage === CLOSED_STAGE;
+}
+
+/** The minimal per-opportunity input the badge projection reads (LB-10 — nothing more). */
+export type ClosingBadgeInput = {
+  stage: OpportunityStage;
+  checklistItems: GateItem[] | null; // null = no closing checklist has been started
+  escrow: { status: EscrowStatus } | null;
+  financing: { status: FinancingStatus } | null;
+  assignment: { status: AssignmentStatus } | null;
+};
+
+export type ClosingBadgeSummary = {
+  // LB-9: render nothing unless the deal is at a closing-relevant stage OR has closing activity.
+  visible: boolean;
+  closed: boolean; // PAID
+  checklistStarted: boolean; // false + visible → "Closing not started"
+  readiness: { ready: boolean; blockerCount: number } | null; // null when no checklist started
+  escrow: StatusChip | null;
+  financing: StatusChip | null;
+  assignment: StatusChip | null;
+};
+
+/**
+ * Project the compact closing-badge summary for one Opportunity (LB-1/LB-2). Visibility is
+ * stage-aware (LB-9): closing-relevant stage OR any closing domain record present. Readiness reuses
+ * the authoritative `closingProgress`/`blockingItems` (TX-6); status chips reuse the domain helpers.
+ * Missing records degrade to null, never an error (LB-4/LB-12). Never mutates `input`.
+ */
+export function projectClosingBadges(input: ClosingBadgeInput): ClosingBadgeSummary {
+  const { stage, checklistItems, escrow, financing, assignment } = input;
+  const hasClosingActivity = checklistItems !== null || escrow !== null || financing !== null || assignment !== null;
+  const readiness = checklistItems ? { ready: closingProgress(checklistItems).ready, blockerCount: blockingItems(checklistItems).length } : null;
+  return {
+    visible: isClosingRelevantStage(stage) || hasClosingActivity,
+    closed: stage === CLOSED_STAGE,
+    checklistStarted: checklistItems !== null,
+    readiness,
+    escrow: escrow ? { label: escrowStatusLabel(escrow.status), tone: escrowStatusTone(escrow.status) } : null,
+    financing: financing ? { label: financingStatusLabel(financing.status), tone: financingStatusTone(financing.status) } : null,
+    assignment: assignment ? { label: assignmentStatusLabel(assignment.status), tone: assignmentStatusTone(assignment.status) } : null,
   };
 }
 

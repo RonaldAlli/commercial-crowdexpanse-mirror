@@ -396,3 +396,36 @@ Opportunity ──1:1── AssignmentRecord
 **Recorded explicitly (TX-0 introduces NONE of these):** no timeline table · no event replication · no write/mutation · no new domain or source of truth · no Opportunity-**list** change / roadmap #7 (separate follow-up) · no read-through into the frozen V1.3 underwriting **engine** (only reads already-recorded `underwriting.decided` narration) · no weakening/bypass of the PAID + readiness gate · no `PROJECTION_VERSION` runtime behavior (TX-5 reserved only) · no speculative `ActivityLog` index (TX-A) · no email/MJML/GrapesJS · no D15.
 
 **Affected modules (on implementation):** pure `lib/transaction-timeline.ts` (event → category classification by `eventType` prefix reusing domain label/tone; deterministic ordering; newest/oldest flip; plain-data-in/new-arrays-out; snapshot-reference target resolution per TL-11) · thin read-only `lib/transaction-timeline-service.ts` (one org+opportunity-scoped `activityLog.findMany` + `actor { name }`, offset pagination `count`+`take`/`skip` per the `/activity` precedent, map → project) · read-only Timeline panel on the Opportunity detail page · unit tests (CRITICAL ≥90% branch) + `scripts/e2e-transaction-timeline.mjs` (single lifecycle, ordering, org isolation, actor resolution, NO writes, determinism) + `tests/visual/transaction-timeline.spec.ts`. **No** migration/schema/mutating-action/RBAC-resource/enum. Reuses opportunity/`CLOSING` read; org-scoped, fail-closed.
+
+---
+
+# Slice 7 — Opportunity-List Closing Badges (Roadmap #7)
+
+> **Status: RATIFIED 2026-07-16 — in implementation (feature branch, not yet released).** Decision record: [Opportunity-List Closing Badges Decision Package](./OPPORTUNITY_LIST_BADGES_DECISION_PACKAGE.md) (ratified). The **final Closing read surface**: compact **Closing badges** on each Opportunity **List** row — readiness (✓ Ready / ⚠ N blockers / Closing not started) + per-domain Escrow / Financing / Assignment status — summarizing closing health at a glance and linking into the Closing Center. A pure **read projection** derived at read time from records each deal already owns; **not** a new domain, table, migration, index, service, cached readiness, or any recomputation of closing state. Completes the read model: Closing Center (one deal's workspace) · Dashboard (breadth across deals) · Timeline (one deal's history) · **List badges (health across the pipeline list)**.
+
+**Ratified cornerstone — TX-6 Projection Reuse (standing principle):**
+- **Any UI surface that summarizes Closing state MUST consume the shared projection layer.** Closing status is **never** computed independently inside the Opportunity List, Dashboard, Timeline, Reporting, a later Board summary, or any future widget. **One source, many consumers.** The hard-prohibition sibling of **TX-4 Projection Composition**: no consumer re-derives readiness / blocker count / Escrow / Financing / Assignment status.
+
+**Ratified design:**
+- A small pure **`projectClosingBadges(input)`** in the shared `lib/transaction-dashboard.ts`, **composing the same authoritative helpers** (`closingReadinessSummary` / `blockingItems` from `lib/closing` + the `escrow`/`financing`/`assignment` status label+tone helpers) that `projectTransactionRow` uses — **not** a parallel implementation. It needs **no `referenceMs`** (no milestone/overdue on the list) and **no `ownerName`** (no responsible party on the list), so it skips the Dashboard service's owner-name lookup entirely.
+- **List view ONLY.** The Kanban **Board is NOT modified** — it loads every opportunity unpaginated, so 4 joins per card is an unbounded payload; Board badges are reserved as a **separate benchmarked decision** (TX-A discipline).
+- **Placement:** a compact Closing **chip row beneath the Opportunity title** in the existing cell — **no new table column** (would widen the already-`min-w-[900px]` table).
+- Badges link **OUT** to `/opportunities/[id]#closing-center` — no inline editing.
+
+**Locked invariants (LB-1…LB-12):**
+- **LB-1** Badge data = `projectClosingBadges` over the Opportunity's existing 1:1 closing records + checklist items; no new persistence.
+- **LB-2** Reuse — readiness/blocker/status derived only via the shared module's helpers; no forked logic (TX-6).
+- **LB-3** Additive, bounded read — the List query gains only the minimal Closing selects within the existing `take: 20` pagination; no owner lookup; no N+1.
+- **LB-4** Graceful absence — an Opportunity with no closing activity renders no cluster; a missing domain record degrades to a null chip, never an error.
+- **LB-5** Read-only, links OUT — badges never edit; they navigate into the Closing Center (TX-3).
+- **LB-6** Org-scoped, reuses opportunity read; no new RBAC; badges expose only status labels + a blocker count (a subset of already-visible data).
+- **LB-7** List view only; Board deferred (unbounded payload, benchmark-gated).
+- **LB-8** No new index (TX-A); benchmark before any list-query optimization.
+- **LB-9 — Stage-aware visibility.** Render badges only when the Opportunity is at a **Closing-relevant stage** (`UNDER_CONTRACT` / `BUYER_MATCHED` / `CLOSING` / `PAID`) **OR** ≥1 Closing domain record exists. Early-stage no-activity deals (`LEAD`…`LOI_SENT`) show **no cluster**; an in-flight/closed deal **without a checklist** shows a concise **"Closing not started"**.
+- **LB-10 — Bounded query contract.** Bounded by the existing page size (20). **No** pagination removal, per-row service/DB calls, N+1, `ActivityLog` fetch, or document/snapshot payloads — only the minimal Closing selects.
+- **LB-11 — Navigation ownership.** The cluster links to the Opportunity detail / Closing Center anchor and nothing more — **no** inline actions, transitions, waivers, terminal resolutions, or document generation. The list stays a summary surface.
+- **LB-12 — Graceful projection.** Missing Checklist / Escrow / Financing / Assignment data must never break or remove an Opportunity row.
+
+**Recorded explicitly (Slice 7 introduces NONE of these):** no new persistence · **no migration** · **no index** · **no new service** · **no new RBAC** · **no `ActivityLog` query** · **no Board change** · no inline mutation · no duplicated Closing calculation (TX-6) · no new filters/sort keys · no read-through into the frozen V1.3 underwriting engine · no weakening/bypass of the PAID + readiness gate · no dependency change.
+
+**Affected modules (on implementation):** pure `projectClosingBadges` + `ClosingBadgeSummary`/`ClosingBadgeInput` in `lib/transaction-dashboard.ts` (CRITICAL ≥90% branch; composes the existing helpers) · a read-only `components/closing-badges.tsx` cluster · the **List** query in `app/(workspace)/opportunities/page.tsx` gains only the minimal `escrow{status}` / `financing{status}` / `assignment{status}` / `closingChecklist{items{required,status}}` selects, mapped → `projectClosingBadges`, rendered beneath the title in `ListTable` · unit tests (CRITICAL ≥90% branch) + `scripts/e2e-opportunity-badges.mjs` (stage-aware visibility, authoritative readiness/status, org isolation, NO writes/byte-identical, Board query unchanged) + `tests/visual/opportunity-list-badges.spec.ts`. **No** migration/schema/service/mutating-action/RBAC-resource/enum; the Board (`BOARD_SELECT`/`getBoardData`) is untouched.

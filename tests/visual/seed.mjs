@@ -154,6 +154,13 @@ async function main() {
   // An UPCOMING target close (future) so the Transaction Dashboard shows an upcoming milestone.
   await prisma.opportunity.update({ where: { id: terminal.id }, data: { targetCloseDate: new Date("2026-12-01T00:00:00.000Z") } });
 
+  // --- Opportunity 4: early-stage LEAD, no closing activity -----------------
+  // Proves LB-9 — an early-stage deal with no closing records shows NO badge cluster on the list.
+  const leadProp = await createPropertyRecord(org.id, op("Cedar Crossing"), {});
+  const lead = await prisma.opportunity.create({
+    data: { organizationId: org.id, propertyId: leadProp.id, title: "Cedar Crossing (early lead, no closing)", stage: "LEAD" },
+  });
+
   // --- storageState per user + manifest -------------------------------------
   const authFiles = {};
   for (const [key, u] of Object.entries({ admin, writer, analyst })) {
@@ -167,10 +174,10 @@ async function main() {
     slug: org.slug,
     auth: authFiles,
     users: { admin: admin.id, writer: writer.id, analyst: analyst.id },
-    opportunities: { empty: empty.id, active: active.id, terminal: terminal.id },
+    opportunities: { empty: empty.id, active: active.id, terminal: terminal.id, lead: lead.id },
   };
   writeFileSync(join(ARTIFACTS, "fixtures.json"), JSON.stringify(manifest, null, 2));
-  console.log(`[visual-seed] org=${org.slug} empty=${empty.id} active=${active.id} terminal=${terminal.id}`);
+  console.log(`[visual-seed] org=${org.slug} empty=${empty.id} active=${active.id} terminal=${terminal.id} lead=${lead.id}`);
 }
 
 main()

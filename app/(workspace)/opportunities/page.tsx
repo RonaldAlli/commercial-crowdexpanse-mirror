@@ -11,6 +11,8 @@ import { can, canMoveStage } from "@/lib/permissions";
 import { ilike, listQueryString, parseListParams, totalPages } from "@/lib/list-params";
 import { prisma } from "@/lib/prisma";
 import { STAGE_OPTIONS, STAGE_ORDER, stageLabel } from "@/lib/opportunity-options";
+import { projectClosingBadges } from "@/lib/transaction-dashboard";
+import { ClosingBadges } from "@/components/closing-badges";
 import { titleCase } from "@/lib/property-options";
 
 import { moveOpportunityStage } from "./actions";
@@ -33,10 +35,17 @@ const SORT_ORDER: Record<string, Prisma.OpportunityOrderByWithRelationInput> = {
   title: { title: "asc" },
 };
 
-// List view — the row uses opp scalars + property.name + seller.name.
+// List view — the row uses opp scalars + property.name + seller.name, plus the MINIMAL closing
+// selects the pure `projectClosingBadges` needs for the closing-health chip cluster (Roadmap #7,
+// LB-3/LB-10): the three 1:1 domain statuses + the checklist items' {required,status} only — no
+// dates, no owner, no ActivityLog, no documents. Board (BOARD_SELECT) is untouched (LB-7).
 const OPP_INCLUDE = {
   property: { select: { name: true, city: true, state: true, assetType: true } },
   seller: { select: { name: true } },
+  escrow: { select: { status: true } },
+  financing: { select: { status: true } },
+  assignment: { select: { status: true } },
+  closingChecklist: { select: { items: { select: { required: true, status: true } } } },
 } satisfies Prisma.OpportunityInclude;
 
 type OppWithRels = Prisma.OpportunityGetPayload<{ include: typeof OPP_INCLUDE }>;
@@ -334,6 +343,16 @@ function ListTable({ opportunities }: { opportunities: OppWithRels[] }) {
                     {opp.title}
                   </Link>
                   <p className="text-xs text-slate-500">{opp.property.name}</p>
+                  <ClosingBadges
+                    summary={projectClosingBadges({
+                      stage: opp.stage,
+                      checklistItems: opp.closingChecklist ? opp.closingChecklist.items.map((i) => ({ required: i.required, status: i.status })) : null,
+                      escrow: opp.escrow ? { status: opp.escrow.status } : null,
+                      financing: opp.financing ? { status: opp.financing.status } : null,
+                      assignment: opp.assignment ? { status: opp.assignment.status } : null,
+                    })}
+                    opportunityId={opp.id}
+                  />
                 </td>
                 <td className="table-cell whitespace-nowrap">
                   <Badge tone="info" dot>{stageLabel(opp.stage)}</Badge>

@@ -10,7 +10,7 @@ export type Manifest = {
   slug: string;
   auth: { admin: string; writer: string; analyst: string };
   users: { admin: string; writer: string; analyst: string };
-  opportunities: { empty: string; active: string; terminal: string };
+  opportunities: { empty: string; active: string; terminal: string; lead: string };
 };
 
 export function manifest(): Manifest {
