@@ -75,6 +75,10 @@ const CRITICAL = [
   // ordering with same-instant tie-breaks (TL-3). Event integrity (TL-10) + determinism are
   // load-bearing; it never synthesizes or mutates.
   "lib/transaction-timeline.ts",
+  "lib/automation/policy.ts",
+  "lib/automation/idempotency.ts",
+  "lib/automation/lifecycle.ts",
+  "lib/automation/health.ts",
 ];
 const TRACKED = [
   ...CRITICAL,
