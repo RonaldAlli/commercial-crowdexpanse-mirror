@@ -8,7 +8,10 @@ import {
   milestoneCandidates,
   selectNextMilestone,
   projectTransactionRow,
+  sortTransactionRows,
+  compareTransactionRows,
   type TransactionProjectionInput,
+  type TransactionRow,
   type DashboardChecklistItem,
 } from "../../../lib/transaction-dashboard";
 
@@ -179,6 +182,91 @@ test("blank/whitespace owner names are dropped from responsible parties", () => 
     REF,
   );
   assert.deepEqual(row.responsibleParties, ["Sam Rivera"]);
+});
+
+// --- TD-10: deterministic row ordering ---------------------------------------
+function mkRow(over: Partial<TransactionRow> = {}): TransactionRow {
+  return {
+    opportunityId: "id",
+    title: "Deal",
+    propertyName: "Prop",
+    stage: "UNDER_CONTRACT",
+    closed: false,
+    readiness: null,
+    escrow: null,
+    financing: null,
+    assignment: null,
+    nextMilestone: null,
+    responsibleParties: [],
+    href: "/opportunities/id",
+    ...over,
+  };
+}
+const milestone = (dateIso: string, overdue: boolean) => ({ label: "m", dateIso, overdue });
+
+test("ordering (TD-10): overdue → soonest milestone → stage → title → id", () => {
+  const overdueLate = mkRow({ opportunityId: "a", title: "A", nextMilestone: milestone("2026-07-14T00:00:00.000Z", true) });
+  const overdueEarly = mkRow({ opportunityId: "b", title: "B", nextMilestone: milestone("2026-07-10T00:00:00.000Z", true) });
+  const upcomingSoon = mkRow({ opportunityId: "c", title: "C", nextMilestone: milestone("2026-07-20T00:00:00.000Z", false) });
+  const upcomingLate = mkRow({ opportunityId: "d", title: "D", nextMilestone: milestone("2026-08-01T00:00:00.000Z", false) });
+  const noDate = mkRow({ opportunityId: "e", title: "E", nextMilestone: null });
+  const sorted = sortTransactionRows([noDate, upcomingLate, upcomingSoon, overdueLate, overdueEarly]);
+  assert.deepEqual(sorted.map((r) => r.opportunityId), ["b", "a", "c", "d", "e"]);
+});
+
+test("ordering tie-breakers fall through stage → title → id deterministically", () => {
+  // All same milestone class (none) → stage order, then title, then id.
+  const closing = mkRow({ opportunityId: "z", title: "Z", stage: "CLOSING" });
+  const ucBeta = mkRow({ opportunityId: "y", title: "Beta", stage: "UNDER_CONTRACT" });
+  const ucAlphaHi = mkRow({ opportunityId: "x2", title: "Alpha", stage: "UNDER_CONTRACT" });
+  const ucAlphaLo = mkRow({ opportunityId: "x1", title: "Alpha", stage: "UNDER_CONTRACT" });
+  const sorted = sortTransactionRows([closing, ucBeta, ucAlphaHi, ucAlphaLo]);
+  // UNDER_CONTRACT before CLOSING; within it Alpha before Beta; equal titles break by id.
+  assert.deepEqual(sorted.map((r) => r.opportunityId), ["x1", "x2", "y", "z"]);
+  assert.equal(compareTransactionRows(ucAlphaLo, ucAlphaLo), 0); // reflexive
+});
+
+test("sortTransactionRows returns a NEW array and never mutates the input (TD-10/TD-12)", () => {
+  const input = [mkRow({ opportunityId: "b", nextMilestone: null }), mkRow({ opportunityId: "a", nextMilestone: milestone("2026-07-01T00:00:00.000Z", true) })];
+  const order = input.map((r) => r.opportunityId);
+  const sorted = sortTransactionRows(input);
+  assert.notEqual(sorted, input); // new array
+  assert.deepEqual(input.map((r) => r.opportunityId), order); // input order preserved
+  assert.deepEqual(sorted.map((r) => r.opportunityId), ["a", "b"]);
+});
+
+// --- TD-11: projection independence (graceful degradation) -------------------
+test("independence (TD-11): a deal with EVERY optional record missing still renders a full row", () => {
+  const row = projectTransactionRow(
+    {
+      opportunity: { id: "bare", title: "Bare deal", stage: "BUYER_MATCHED", propertyName: "Empty Lot", targetCloseDateMs: null },
+      checklistItems: null, // no checklist
+      escrow: null, // no escrow
+      financing: null, // no financing
+      assignment: null, // no assignment
+    },
+    REF,
+  );
+  assert.equal(row.opportunityId, "bare");
+  assert.equal(row.readiness, null);
+  assert.equal(row.escrow, null);
+  assert.equal(row.financing, null);
+  assert.equal(row.assignment, null);
+  assert.equal(row.nextMilestone, null);
+  assert.deepEqual(row.responsibleParties, []);
+  assert.equal(row.href, "/opportunities/bare"); // never suppressed
+});
+
+test("independence (TD-11): any single missing domain never drops the others", () => {
+  const base = mkInput();
+  // Escrow missing but financing/assignment/checklist present.
+  const noEscrow = projectTransactionRow({ ...base, escrow: null }, REF);
+  assert.equal(noEscrow.escrow, null);
+  assert.ok(noEscrow.financing && noEscrow.assignment && noEscrow.readiness);
+  // Checklist missing but the domain records present.
+  const noChecklist = projectTransactionRow({ ...base, checklistItems: null }, REF);
+  assert.equal(noChecklist.readiness, null);
+  assert.ok(noChecklist.escrow && noChecklist.financing && noChecklist.assignment);
 });
 
 test("the row's next milestone integrates candidates + selection end-to-end", () => {

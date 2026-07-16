@@ -11,6 +11,7 @@ import {
   dashboardStages,
   isInFlightStage,
   projectTransactionRow,
+  sortTransactionRows,
   type TransactionProjectionInput,
   type TransactionRow,
 } from "@/lib/transaction-dashboard";
@@ -55,7 +56,7 @@ export async function getTransactionDashboardRows(organizationId: string, opts: 
     : [];
   const ownerName = new Map(owners.map((u) => [u.id, u.name]));
 
-  return opportunities.map((o) => {
+  const rows = opportunities.map((o) => {
     const input: TransactionProjectionInput = {
       opportunity: { id: o.id, title: o.title, stage: o.stage, propertyName: o.property.name, targetCloseDateMs: ms(o.targetCloseDate) },
       checklistItems: o.closingChecklist
@@ -75,4 +76,7 @@ export async function getTransactionDashboardRows(organizationId: string, opts: 
     };
     return projectTransactionRow(input, opts.referenceMs);
   });
+
+  // Deterministic, DB-order-independent ordering (TD-10) — never rely on query return order.
+  return sortTransactionRows(rows);
 }

@@ -160,3 +160,44 @@ export function projectTransactionRow(input: TransactionProjectionInput, referen
     href: `/opportunities/${opportunity.id}`,
   };
 }
+
+// --- deterministic row ordering (TD-10) ---------------------------------------
+// A total, DB-order-independent ordering so screenshots, Playwright, pagination, and the user's
+// experience are deterministic. Priority: (1) overdue first, (2) soonest next milestone
+// (has-a-date before none; then date ascending — for overdue rows that surfaces the most-overdue
+// first), (3) pipeline stage order, (4) opportunity title, (5) opportunity id. Plain `<`/`>`
+// comparisons (not locale-dependent) keep it stable across environments. Pure; returns a NEW
+// array (never mutates the input, TD-12).
+const DASHBOARD_STAGE_ORDER: OpportunityStage[] = [...IN_FLIGHT_STAGES, CLOSED_STAGE];
+function stageRank(stage: OpportunityStage): number {
+  const i = DASHBOARD_STAGE_ORDER.indexOf(stage);
+  return i < 0 ? DASHBOARD_STAGE_ORDER.length : i;
+}
+
+export function compareTransactionRows(a: TransactionRow, b: TransactionRow): number {
+  // 1. Overdue first.
+  const ao = a.nextMilestone?.overdue ? 0 : 1;
+  const bo = b.nextMilestone?.overdue ? 0 : 1;
+  if (ao !== bo) return ao - bo;
+  // 2. Soonest next milestone — a row with a date precedes one without; then date ascending.
+  const ad = a.nextMilestone?.dateIso ?? null;
+  const bd = b.nextMilestone?.dateIso ?? null;
+  if (ad !== bd) {
+    if (ad === null) return 1;
+    if (bd === null) return -1;
+    return ad < bd ? -1 : 1; // ISO strings sort chronologically
+  }
+  // 3. Pipeline stage order.
+  const as = stageRank(a.stage);
+  const bs = stageRank(b.stage);
+  if (as !== bs) return as - bs;
+  // 4. Opportunity title, then 5. id — the final deterministic tie-breakers.
+  if (a.title !== b.title) return a.title < b.title ? -1 : 1;
+  if (a.opportunityId === b.opportunityId) return 0;
+  return a.opportunityId < b.opportunityId ? -1 : 1;
+}
+
+/** Apply the TD-10 total ordering, returning a new array (input untouched). */
+export function sortTransactionRows(rows: TransactionRow[]): TransactionRow[] {
+  return [...rows].sort(compareTransactionRows);
+}

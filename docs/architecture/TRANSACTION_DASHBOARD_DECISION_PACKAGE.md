@@ -45,6 +45,9 @@ The founder ratified the discovery conclusion: **the Transaction Dashboard is a 
 - **TD-7** Org-scoped + `CLOSING`-read RBAC; cross-tenant access impossible.
 - **TD-8** Orchestration not ownership: every edit affordance links out to the owning domain surface (TX-3).
 - **TD-9** Deterministic display: given the same underlying records, the rendered dashboard is identical (no hidden state, no time-of-day drift beyond the explicit "overdue vs now" comparison, which is derived, not stored).
+- **TD-10** (founder refinement) **Stable row ordering** — a total, DB-order-independent order: overdue → soonest next milestone → stage order → title → id. Never relies on query return order; guarantees deterministic screenshots / Playwright / pagination / UX. (`sortTransactionRows` / `compareTransactionRows`, unit-tested.)
+- **TD-11** (founder refinement) **Projection independence** — a missing Escrow / Financing / Assignment / Checklist record degrades that value to `null` and NEVER suppresses the Opportunity row; no domain's absence drops another's data.
+- **TD-12** (founder refinement) **Projection immutability** — the module accepts plain data only (never Prisma models / mutable objects) and never mutates its inputs (`sortTransactionRows` returns a new array), keeping it a reusable contract for roadmap #7.
 
 ## 5. Performance / index analysis (TX-A)
 
