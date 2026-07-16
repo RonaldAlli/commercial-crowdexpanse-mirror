@@ -26,11 +26,14 @@ export type AutomationHandler = {
   automationType: string;
   policyKey: string;
   policyVersion: number;
-  gatherContext(job: AutomationJob): Promise<{ context: PolicyContext; fingerprint: string }>;
+  gatherContext(
+    job: AutomationJob,
+  ): Promise<{ context: PolicyContext; fingerprint: string; observation?: unknown }>;
   policy(context: PolicyContext): AutomationDecision;
   perform(
     job: AutomationJob,
     context: PolicyContext,
+    observation?: unknown,
   ): Promise<{ producedDomainEffect: boolean; observationSummary?: string | null }>;
 };
 
@@ -52,10 +55,10 @@ export async function runClaimedJob(handler: AutomationHandler, job: AutomationJ
   const attemptNumber = job.runningAttempt ?? job.attempts;
   const principalKey = automationPrincipalKey(handler.automationType);
   try {
-    const { context, fingerprint } = await handler.gatherContext(job);
+    const { context, fingerprint, observation } = await handler.gatherContext(job);
     const decision = handler.policy(context); // AU-4: mandatory, executor-driven, before perform
     if (decision.kind === "ALLOW") {
-      const res = await handler.perform(job, context);
+      const res = await handler.perform(job, context, observation);
       const { job: updated, execution } = await finalizeJob({
         job, attemptNumber, outcome: "SUCCEEDED",
         policyKey: handler.policyKey, policyVersion: handler.policyVersion, policyDecision: "ALLOW",

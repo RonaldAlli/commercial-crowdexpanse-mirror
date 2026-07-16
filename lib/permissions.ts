@@ -42,7 +42,12 @@ export type Resource =
   | "UNDERWRITING_APPROVAL"
   // Closing Center (v1.4, CC-D) = managing an opportunity's closing checklist / DD items.
   // Waiving a REQUIRED item is a stricter ADMIN-only check (canWaiveClosingItem), CC-5.
-  | "CLOSING";
+  | "CLOSING"
+  // Automation (v2.0.1) = viewing the automation operational surface (health/jobs/executions)
+  // and the ADMIN-only operator requeue of a dead-lettered job (canRequeueAutomationJob). This
+  // is OPERATOR visibility into a system-owned domain — automation itself acts as its own
+  // AUTOMATION principal (AU-3), never through this human RBAC. Read + write are both ADMIN.
+  | "AUTOMATION";
 
 export type Action = "CREATE" | "READ" | "UPDATE" | "DELETE" | "MANAGE";
 
@@ -86,6 +91,11 @@ const MATRIX: Record<Resource, Capability> = {
   // Closing work is owned by the acquisition/disposition/admin roles; analysts read.
   // Waiving a REQUIRED item is a distinct ADMIN-only check (canWaiveClosingItem, CC-5).
   CLOSING: { write: [ADMIN, ACQUISITIONS, DISPOSITIONS], read: [ANALYST] },
+  // Automation is a system-owned operational domain: only ADMIN sees its health surface and
+  // only ADMIN may perform the operator requeue. No analyst/operational read tier — automation
+  // mechanics are governance, not pipeline reporting. Requeue is a stricter distinct check
+  // (canRequeueAutomationJob) layered on top, mirroring the other ADMIN-only closing actions.
+  AUTOMATION: { write: [ADMIN], read: [ADMIN] },
 };
 
 /** Can `role` perform `action` on `resource`? Pipeline movement is separate — see canMoveStage. */
@@ -155,6 +165,14 @@ export function canResolveFinancing(role: UserRole): boolean {
 // — AS-G. Ordinary assignment work (draft/regenerate the agreement, set parties, cancel) is
 // CLOSING write. Execution never touches underwriting (AS-13).
 export function canExecuteAssignment(role: UserRole): boolean {
+  return role === ADMIN;
+}
+
+// Requeuing a DEAD_LETTERED automation job grants it one more attempt (a controlled operator
+// exception to the terminal lifecycle), so it is the strictest automation action: ADMIN only
+// (a distinct check, like canResolveEscrow). It NEVER mutates the immutable execution ledger —
+// a subsequent claim creates a NEW attempt row (requeueDeadLetteredJob) — v2.0.1.
+export function canRequeueAutomationJob(role: UserRole): boolean {
   return role === ADMIN;
 }
 

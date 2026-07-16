@@ -25,7 +25,14 @@ import { runExecutorOnce, startExecutorLoop } from "../lib/automation/executor.t
 import { reapStaleJobs } from "../lib/automation/reaper.ts";
 import { runSchedulerOnce, supersedeOlderOccurrences } from "../lib/automation/scheduler.ts";
 import { recordAutomationActivity } from "../lib/automation/activity.ts";
+import { fetchAutomationHealth } from "../lib/automation/job-service.ts";
 import { classifyEvent } from "../lib/transaction-timeline.ts";
+import { handlers as realHandlers, seeders as realSeeders } from "../lib/automation/registry.ts";
+import {
+  closingReadinessHandler,
+  closingReadinessSeeder,
+  CLOSING_READINESS_AUTOMATION_TYPE,
+} from "../lib/automation/proof-observer.ts";
 
 const TAG = "e2e-automation";
 assertTestDatabase();
@@ -306,6 +313,97 @@ try {
 
   console.log("\n[23] Transaction Timeline forward-compatibility for automation events:");
   assert(typeof classifyEvent("automation.fake_type.observed") === "string", "an unknown automation.* event classifies without throwing (forward-compatible)");
+
+  // ── Commit 6: the read-only closing-readiness PROOF automation ────────────────
+  console.log("\n[24] Registry wires exactly the approved proof automation (handler + seeder):");
+  assert(realHandlers[CLOSING_READINESS_AUTOMATION_TYPE]?.automationType === CLOSING_READINESS_AUTOMATION_TYPE, "the registry maps the proof type to its handler");
+  assert(typeof realSeeders[CLOSING_READINESS_AUTOMATION_TYPE] === "function", "the registry maps the proof type to its seeder");
+  assert(Object.keys(realHandlers).length === 1 && Object.keys(realSeeders).length === 1, "the registry wires EXACTLY one automation — the approved proof job — and nothing else");
+  assert(closingReadinessHandler.automationType === CLOSING_READINESS_AUTOMATION_TYPE && closingReadinessHandler.policyVersion === 1, "the handler declares a versioned policy");
+
+  // An in-flight opportunity (in closing scope) and a LEAD opportunity (out of scope).
+  const oppIF = await mkOpp(a.id, "In-Flight Deal");
+  await prisma.opportunity.update({ where: { id: oppIF.id }, data: { stage: "UNDER_CONTRACT" } });
+  const oppLead = await mkOpp(a.id, "Lead Deal"); // stays LEAD (out of closing scope)
+
+  console.log("\n[25] gatherContext is org-scoped + consumes the SHARED closing projection:");
+  const jobIF = await enqueueJob(mkInput(a.id, oppIF.id, { occurrenceKey: "proof-if" }));
+  const gcIF = await closingReadinessHandler.gatherContext(jobIF);
+  assert(gcIF.context.targetPresent === true && gcIF.context.targetInScope === true, "an in-flight opportunity is present and in scope");
+  assert(typeof gcIF.fingerprint === "string" && gcIF.fingerprint.length === 64, "a deterministic 64-hex context fingerprint is produced");
+  assert(gcIF.observation && gcIF.observation.readiness !== undefined, "the observation IS the shared projectClosingBadges summary (readiness present)");
+  const gcIF2 = await closingReadinessHandler.gatherContext(jobIF);
+  assert(gcIF2.fingerprint === gcIF.fingerprint, "gatherContext is deterministic (same inputs → same fingerprint)");
+  assert(closingReadinessHandler.policy(gcIF.context).kind === "ALLOW", "policy ALLOWs an in-scope, present, permitted observation");
+
+  const jobLead = await enqueueJob(mkInput(a.id, oppLead.id, { occurrenceKey: "proof-lead" }));
+  const gcLead = await closingReadinessHandler.gatherContext(jobLead);
+  assert(gcLead.context.targetInScope === false, "a LEAD opportunity is out of closing scope");
+  assert(closingReadinessHandler.policy(gcLead.context).kind === "NO_ACTION", "policy → NO_ACTION for an out-of-scope target (clean skip)");
+
+  console.log("\n[26] Missing source → NO_ACTION; cross-org source read is refused (fail closed):");
+  const jobMissing = await enqueueJob(mkInput(a.id, "does-not-exist", { occurrenceKey: "proof-missing" }));
+  const gcMissing = await closingReadinessHandler.gatherContext(jobMissing);
+  assert(gcMissing.context.targetPresent === false, "a missing source is not present");
+  assert(closingReadinessHandler.policy(gcMissing.context).kind === "NO_ACTION", "policy → NO_ACTION for a missing source");
+  const jobCross = await enqueueJob(mkInput(b.id, oppIF.id, { occurrenceKey: "proof-cross" }));
+  const gcCross = await closingReadinessHandler.gatherContext(jobCross);
+  assert(gcCross.context.targetPresent === false, "org B cannot read org A's opportunity through the proof job (no cross-org read)");
+  assert(closingReadinessHandler.policy(gcCross.context).kind === "NO_ACTION", "policy → NO_ACTION for a cross-org source (fail closed)");
+
+  console.log("\n[27] The pure policy detects DENY and STALE_CONTEXT deterministically:");
+  assert(closingReadinessHandler.policy({ organizationId: a.id, principalAllowed: false, targetPresent: true, targetInScope: true, currentContextFingerprint: "x" }).kind === "DENY", "a disallowed principal → DENY");
+  assert(closingReadinessHandler.policy({ organizationId: a.id, principalAllowed: true, targetPresent: true, targetInScope: true, expectedContextFingerprint: "old", currentContextFingerprint: "new" }).kind === "STALE_CONTEXT", "a changed context fingerprint → STALE_CONTEXT");
+
+  console.log("\n[28] perform() is READ-ONLY: producedDomainEffect=false, no ActivityLog by default:");
+  const perfRes = await closingReadinessHandler.perform(jobIF, gcIF.context, gcIF.observation);
+  assert(perfRes.producedDomainEffect === false, "perform() always reports producedDomainEffect=false");
+  assert(!perfRes.observationSummary, "with AUTOMATION_EMIT_OBSERVATION unset, no ActivityLog observation is emitted");
+
+  console.log("\n[29] End-to-end proof run via the REAL registry mutates NO domain state:");
+  // Isolate the run: retire any leftover queued jobs so only the proof job is claimable.
+  await prisma.automationJob.updateMany({ where: { status: "QUEUED" }, data: { status: "SUPERSEDED" } });
+  const domainSnapshot = async (orgId) => JSON.stringify({
+    opportunities: await prisma.opportunity.findMany({ where: { organizationId: orgId }, orderBy: { id: "asc" } }),
+    escrow: await prisma.escrowRecord.count({ where: { organizationId: orgId } }),
+    financing: await prisma.financingRecord.count({ where: { organizationId: orgId } }),
+    assignments: await prisma.assignmentRecord.count({ where: { organizationId: orgId } }),
+    checklistItems: await prisma.closingChecklistItem.count({ where: { checklist: { organizationId: orgId } } }),
+    activityAutomation: await prisma.activityLog.count({ where: { organizationId: orgId, actorType: "AUTOMATION" } }),
+  });
+  const jobRun = await enqueueJob(mkInput(a.id, oppIF.id, { occurrenceKey: "proof-run" }));
+  await markQueued(jobRun.id, new Date());
+  const before = await domainSnapshot(a.id);
+  const { processed } = await runExecutorOnce(realHandlers, new Date());
+  const after = await domainSnapshot(a.id);
+  assert(processed >= 1, "the executor processed the queued proof job through the real registry");
+  assert(before === after, "byte-for-byte: no opportunity/escrow/financing/assignment/checklist/AUTOMATION-activity change");
+  const runExec = (await listJobExecutions(a.id, jobRun.id))[0];
+  assert((await getJob(a.id, jobRun.id)).status === "SUCCEEDED", "the proof job finalized SUCCEEDED");
+  assert(runExec.outcome === "SUCCEEDED" && runExec.policyDecision === "ALLOW", "its immutable execution recorded ALLOW/SUCCEEDED");
+  assert(runExec.producedDomainEffect === false, "the execution ledger records producedDomainEffect=false");
+  assert(runExec.principalKey === "automation:closing_readiness_observation", "the execution is attributed to the AUTOMATION principal (never a user)");
+
+  console.log("\n[30] The seeder enqueues only IN-FLIGHT opportunities, idempotently per hour bucket:");
+  const seededN = await closingReadinessSeeder(a.id, new Date("2026-07-16T18:00:00Z"));
+  assert(seededN >= 1, "the seeder enqueued the in-flight opportunity");
+  const seededJob = await prisma.automationJob.findFirst({ where: { organizationId: a.id, automationType: CLOSING_READINESS_AUTOMATION_TYPE, sourceId: oppIF.id, occurrenceKey: "2026-07-16T18" } });
+  assert(seededJob !== null, "the seeded job carries the UTC hour-bucket occurrence key");
+  const seededAgain = await closingReadinessSeeder(a.id, new Date("2026-07-16T18:30:00Z"));
+  assert(seededAgain === 0, "a second seed in the same hour bucket is idempotent (no duplicate)");
+  // The seeder (bucket "2026-07-16T18") must never have enqueued the LEAD opp — only the
+  // manual proof-lead job from [25] exists for it, so no job carries the seeder's bucket.
+  const leadSeededByScheduler = await prisma.automationJob.count({ where: { organizationId: a.id, sourceId: oppLead.id, automationType: CLOSING_READINESS_AUTOMATION_TYPE, occurrenceKey: "2026-07-16T18" } });
+  assert(leadSeededByScheduler === 0, "the out-of-scope LEAD opportunity is never seeded by the scheduler");
+
+  console.log("\n[31] Health projection is organization-scoped (operator visibility):");
+  const healthA = await fetchAutomationHealth(a.id, new Date());
+  assert(typeof healthA.queueDepth === "number" && typeof healthA.windowExecutions === "number", "the health summary exposes queue + execution counters");
+  assert(healthA.windowExecutions >= 1 && healthA.succeeded >= 1, "org A sees its own executions (including the proof job's success)");
+  const emptyOrg = await prisma.organization.create({ data: { name: TAG, slug: `${TAG}-${process.pid}-c` } });
+  orgIds.push(emptyOrg.id);
+  const healthEmpty = await fetchAutomationHealth(emptyOrg.id, new Date());
+  assert(healthEmpty.windowExecutions === 0 && healthEmpty.queueDepth === 0, "a fresh org's health sees NONE of another org's automation (org-scoped read)");
 } finally {
   console.log("\nCleaning up throwaway orgs (cascade)...");
   for (const id of orgIds) await prisma.organization.delete({ where: { id } }).catch((e) => console.log(`  cleanup warn: ${e.message}`));

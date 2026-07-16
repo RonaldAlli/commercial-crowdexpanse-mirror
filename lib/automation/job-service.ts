@@ -21,6 +21,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { CLAIM_BATCH, DEFAULT_MAX_ATTEMPTS, LEASE_TTL_MS } from "./types";
 import { assertTransition, canRequeue } from "./lifecycle";
+import { projectHealth, type HealthSummary } from "./health";
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -271,6 +272,37 @@ export async function listJobExecutions(
     where: { organizationId, automationJobId: jobId },
     orderBy: { attemptNumber: "asc" },
   });
+}
+
+/**
+ * Org-scoped operational-health read. Loads the org's current non-terminal jobs plus the
+ * executions in the trailing `windowMs` and projects them with the pure `projectHealth`.
+ * Terminal-but-informative statuses (DEAD_LETTERED) are always included regardless of age so
+ * an operator sees outstanding dead letters. No cross-org data is ever read.
+ */
+export async function fetchAutomationHealth(
+  organizationId: string,
+  now: Date,
+  windowMs: number = 24 * 60 * 60 * 1000,
+): Promise<HealthSummary> {
+  const windowStart = new Date(now.getTime() - windowMs);
+  const [jobs, executions] = await Promise.all([
+    prisma.automationJob.findMany({
+      where: {
+        organizationId,
+        OR: [
+          { status: { in: ["PENDING", "QUEUED", "RUNNING", "RETRY_SCHEDULED", "DEAD_LETTERED"] } },
+          { updatedAt: { gte: windowStart } },
+        ],
+      },
+      select: { status: true, availableAt: true, leaseExpiresAt: true, createdAt: true },
+    }),
+    prisma.automationExecution.findMany({
+      where: { organizationId, createdAt: { gte: windowStart } },
+      select: { outcome: true, durationMs: true, policyDecision: true, failureClass: true, createdAt: true },
+    }),
+  ]);
+  return projectHealth(jobs, executions, now);
 }
 
 /**

@@ -2,7 +2,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { UserRole } from "@prisma/client";
 
-import { can, canWaiveClosingItem, type Action, type Resource } from "../../../lib/permissions";
+import {
+  can,
+  canWaiveClosingItem,
+  canRequeueAutomationJob,
+  type Action,
+  type Resource,
+} from "../../../lib/permissions";
 
 const { ADMIN, ACQUISITIONS, ANALYST, DISPOSITIONS } = UserRole;
 const WRITE: Action[] = ["CREATE", "UPDATE", "DELETE", "MANAGE"];
@@ -28,6 +34,7 @@ const writeMatrix: Record<Resource, UserRole[]> = {
   UNDERWRITING: [ADMIN, ANALYST],
   UNDERWRITING_APPROVAL: [ADMIN, ACQUISITIONS, DISPOSITIONS],
   CLOSING: [ADMIN, ACQUISITIONS, DISPOSITIONS],
+  AUTOMATION: [ADMIN],
 };
 
 const ALL_ROLES = [ADMIN, ACQUISITIONS, ANALYST, DISPOSITIONS];
@@ -96,6 +103,21 @@ test("CLOSING: analyst reads but cannot manage the checklist; waiving is stricte
   assert.equal(canWaiveClosingItem(ADMIN), true);
   for (const role of [ACQUISITIONS, ANALYST, DISPOSITIONS]) {
     assert.equal(canWaiveClosingItem(role), false);
+  }
+});
+
+test("AUTOMATION is a system-owned domain: ADMIN-only visibility and requeue (v2.0.1)", () => {
+  // Only ADMIN sees the automation operational surface — no analyst/operational read tier.
+  assert.equal(can(ADMIN, "READ", "AUTOMATION"), true);
+  assert.equal(can(ADMIN, "MANAGE", "AUTOMATION"), true);
+  for (const role of [ACQUISITIONS, ANALYST, DISPOSITIONS]) {
+    assert.equal(can(role, "READ", "AUTOMATION"), false);
+    assert.equal(can(role, "MANAGE", "AUTOMATION"), false);
+  }
+  // Requeuing a dead-lettered job is the stricter distinct operator check — ADMIN only.
+  assert.equal(canRequeueAutomationJob(ADMIN), true);
+  for (const role of [ACQUISITIONS, ANALYST, DISPOSITIONS]) {
+    assert.equal(canRequeueAutomationJob(role), false);
   }
 });
 
