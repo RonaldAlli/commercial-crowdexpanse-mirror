@@ -141,6 +141,14 @@ export function canResolveEscrow(role: UserRole): boolean {
   return role === ADMIN;
 }
 
+// Resolving financing to a TERMINAL outcome (funded / denied / withdrawn) captures the FC-J
+// snapshot and freezes the record, so it is the strictest financing action: ADMIN only
+// (a distinct check, like canResolveEscrow) — FC-G/FC-6. Ordinary financing work (apply /
+// advance / set lender+milestone dates / link documents) is CLOSING write.
+export function canResolveFinancing(role: UserRole): boolean {
+  return role === ADMIN;
+}
+
 export function canMoveStage(role: UserRole, current: OpportunityStage, target: OpportunityStage): boolean {
   const c = idx(current);
   const t = idx(target);

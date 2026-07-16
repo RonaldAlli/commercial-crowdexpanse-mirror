@@ -54,6 +54,9 @@ const CRITICAL = [
   // builder (no Prisma/clock). Transition legality + snapshot fidelity are load-bearing
   // (EC-8/EC-I/EC-11).
   "lib/escrow.ts",
+  // Financing (Closing Slice 3) — the pure lifecycle guard + FC-J terminal-snapshot builder
+  // (no Prisma/clock). Transition legality + snapshot fidelity are load-bearing (FC-10/FC-J).
+  "lib/financing.ts",
 ];
 const TRACKED = [
   ...CRITICAL,

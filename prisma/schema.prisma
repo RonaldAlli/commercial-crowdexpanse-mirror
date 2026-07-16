@@ -112,6 +112,21 @@ enum EscrowEventType {
   FORFEITED
 }
 
+// Closing Center Slice 3 — Financing (FC-B). Operational tracking of the buyer's/assignee's
+// financing process: NOT_STARTED → APPLIED → COMMITTED → CLEARED → FUNDED, with terminal
+// off-ramps DENIED / WITHDRAWN. This is NOT the deterministic underwriting FinancingCase —
+// it never owns loan economics (FC-0/FC-3). Transitions validated by the pure guard in
+// lib/financing.ts.
+enum FinancingStatus {
+  NOT_STARTED
+  APPLIED
+  COMMITTED
+  CLEARED
+  FUNDED
+  DENIED
+  WITHDRAWN
+}
+
 enum MatchStatus {
   NEW
   REVIEWING
@@ -285,6 +300,7 @@ model Organization {
   closingChecklists      ClosingChecklist[]
   escrowRecords          EscrowRecord[]
   escrowEvents           EscrowEvent[]
+  financingRecords       FinancingRecord[]
 
   @@map("organizations")
 }
@@ -819,6 +835,7 @@ model Opportunity {
   underwriting     Underwriting?
   closingChecklist ClosingChecklist?
   escrow           EscrowRecord?
+  financing        FinancingRecord?
   tasks            Task[]
   notes            Note[]
   documents        Document[]
@@ -1583,6 +1600,50 @@ model EscrowEvent {
   @@index([organizationId])
   @@index([escrowRecordId])
   @@map("escrow_events")
+}
+
+// Closing Center Slice 3 — Financing (FC-A). A first-class OPERATIONAL record, 1:1 with an
+// Opportunity, org-scoped and cascade-owned. Tracks the lender's process through the
+// NOT_STARTED→APPLIED→COMMITTED→CLEARED→FUNDED (| DENIED | WITHDRAWN) lifecycle (FC-B) plus
+// independently-recorded milestone dates. It owns NO loan economics — loan amount / DSCR /
+// LTV/LTC / amortization stay underwriting-owned (FC-0/FC-3/FC-13); this record only
+// REFERENCES underwriting output read-only at render time, never persisting it. On a terminal
+// transition the service captures the FC-J snapshot (below) and FREEZES the record. Money is
+// deliberately absent (FC-C/FC-5); lender is free-text (FC-D); documents are scalar ids (FC-E).
+model FinancingRecord {
+  id                         String          @id @default(cuid())
+  organizationId             String
+  opportunityId              String          @unique
+  status                     FinancingStatus @default(NOT_STARTED)
+  lenderName                 String?
+  lenderContact              String?
+  // Independently-recorded milestone dates (FC-B) — the history (no event ledger, FC-I).
+  applicationSubmittedDate   DateTime?
+  appraisalOrderedDate       DateTime?
+  appraisalCompletedDate     DateTime?
+  commitmentReceivedDate     DateTime?
+  conditionsReceivedDate     DateTime?
+  conditionsSatisfiedDate    DateTime?
+  closingPackageReceivedDate DateTime?
+  fundedDate                 DateTime?
+  // Owned documents (FC-E) — scalar ids, no FK. Commitment letter + appraisal only this slice.
+  commitmentLetterDocumentId String?
+  appraisalDocumentId        String?
+  // FC-J terminal snapshot — captured inside the record before it freezes, so a terminal
+  // outcome is a durable historical fact without a separate event table (FC-I/FC-J).
+  resolvedById                          String?
+  resolvedAt                            DateTime?
+  resolutionReason                      String?
+  resolutionLenderNameSnapshot          String?
+  resolutionCommitmentDocumentIdSnapshot String?
+  resolutionAppraisalDocumentIdSnapshot  String?
+  createdAt                  DateTime        @default(now())
+  updatedAt                  DateTime        @updatedAt
+  organization               Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity                Opportunity     @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("financing_records")
 }
 
 model BuyerMatch {

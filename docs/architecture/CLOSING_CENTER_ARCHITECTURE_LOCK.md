@@ -173,3 +173,83 @@ Opportunity
 - **Migration:** additive only (2 enums + 2 tables, 0 destructive); prod is a clean slate (0 opportunities) so there is no legacy data to reconcile.
 - **Affected modules:** additive migration · pure `lib/escrow.ts` · `lib/escrow-service.ts` · `lib/permissions.ts` (+`canResolveEscrow`, reuse `CLOSING`) · escrow server actions · Opportunity detail escrow card (+ EC-J affordance) · unit + `scripts/e2e-escrow.mjs`.
 - **Scope exclusions (this slice):** date-triggered reminders / scheduler · multi-currency · a first-class escrow-holder/title-company `Party` entity · automatic escrow↔checklist coupling · escrow as a hardcoded `PAID` gate · Financing/Assignments/dashboard (later slices) · any underwriting interaction.
+
+---
+
+# Slice 3 — Financing
+
+Ratified by the founder on 2026-07-16. Financing is **Closing Center Slice 3** — operational
+tracking of the buyer's / assignee's financing status and contingencies (their ability to
+close). It is the deliberate opposite of the V1.3 **underwriting** financing stack
+(`Scenario → FinancingCase → FinancingCaseResult`, deterministic): that engine *computes*
+debt (loan sizing, DSCR, LTV/LTC, amortization); Closing Financing *tracks a lender's real
+process*. A repository inventory confirmed **no operational financing model/fields exist**
+today (only the deterministic underwriting stack + the deprecated `DealAnalysis`), so this is
+a genuinely new mechanism with nothing to migrate.
+
+## 11. Financing — the reference boundary (FC-0, load-bearing)
+
+**FC-0 — Financing Reference Boundary.** Closing Financing **may reference** underwriting
+outputs **read-only**, through the existing narrow one-way seam (`getActiveScenarioResult`-
+style, read at render time — the same discipline as the offer memo). It **never owns, copies,
+caches, or mutates** loan amount · DSCR · LTV/LTC · leverage · amortization · underwriting
+assumptions. Those remain **exclusively owned by Version 1.3**. Closing Financing owns
+**operational milestones only**: lender · application submitted · appraisal ordered/complete ·
+commitment received · conditions received/satisfied · closing package received · funding
+status.
+
+## 12. Financing — locked decisions (FC-A…FC-J)
+
+| Key | Decision |
+|---|---|
+| **FC-A** | **Ownership.** A first-class **`FinancingRecord`** (1:1 with an `Opportunity`, `opportunityId @unique`), org-scoped, cascade-owned — mirroring `EscrowRecord`. **Not** a checklist item; **not** the underwriting `FinancingCase`. |
+| **FC-B** | **Lifecycle.** `NOT_STARTED → APPLIED → COMMITTED → CLEARED → FUNDED`, with terminal off-ramps `DENIED` / `WITHDRAWN` reachable from the active non-terminal states. Each milestone is recorded independently (dates on the record); who/when for each transition is in `ActivityLog`. Validated by a pure `isValidFinancingTransition` guard. |
+| **FC-C** | **Money — none.** Financing tracks *status*, not *amounts*. **No monetary fields** in this slice; all financing economics stay underwriting-owned (FC-0). A lender's actual commitment amount, if ever needed, is introduced later as an explicitly operational field — never borrowed from underwriting. |
+| **FC-D** | **Lender.** Free-text `lenderName` / `lenderContact`. **No `Party` model** in this slice. |
+| **FC-E** | **Documents.** Reuse Documents. **Inventory decision:** FC-J concretely needs exactly two documents — **commitment letter + appraisal** — so this slice uses **scalar `commitmentLetterDocumentId` / `appraisalDocumentId`** (no FK, like `evidenceDocumentId`). *If* the owned-document set grows (application · conditions · final approval become first-class needs), replace the scalars with a generic **`FinancingDocument`** link table (type enum + scalar document id) — a planned refactor, deferred by the rule of three. No duplicate file storage. |
+| **FC-G** | **RBAC.** Ordinary financing work (apply, advance, set lender, set milestone dates, link documents) = **`CLOSING`** (write ADMIN/ACQUISITIONS/DISPOSITIONS, read +ANALYST). **Terminal resolution (`FUNDED`/`DENIED`/`WITHDRAWN`) = ADMIN only** — a distinct `canResolveFinancing` check (like `canResolveEscrow`). No new RBAC resource. |
+| **FC-H** | **PAID gate — unchanged.** The gate stays `canMoveStage()` **AND** `isClosingReady()`. Financing is **NOT** hardcoded into it (never `isClosingReady() AND financingStatus == FUNDED`). An org makes financing blocking by adding a **required `FINANCING` checklist item** — policy in configuration. Composed-with, never weakened. |
+| **FC-I** | **No event ledger.** Unlike Escrow (which holds custody of money), Financing tracks an external lender's process, so there is **no separate append-only `FinancingEvent` table**. The independently-recorded milestones already preserve the history. |
+| **FC-J** | **Commitment snapshot (on the record, before freeze).** When status becomes a terminal outcome (`FUNDED` / `DENIED` / `WITHDRAWN`), the resolve operation captures — **inside the `FinancingRecord` itself, before freezing** — a snapshot of `lenderName`, the commitment document id, the appraisal document id, plus actor + timestamp + reason. After a terminal transition the record is **frozen** (the service rejects further mutation), so those values are durable historical facts. *(WITHDRAWN is included alongside the founder's named FUNDED/DENIED for consistency — it too freezes.)* |
+
+## 13. Financing — locked invariants (FC-1…FC-14)
+
+- **FC-1** — Financing is human operational workflow; it never reads, writes, or participates in the underwriting engine's computation.
+- **FC-2** — Exactly one `FinancingRecord` per `Opportunity`; org-scoped; cascade-owned.
+- **FC-3** — *(FC-0)* Financing references underwriting output **read-only** via the narrow seam; it never owns, copies, caches, or mutates loan amount / DSCR / LTV / LTC / leverage / amortization / underwriting assumptions.
+- **FC-4** — Financing owns operational milestones only (lender, application, appraisal, commitment, conditions, closing package, funding) — no financing economics.
+- **FC-5** — No monetary or financial-calculation fields in this slice.
+- **FC-6** — Terminal states are explicit, reasoned, actor+timestamped, freeze the record, and are ADMIN-only.
+- **FC-7** — Every state change writes an `ActivityLog` event.
+- **FC-8** — The `PAID` gate is composed-with, never weakened; financing gates `PAID` only via a required `FINANCING` checklist item.
+- **FC-9** — Reuse Documents; scalar ids, no FK; no duplicate document system.
+- **FC-10** — Status transitions are validated by a pure, unit-tested guard; illegal transitions are rejected.
+- **FC-11** — Financing never modifies Scenario / FinancingCase / Findings / Recommendation / Decision / Offer-Memo / Escrow artifacts.
+- **FC-12** — A `FinancingRecord` never changes the underwriting `FinancingCase`.
+- **FC-13** — A `FinancingRecord` may reference the active `FinancingCase` but never persists underwriting-derived calculations.
+- **FC-14** — Funding status never triggers underwriting recalculation.
+
+## 14. Financing — model (slice 3)
+
+```
+Opportunity
+  └─ FinancingRecord (1:1, @unique opportunityId) — operational status + milestones
+       status (NOT_STARTED→APPLIED→COMMITTED→CLEARED→FUNDED | DENIED | WITHDRAWN),
+       lenderName/Contact,
+       applicationSubmittedDate, appraisalOrderedDate, appraisalCompletedDate,
+       commitmentReceivedDate, conditionsReceivedDate, conditionsSatisfiedDate,
+       closingPackageReceivedDate, fundedDate,
+       commitmentLetterDocumentId?, appraisalDocumentId?,
+       — FC-J terminal snapshot (captured before freeze) —
+       resolvedById?, resolvedAt?, resolutionReason?,
+       resolutionLenderNameSnapshot?, resolutionCommitmentDocumentIdSnapshot?,
+       resolutionAppraisalDocumentIdSnapshot?
+
+  ┄┄ read-only reference (FC-0) ┄┄▶ underwriting active FinancingCase / result
+     (via getActiveScenarioResult — displayed for context, never persisted here)
+```
+
+- **Boundaries/security:** every financing read/write is org-scoped + RBAC-checked server-side; terminal resolution is ADMIN-only; all changes audited; cross-tenant access impossible. Financing never touches `lib/analysis.ts`, the underwriting service's compute path, or any underwriting/offer-memo/escrow surface (FC-1/FC-11/FC-12/FC-14).
+- **Migration:** additive only (1 enum + 1 table, 0 destructive); prod is a clean slate so there is no legacy data to reconcile.
+- **Affected modules:** additive migration · pure `lib/financing.ts` · `lib/financing-service.ts` · `lib/permissions.ts` (+`canResolveFinancing`, reuse `CLOSING`) · financing server actions · Opportunity detail financing card (+ a read-only underwriting-debt reference panel, FC-0) · unit + `scripts/e2e-financing.mjs`.
+- **Scope exclusions (this slice):** monetary/amount fields · a `Party`/lender entity · multi-lender / multiple-application tracking · a generic `FinancingDocument` table (until the doc set grows) · a `FinancingEvent` ledger · date-triggered reminders / scheduler · any write into or coupling with the underwriting engine · Assignments/dashboard (later slices).

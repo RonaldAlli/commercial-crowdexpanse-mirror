@@ -10,12 +10,15 @@ import { Badge, statusTone } from "@/components/ui/badge";
 import { GenerateMatchesButton, MatchRowControls } from "@/components/match-controls";
 import { ClosingChecklist, StartClosingChecklistButton, type ChecklistItemView } from "@/components/closing-checklist";
 import { EscrowCard, type EscrowView } from "@/components/escrow-card";
+import { FinancingCard, type FinancingView, type FinancingUnderwritingRef } from "@/components/financing-card";
 import { requireUser } from "@/lib/auth";
-import { can, canMoveStage, canWaiveClosingItem, canResolveEscrow } from "@/lib/permissions";
+import { can, canMoveStage, canWaiveClosingItem, canResolveEscrow, canResolveFinancing } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { blockingItems, closingProgress } from "@/lib/closing";
 import { getClosingChecklist } from "@/lib/closing-service";
 import { getEscrowRecord } from "@/lib/escrow-service";
+import { getFinancingRecord } from "@/lib/financing-service";
+import { getActiveScenarioResult } from "@/lib/underwriting";
 import { checklistCategoryLabel } from "@/lib/closing-options";
 import { matchStatusLabel, matchStatusTone } from "@/lib/match-options";
 import { STAGE_OPTIONS, stageLabel } from "@/lib/opportunity-options";
@@ -56,13 +59,20 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
   const closing = await getClosingChecklist(user.organizationId, opportunity.id);
   // Escrow (v1.4 Slice 2). Read-only here — a CLOSING-write user opens it explicitly.
   const escrow = await getEscrowRecord(user.organizationId, opportunity.id);
+  // Financing (v1.4 Slice 3). Read-only here — a CLOSING-write user starts it explicitly.
+  // The active-scenario read is the FC-0 seam: reference-only, never persisted into financing.
+  const [financing, activeScenario] = await Promise.all([
+    getFinancingRecord(user.organizationId, opportunity.id),
+    getActiveScenarioResult(user.organizationId, opportunity.id),
+  ]);
   const canWriteClosing = can(user.role, "UPDATE", "CLOSING");
   const canWaiveClosing = canWaiveClosingItem(user.role);
   const canResolveEscrowNow = canResolveEscrow(user.role);
-  // Members are only needed for the checklist; documents are shared by the closing
-  // evidence picker and the escrow proof-of-deposit picker, so fetch them if either exists.
+  const canResolveFinancingNow = canResolveFinancing(user.role);
+  // Members are only needed for the checklist; documents are shared by the closing evidence
+  // picker, the escrow proof-of-deposit picker, and the financing document links.
   const [closingMembers, opportunityDocuments] =
-    closing || escrow
+    closing || escrow || financing
       ? await Promise.all([
           closing
             ? prisma.user.findMany({
@@ -127,6 +137,39 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
     const it = closing?.items.find((i) => i.category === "ESCROW");
     return it ? { id: it.id, label: it.label, status: it.status } : null;
   })();
+  // Financing view (v1.4 Slice 3). All dates surfaced as yyyy-mm-dd; no money fields (FC-5).
+  const financingView: FinancingView | null = financing
+    ? {
+        status: financing.status,
+        lenderName: financing.lenderName,
+        lenderContact: financing.lenderContact,
+        applicationSubmittedDate: iso(financing.applicationSubmittedDate),
+        appraisalOrderedDate: iso(financing.appraisalOrderedDate),
+        appraisalCompletedDate: iso(financing.appraisalCompletedDate),
+        commitmentReceivedDate: iso(financing.commitmentReceivedDate),
+        conditionsReceivedDate: iso(financing.conditionsReceivedDate),
+        conditionsSatisfiedDate: iso(financing.conditionsSatisfiedDate),
+        closingPackageReceivedDate: iso(financing.closingPackageReceivedDate),
+        fundedDate: iso(financing.fundedDate),
+        commitmentLetterDocumentId: financing.commitmentLetterDocumentId,
+        appraisalDocumentId: financing.appraisalDocumentId,
+        resolvedAt: financing.resolvedAt ? financing.resolvedAt.toISOString() : null,
+        resolutionReason: financing.resolutionReason,
+        resolutionLenderNameSnapshot: financing.resolutionLenderNameSnapshot,
+      }
+    : null;
+  // FC-0: read-only reference to the active scenario's primary financing case debt. Displayed
+  // for context only; never copied, cached, or persisted into the FinancingRecord.
+  const primaryCaseResult = activeScenario?.financingCases[0]?.result ?? null;
+  const underwritingRef: FinancingUnderwritingRef = primaryCaseResult
+    ? {
+        sizedLoanUsd: primaryCaseResult.sizedLoanUsd,
+        dscr: primaryCaseResult.dscr,
+        debtYieldPct: primaryCaseResult.debtYieldPct,
+        bindingConstraint: primaryCaseResult.bindingConstraint,
+      }
+    : null;
+
   // The required items still blocking a move to Paid — surfaced so the gate explains
   // itself rather than silently hiding the option (server enforcement is unchanged).
   const closingBlockers = closing && !closingStats?.ready ? blockingItems(closing.items).map((i) => i.label) : [];
@@ -289,6 +332,23 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
               canWrite={canWriteClosing}
               canResolve={canResolveEscrowNow}
               escrowChecklistItem={escrowChecklistItem}
+            />
+          </article>
+
+          <article className="card">
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h2 className="text-base font-semibold text-slate-900">Financing</h2>
+              <p className="text-xs text-slate-500">
+                The lender&rsquo;s process — application through funding. Terminal outcomes (funded / denied / withdrawn) are admin-only and freeze the record. Underwritten debt is shown for reference only and never edited here.
+              </p>
+            </div>
+            <FinancingCard
+              opportunityId={opportunity.id}
+              financing={financingView}
+              documents={opportunityDocuments}
+              underwritingRef={underwritingRef}
+              canWrite={canWriteClosing}
+              canResolve={canResolveFinancingNow}
             />
           </article>
         </div>
