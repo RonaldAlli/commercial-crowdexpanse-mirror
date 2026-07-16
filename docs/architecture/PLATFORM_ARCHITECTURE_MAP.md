@@ -179,3 +179,39 @@ Reserved, benchmark-gated follow-ups that touch this map: an additive `ActivityL
 `(organizationId, opportunityId, createdAt)` index (TX-A/TL-9/LB-8) once real Timeline/List
 volume justifies it; Board-level closing badges (LB-7); and the D15 `DealAnalysis` removal
 (separately reviewed, out of every closeout so far).
+
+---
+
+## 6. The Automation domain (Version 2.0 — PROPOSED, pending ratification)
+
+> Specified conceptually in the [Automation Architecture Lock](./AUTOMATION_ARCHITECTURE_LOCK.md)
+> (invariants AU-1…AU-13). **Not built.** Shown here so the whole-platform picture already
+> reserves its place as a **cross-cutting orchestration layer** — never a new source of truth.
+
+Automation sits *beside* the spine as a bounded orchestration domain that **reads** projections
+and events, **evaluates policy**, **calls existing domain services** through the same human seams
+a person uses, and **records its own execution** in an immutable operational ledger:
+
+```
+   domain event / schedule
+          │
+          ▼
+   SCHEDULER → JOB QUEUE → EXECUTOR → POLICY ENGINE → EXISTING DOMAIN SERVICE
+          │                              (Projection → Policy → RBAC)          │
+          │                                                                     ▼
+          │                                                              ActivityLog  (business ledger)
+          ▼
+   AutomationExecution  (immutable OPERATIONAL ledger — complements ActivityLog, never replaces it)
+          ▲
+   Automation Principal: USER · SYSTEM · AUTOMATION · WEBHOOK   (never impersonates a user)
+```
+
+- **Owns:** AutomationPolicy · AutomationJob · AutomationExecution · AutomationProposal ·
+  AutomationAction · AutomationResult. **Owns no** business truth, underwriting, closing state,
+  calculations, or approvals (AU-1).
+- **Advisory-until-accepted:** outputs are proposals a human commits through the real seam; AI is
+  advisory, five-version stamped, schema-validated, and walled off from calculations (AU-5/AU-9).
+- **Two complementary ledgers:** `AutomationExecution` (what automation did) ⟂ `ActivityLog`
+  (what happened to the business) (AU-8).
+- **Event-driven preferred** (transactional outbox, per the email-outbox precedent) with a bounded
+  reconciliation sweep; not cron polling as the primary mechanism (AU-10).

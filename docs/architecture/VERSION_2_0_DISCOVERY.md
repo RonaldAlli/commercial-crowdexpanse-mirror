@@ -3,7 +3,9 @@
 > **Status: PENDING FOUNDER RATIFICATION.** Discovery + architecture determination only.
 > **No implementation code was written; no frozen 1.3/1.4 branch, lock, boundary, engine,
 > lifecycle, PAID gate, or production state was touched.** `main` and the authoritative
-> repository docs are the source of truth. Companion: [Version 2.0 Decision Package](./VERSION_2_0_DECISION_PACKAGE.md).
+> repository docs are the source of truth. Companions: [Version 2.0 Decision Package](./VERSION_2_0_DECISION_PACKAGE.md)
+> and the [Automation Architecture Lock](./AUTOMATION_ARCHITECTURE_LOCK.md) (founder refinements
+> A1–A8 / invariants AU-1…AU-13).
 
 This report inventories what the platform already provides that Automation & AI must build
 **on** (not around), and what is genuinely **greenfield**. Every claim is cited to the repo.
@@ -225,3 +227,13 @@ to the platform's existing standards from the start, with **no legacy AI to reco
    `IntelligenceSignal`, never a calculation input, never authoritative without review.
 5. **Reuse the existing idempotency / retry / error-classification / audit machinery** for
    attribution, dedup, retryability, and safe provider-failure handling.
+6. **Event-driven over polling is already precedented.** The email outbox is a
+   **transactional-outbox**: an intent row written in the same transaction as the domain write,
+   then drained. This supports an **event-driven** Automation domain (A6) with a low-frequency
+   reconciliation sweep as a bounded backstop — not cron polling as the primary mechanism.
+   `ActivityLog` is best-effort (§2), so it is a **trigger/observation** source, never a reliable
+   event bus for correctness.
+7. **Automation is a bounded domain with its own immutable operational ledger.** Per the
+   [Automation Architecture Lock](./AUTOMATION_ARCHITECTURE_LOCK.md) (A1/A8): `AutomationExecution`
+   records *what automation did* (operational audit), complementing — never replacing — the
+   `ActivityLog` record of *what happened to the business*.

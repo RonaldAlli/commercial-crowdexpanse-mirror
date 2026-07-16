@@ -3,7 +3,8 @@
 > **Status: PENDING FOUNDER RATIFICATION.** Architecture determination only. **No
 > implementation code; no change to any frozen 1.3/1.4 branch, lock, boundary, engine,
 > lifecycle, PAID gate, or production state.** Grounded in the [Version 2.0 Discovery
-> Report](./VERSION_2_0_DISCOVERY.md) and the [Platform Architecture Map](./PLATFORM_ARCHITECTURE_MAP.md).
+> Report](./VERSION_2_0_DISCOVERY.md), the [Automation Architecture Lock](./AUTOMATION_ARCHITECTURE_LOCK.md)
+> (founder refinements A1–A8 / invariants AU-1…AU-13), and the [Platform Architecture Map](./PLATFORM_ARCHITECTURE_MAP.md).
 > The single deliverable of this turn is documentation; **implementation stops here** until
 > a first slice is ratified.
 
@@ -95,6 +96,36 @@ harness** before a capability ships, and is **prohibited from being an underwrit
 input** (FC-0 boundary) or an authoritative fact. AI is introduced behind a **new provider
 abstraction** shaped like `EmailTransport`.
 
+### Architecture refinements A1–A8 (founder, 2026-07-16) — see the [Automation Architecture Lock](./AUTOMATION_ARCHITECTURE_LOCK.md)
+
+These strengthen (do not change) the determinations above and are the authoritative statement in
+the new Automation Architecture Lock (invariants AU-1…AU-13):
+
+- **A1 — Automation is a first-class bounded domain** (entities: AutomationPolicy · AutomationJob
+  · AutomationExecution · AutomationProposal · AutomationAction · AutomationResult). Owns
+  **orchestration only** — never business truth, underwriting, closing state, calculations, or
+  approvals (AU-1; extends D4).
+- **A2 — Scheduling is separate from execution:** Scheduler → Job Queue → Executor → Policy Engine
+  → Existing Domain Service → ActivityLog, independently replaceable; a scheduled job never invokes
+  a domain mutation directly (AU-2).
+- **A3 — Automation Principal** (USER/SYSTEM/AUTOMATION/WEBHOOK): automation never impersonates a
+  user; org context inherited, user identity never (AU-3; sharpens D7/D8).
+- **A4 — Mandatory policy layer:** Projection → Policy Evaluation → RBAC → Execution → ActivityLog;
+  no bypass of policy or approval seams (AU-4; sharpens D3).
+- **A5 — AI versioning:** every AI interaction stamped with prompt/model/schema/policy/evaluation
+  versions — reproducible + auditable (AU-9; extends D10).
+- **A6 — Event-driven preference:** prefer transactional domain events over polling (the email
+  outbox is the in-repo precedent); a low-frequency reconciliation sweep only as a bounded backstop
+  since ActivityLog is best-effort (AU-10; refines D5/D9).
+- **A7 — Automation health/operations** model (queued/running/retries/dead-letters/failures/
+  latency/policy-violations) as a read projection over the execution ledger — the 2.x ops
+  dashboard (AU-13).
+- **A8 — Immutable `AutomationExecution` ledger** (the primary addition): automation keeps its own
+  **operational** audit ledger (execution id, org, policy+version, triggering event, triggering
+  **projectionVersion**, timing, result, retryCount, failure classification, resulting ActivityLog
+  ids, Automation Principal) that **complements** — never replaces — the `ActivityLog` **business**
+  ledger (AU-8).
+
 ---
 
 ## 2. Capability–permission matrix
@@ -140,7 +171,7 @@ implemented on a feature branch, gated, and released — the V1.3/V1.4 cadence.
 
 | Phase | Name | What it establishes | Rides on |
 |---|---|---|---|
-| **2.0.1** | **Automation Foundation + Job Execution & Audit** | An org-scoped, idempotent, attributed, retryable **job substrate** with a single audit surface + an **automation principal**; **no AI, no external send** | `RefreshJob` + outbox patterns (§1/§10); `lib/authorize.ts` (§4) |
+| **2.0.1** | **Automation Foundation + Job Execution & Audit** | The **Automation domain spine** (A1–A4/A8): **Automation Principal**, mandatory **policy layer**, org-scoped idempotent **AutomationJob**, the **layer separation** (scheduler↔queue↔executor↔policy↔domain-service), and the immutable **`AutomationExecution`** operational ledger; **no AI, no external send, no scheduler commitment** | `RefreshJob` + outbox patterns (§1/§10); `lib/authorize.ts` (§4); [Automation Architecture Lock](./AUTOMATION_ARCHITECTURE_LOCK.md) |
 | **2.0.2** | **Deterministic Reminders & Alerts** | Pure-projection reminders/overdue/summaries surfaced **in-app** (reuse the ActivityLog-derived notification cursor) | Phase 1 substrate + existing projections (§5/§7/§12) |
 | **2.0.3** | **Human-Approval / Proposal Workflow** | A first-class **proposal** record + state machine (`PROPOSED→ACCEPTED/REJECTED/…`) so any capability can *propose* and a human *commits* through existing seams | `IntelligenceSignal` state model (§8) + `can*` seams (§4) |
 | **2.0.4** | **Outbound Delivery (policy-gated)** | External delivery of notifications/reminders via the email outbox under an **explicit org policy + audit**; SMS only if a provider is added | Email outbox (§3); D6 policy |
@@ -178,20 +209,26 @@ called for. **The order is confirmed by evidence, not assumed.**
 
 ## 5. Recommended first implementation slice
 
-**Phase 2.0.1 — Automation Foundation + Job Execution & Audit.** The smallest safe foundation,
-with **no AI and no external send**, that everything else rides on:
+**Phase 2.0.1 — Automation Foundation + Job Execution & Audit.** The smallest safe foundation —
+the **Automation domain spine** from the [Automation Architecture Lock](./AUTOMATION_ARCHITECTURE_LOCK.md)
+(AU-1…AU-4, AU-6, AU-8) — with **no AI and no external send**, that everything else rides on:
 
-- An **automation principal** (a distinct, non-human actor identity) so every automated action
-  is attributable in `ActivityLog` and gated by RBAC like any actor.
-- A minimal, org-scoped **job/execution substrate** modeled on `RefreshJob`: an idempotency
-  anchor `(organizationId, jobKind, requestKey)`, `status` lifecycle, `startedAt/finishedAt`,
-  `error`, and a **single audit surface** (the job row itself + `ActivityLog`), with
-  `RetryPolicy`/`permanent`-style classification borrowed from the outbox.
-- **No scheduler commitment yet** beyond a manually/endpoint-triggered runner (avoids the D4
-  cron gap); scheduling is a deliberate later decision.
-- **Proves the governance seams before any capability exists:** attribution, idempotency,
-  retry, org-isolation, audit — end-to-end, with a trivial no-op/deterministic job, under the
-  full test gate.
+- The **Automation Principal** (A3): a distinct `AUTOMATION` (and `WEBHOOK`) actor identity — never
+  a user — so every automated action is explicitly attributed in `ActivityLog` and gated by RBAC
+  like any actor.
+- The **mandatory policy layer** (A4): Projection → Policy Evaluation → RBAC → Execution →
+  ActivityLog, with the **layer separation** (A2) so a job never invokes a domain mutation directly.
+- A minimal, org-scoped **AutomationJob** modeled on `RefreshJob`: idempotency anchor
+  `(organizationId, jobKind, requestKey)`, status lifecycle, `RetryPolicy`/`permanent`-style
+  classification borrowed from the outbox.
+- The immutable **`AutomationExecution`** operational ledger (A8): policy+version, triggering
+  event, triggering **projectionVersion**, timing, result, retryCount, failure classification, and
+  the resulting `ActivityLog` ids — complementing, never replacing, the business ledger.
+- **No scheduler commitment yet** beyond a manually/endpoint-triggered runner (avoids the D4 cron
+  gap); **event-driven vs scheduled** (A6) is a deliberate later decision.
+- **Proves the governance seams before any capability exists:** attribution, policy+RBAC,
+  idempotency, retry, org-isolation, and the two complementary ledgers — end-to-end, with a
+  trivial no-op/deterministic job, under the full test gate.
 
 Only after this foundation is ratified, built, gated, and (optionally) released would Phase
 2.0.2 (Deterministic Reminders) consume it. **Recommendation:** ratify Phase 2.0.1 as the first
@@ -214,12 +251,15 @@ V1.4 (`v1.4.0`) baselines, locks, engines, lifecycles, and the PAID gate are unt
 
 ## 7. Decisions requested (ratification gate)
 
-1. **D1–D10 core determinations** — ratify as the V2.0 governing architecture.
+1. **D1–D10 core determinations + refinements A1–A8** — ratify as the V2.0 governing
+   architecture, with the **[Automation Architecture Lock](./AUTOMATION_ARCHITECTURE_LOCK.md)**
+   (invariants AU-1…AU-13) as the authoritative Automation-domain contract.
 2. **Capability–permission matrix (§2)** — ratify the five-category classification (esp. the
    **PA** line as *forbidden autonomous actions*).
 3. **Phased roadmap (§3)** — ratify the deterministic-first ordering (or amend).
-4. **First slice (§5)** — approve **Phase 2.0.1 (Automation Foundation + Job Execution &
-   Audit)** as the smallest safe foundation, vs. an alternative first phase.
+4. **First slice (§5)** — approve **Phase 2.0.1 (Automation domain spine — Principal + Policy
+   layer + AutomationJob + immutable AutomationExecution ledger + layer separation)** as the
+   smallest safe foundation, vs. an alternative first phase.
 5. **Standing constraints (§6)** — reaffirm.
 
 On ratification, the next step is a **Phase 2.0.1 decision package + implementation plan** (that
