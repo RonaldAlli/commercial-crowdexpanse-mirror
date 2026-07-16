@@ -24,6 +24,8 @@ import { getClosingChecklist } from "@/lib/closing-service";
 import { getEscrowRecord } from "@/lib/escrow-service";
 import { getFinancingRecord } from "@/lib/financing-service";
 import { getAssignmentRecord } from "@/lib/assignment-service";
+import { getOpportunityTimeline } from "@/lib/transaction-timeline-service";
+import { TransactionTimelinePanel } from "@/components/transaction-timeline-panel";
 import { listGeneratedAgreements } from "@/lib/documents/assignment-agreement-service";
 import { getActiveScenarioResult } from "@/lib/underwriting";
 import { checklistCategoryLabel } from "@/lib/closing-options";
@@ -39,7 +41,13 @@ function usd(value: number | null) {
   return value == null ? null : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
 }
 
-export default async function OpportunityDetailPage({ params }: { params: { id: string } }) {
+export default async function OpportunityDetailPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams?: { tlorder?: string; tlpage?: string };
+}) {
   const user = await requireUser();
 
   const opportunity = await prisma.opportunity.findFirst({
@@ -47,7 +55,6 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
     include: {
       property: { select: { id: true, name: true, city: true, state: true, assetType: true } },
       seller: { select: { id: true, name: true } },
-      activities: { orderBy: { createdAt: "desc" }, take: 12 },
     },
   });
 
@@ -60,6 +67,12 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
     include: { buyer: { select: { id: true, name: true, company: true } } },
     orderBy: [{ score: "desc" }, { createdAt: "desc" }],
   });
+
+  // Transaction Timeline (TX-0) — read-only chronological projection of this deal's recorded
+  // events; newest/oldest + page are driven by GET params (no client JS, no writes).
+  const timelineOrder = searchParams?.tlorder === "oldest" ? "oldest" : "newest";
+  const timelinePage = Math.max(1, Number.parseInt(searchParams?.tlpage ?? "1", 10) || 1);
+  const timeline = await getOpportunityTimeline(user.organizationId, opportunity.id, { order: timelineOrder, page: timelinePage });
 
   // Closing Center (v1.4). Read-only here — we never instantiate on view; a
   // CLOSING-write user starts the checklist explicitly (StartClosingChecklistButton).
@@ -321,7 +334,7 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
           {/* Closing Center — one grouped operational workspace (v1.4, Option C). A pure
               presentation container: a persistent readiness header + accordion sections over
               the SAME self-contained domain cards, each receiving the SAME props as before. */}
-          <section className="card" aria-labelledby="closing-center-heading">
+          <section id="closing-center" className="card scroll-mt-6" aria-labelledby="closing-center-heading">
             {/* Persistent readiness header — renders exactly the authoritative summary. */}
             <div className="border-b border-slate-100 px-5 py-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -458,32 +471,7 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
             </div>
           </article>
 
-          <article className="card">
-            <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className="text-base font-semibold text-slate-900">Activity</h2>
-            </div>
-            {opportunity.activities.length > 0 ? (
-              <ul className="px-5 py-2">
-                {opportunity.activities.map((entry, i) => (
-                  <li key={entry.id} className="flex gap-4 py-3">
-                    <div className="flex flex-col items-center">
-                      <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-brand-500 ring-4 ring-brand-50" />
-                      {i < opportunity.activities.length - 1 ? <span className="mt-1 w-px flex-1 bg-slate-200" /> : null}
-                    </div>
-                    <div className="min-w-0 pb-1">
-                      <p className="text-sm font-medium text-slate-900">{entry.eventLabel}</p>
-                      {entry.eventBody ? <p className="mt-0.5 text-xs text-slate-500">{entry.eventBody}</p> : null}
-                      <p className="mt-0.5 text-xs text-slate-400">
-                        {entry.createdAt.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <EmptyState icon="activity" title="No activity yet" />
-            )}
-          </article>
+          <TransactionTimelinePanel timeline={timeline} basePath={`/opportunities/${opportunity.id}`} />
         </div>
       </div>
 

@@ -70,6 +70,11 @@ const CRITICAL = [
   // the per-row view-model reusing the authoritative Closing/Escrow/Financing/Assignment helpers.
   // Determinism + correct inclusion/overdue logic are load-bearing (TD-2/TD-5/TD-9).
   "lib/transaction-dashboard.ts",
+  // Transaction Timeline (Closing Slice 6, TX-0) — the pure read-only projection (no Prisma/clock):
+  // event classification, snapshot-reference resolution (TL-11), and deterministic newest/oldest
+  // ordering with same-instant tie-breaks (TL-3). Event integrity (TL-10) + determinism are
+  // load-bearing; it never synthesizes or mutates.
+  "lib/transaction-timeline.ts",
 ];
 const TRACKED = [
   ...CRITICAL,
