@@ -13,8 +13,15 @@
 > two further invariants: **TL-12 Unknown Event Forward Compatibility** and **TL-13
 > Snapshot Link Failure** (see §7). The authoritative statement now lives in
 > `CLOSING_CENTER_ARCHITECTURE_LOCK.md` (TX-0 section); this package is preserved as the
-> decision record. Implementation proceeds on a dedicated feature branch and **stops
-> before merge**.
+> decision record.
+>
+> **✅ RELEASED — LIVE in production 2026-07-16** (`main` @ `e955e8a`, code-only, serving
+> `AkKD_n2EeTREsRoFafA-N`; feature branch merged + deleted). Released via the standard
+> code-only workflow (restore-verified backup, FF-merge, dual-push, build, pm2 restart —
+> no migration). Verified: authed pages render (200), schema drift empty, migration count
+> unchanged (26/25), behavior green on `_test` (16 unit + 31 E2E + 7 Playwright). Per
+> Option A, real production timeline usage is to be benchmarked before any additive
+> `ActivityLog` index is considered.
 >
 > **Slice context:** Closing Center, Version 1.4. The Transaction Dashboard (Slice 5)
 > is LIVE and accepted. TX-0 (Transaction Timeline) was reserved during Slice-5
