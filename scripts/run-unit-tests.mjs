@@ -65,6 +65,11 @@ const CRITICAL = [
   // renderer (no Prisma/clock/randomness). Determinism + escaping are load-bearing, reading
   // only operational data (AS-14/AS-15).
   "lib/documents/assignment-agreement.ts",
+  // Transaction Dashboard (Closing Slice 5) — the pure read-only projection (no Prisma/clock):
+  // inclusion predicate, deterministic next-milestone selection (injected reference date), and
+  // the per-row view-model reusing the authoritative Closing/Escrow/Financing/Assignment helpers.
+  // Determinism + correct inclusion/overdue logic are load-bearing (TD-2/TD-5/TD-9).
+  "lib/transaction-dashboard.ts",
 ];
 const TRACKED = [
   ...CRITICAL,

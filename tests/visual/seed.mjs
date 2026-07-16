@@ -129,6 +129,8 @@ async function main() {
   await setAssignmentParties(org.id, active.id, admin.id, { assignorName: "Oakleaf Holdings LLC", assignorContact: "seller@oakleaf.example", assigneeName: LONG_ASSIGNEE, assigneeContact: "acquisitions@seva-capital.example.com" });
   await generateAssignmentDraft(org.id, active.id, { id: admin.id, display: admin.name });
   await generateAssignmentDraft(org.id, active.id, { id: admin.id, display: admin.name }); // a second versioned draft (AS-M)
+  // An OVERDUE target close (past 2026-07-16) so the Transaction Dashboard shows an overdue milestone.
+  await prisma.opportunity.update({ where: { id: active.id }, data: { targetCloseDate: new Date("2026-07-05T00:00:00.000Z") } });
 
   // --- Opportunity 3: ready + terminal escrow & financing -------------------
   const terminal = (await mkOpp(org.id, "Summit Ridge Portfolio (ready, terminal states)", "Summit Ridge Portfolio")).opp;
@@ -149,6 +151,8 @@ async function main() {
   await setAssignmentParties(org.id, terminal.id, admin.id, { assignorName: "Summit Ridge Sellers LP", assigneeName: "Blue Harbor Real Estate Partners" });
   await generateAssignmentDraft(org.id, terminal.id, { id: admin.id, display: admin.name });
   await executeAssignment(org.id, terminal.id, admin.id, "Executed and recorded at closing");
+  // An UPCOMING target close (future) so the Transaction Dashboard shows an upcoming milestone.
+  await prisma.opportunity.update({ where: { id: terminal.id }, data: { targetCloseDate: new Date("2026-12-01T00:00:00.000Z") } });
 
   // --- storageState per user + manifest -------------------------------------
   const authFiles = {};
