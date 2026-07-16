@@ -2,6 +2,18 @@
 
 > **Theme:** Layer automation and AI on top of trusted, deterministic workflows.
 > **Status:** 🔴 Planned. **Hard prerequisite: the end-to-end deterministic workflow (1.1–1.4) exists and is trusted.**
+> **Architecture:** FOUNDER RATIFIED 2026-07-16 — see the [Automation Architecture Lock](../architecture/AUTOMATION_ARCHITECTURE_LOCK.md) (invariants AU-1…AU-13), the [Decision Package](../architecture/VERSION_2_0_DECISION_PACKAGE.md), and the [Discovery Report](../architecture/VERSION_2_0_DISCOVERY.md). Ratification governs the design only; each phase is separately approved before implementation.
+
+## Phased delivery (deterministic-first)
+
+Automation is a first-class bounded domain built slice by slice. The spine comes first, before any capability depends on it.
+
+| Phase | Title | Status |
+|---|---|---|
+| **2.0.1** | **Automation Foundation, Job Execution & Audit** (the spine: org-scoped job execution, Automation Principal, immutable execution ledger, idempotency, retry/dead-letter, mandatory policy, crash recovery — proven by one harmless internal read-only proof job) | 🟡 **Planning complete — PENDING FOUNDER APPROVAL FOR IMPLEMENTATION.** See the [Implementation Plan](../architecture/VERSION_2_0_PHASE_2_0_1_IMPLEMENTATION_PLAN.md), [Schema Proposal](../architecture/VERSION_2_0_PHASE_2_0_1_SCHEMA_PROPOSAL.md), [Acceptance Criteria](../architecture/VERSION_2_0_PHASE_2_0_1_ACCEPTANCE_CRITERIA.md), [Test Plan](../architecture/VERSION_2_0_PHASE_2_0_1_TEST_PLAN.md), [Rollout Plan](../architecture/VERSION_2_0_PHASE_2_0_1_ROLLOUT_PLAN.md), and [ADRs](../architecture/adr/). |
+| 2.0.2+ | Event-driven triggering (transactional outbox), then reminders, communications, conversation intelligence, and AI assistance — each on the ratified spine, each separately ratified | 🔴 Planned |
+
+> No Phase 2.0.1 code, schema, migration, branch, or production change exists yet. The planning package above is documentation only, awaiting Founder approval to implement.
 
 ## Guiding rule
 > AI comes **only after workflows exist.** We do not automate or "intelligently assist" a process we haven't first proven by hand. Every AI capability is governed by [Volume 6 — AI Roadmap](./AI_ROADMAP.md).
