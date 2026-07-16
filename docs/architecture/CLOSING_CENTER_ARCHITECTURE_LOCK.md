@@ -212,7 +212,7 @@ status.
 | **FC-I** | **No event ledger.** Unlike Escrow (which holds custody of money), Financing tracks an external lender's process, so there is **no separate append-only `FinancingEvent` table**. The independently-recorded milestones already preserve the history. |
 | **FC-J** | **Commitment snapshot (on the record, before freeze).** When status becomes a terminal outcome (`FUNDED` / `DENIED` / `WITHDRAWN`), the resolve operation captures — **inside the `FinancingRecord` itself, before freezing** — a snapshot of `lenderName`, the commitment document id, the appraisal document id, plus actor + timestamp + reason. After a terminal transition the record is **frozen** (the service rejects further mutation), so those values are durable historical facts. *(WITHDRAWN is included alongside the founder's named FUNDED/DENIED for consistency — it too freezes.)* |
 
-## 13. Financing — locked invariants (FC-1…FC-14)
+## 13. Financing — locked invariants (FC-1…FC-15)
 
 - **FC-1** — Financing is human operational workflow; it never reads, writes, or participates in the underwriting engine's computation.
 - **FC-2** — Exactly one `FinancingRecord` per `Opportunity`; org-scoped; cascade-owned.
@@ -228,6 +228,7 @@ status.
 - **FC-12** — A `FinancingRecord` never changes the underwriting `FinancingCase`.
 - **FC-13** — A `FinancingRecord` may reference the active `FinancingCase` but never persists underwriting-derived calculations.
 - **FC-14** — Funding status never triggers underwriting recalculation.
+- **FC-15** — *Underwriting reference freshness.* The Financing panel treats the underwriting reference as an **ephemeral view**: it is always read through the `getActiveScenarioResult` seam at render time and never persisted or cached inside `FinancingRecord`. When there is no active underwriting scenario, the UI displays "No active underwriting available." explicitly rather than storing or rendering placeholder values. This keeps the FC-0 boundary perfectly intact.
 
 ## 14. Financing — model (slice 3)
 

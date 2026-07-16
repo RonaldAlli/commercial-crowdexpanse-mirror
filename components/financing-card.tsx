@@ -96,33 +96,39 @@ export function FinancingCard({
       if (res?.error) setError(res.error);
     });
 
-  // FC-0 read-only underwriting reference — rendered above the operational record, never
-  // persisted into it. Present whenever an active scenario has sized debt.
-  const refPanel = underwritingRef ? (
+  // FC-0/FC-15 read-only underwriting reference — an EPHEMERAL view rendered above the
+  // operational record. It is read through the getActiveScenarioResult seam at render time and
+  // NEVER persisted or cached into the FinancingRecord. When no active scenario carries sized
+  // debt we say so explicitly rather than storing or showing placeholder values (FC-15).
+  const refPanel = (
     <div className="mx-5 mt-4 rounded-lg border border-slate-200 bg-slate-50/70 px-4 py-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
         Underwritten debt · reference only (from active scenario)
       </p>
-      <dl className="mt-2 grid gap-3 sm:grid-cols-4">
-        <div>
-          <dt className="text-xs text-slate-500">Sized loan</dt>
-          <dd className="metric text-sm font-medium text-slate-900">{usd(underwritingRef.sizedLoanUsd)}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-slate-500">DSCR</dt>
-          <dd className="text-sm text-slate-700">{underwritingRef.dscr != null ? underwritingRef.dscr.toFixed(2) + "x" : "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-slate-500">Debt yield</dt>
-          <dd className="text-sm text-slate-700">{underwritingRef.debtYieldPct != null ? underwritingRef.debtYieldPct.toFixed(1) + "%" : "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-slate-500">Binding constraint</dt>
-          <dd className="text-sm text-slate-700">{underwritingRef.bindingConstraint ?? "—"}</dd>
-        </div>
-      </dl>
+      {underwritingRef ? (
+        <dl className="mt-2 grid gap-3 sm:grid-cols-4">
+          <div>
+            <dt className="text-xs text-slate-500">Sized loan</dt>
+            <dd className="metric text-sm font-medium text-slate-900">{usd(underwritingRef.sizedLoanUsd)}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-slate-500">DSCR</dt>
+            <dd className="text-sm text-slate-700">{underwritingRef.dscr != null ? underwritingRef.dscr.toFixed(2) + "x" : "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-slate-500">Debt yield</dt>
+            <dd className="text-sm text-slate-700">{underwritingRef.debtYieldPct != null ? underwritingRef.debtYieldPct.toFixed(1) + "%" : "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-slate-500">Binding constraint</dt>
+            <dd className="text-sm text-slate-700">{underwritingRef.bindingConstraint ?? "—"}</dd>
+          </div>
+        </dl>
+      ) : (
+        <p className="mt-2 text-sm text-slate-500">No active underwriting available.</p>
+      )}
     </div>
-  ) : null;
+  );
 
   // No record yet.
   if (!financing) {
