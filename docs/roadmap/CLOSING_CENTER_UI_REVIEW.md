@@ -129,4 +129,4 @@ Explicitly deferred: no timeline model, no event bus, no new emission code. When
 
 **Defects found:** none. Long values (blocker labels, escrow-holder, lender) wrap without horizontal overflow; the FC-0 reference panel is responsive (4-col desktop → 1-col mobile); the readiness header remains understandable on narrow screens; role-gating renders correctly. (One capture-only artifact: the page's sticky top-nav appears mid-image in tall full-element screenshots — it stays pinned in normal use; not a layout defect.)
 
-Released state and prod verification are recorded at release time in `VERSION_1_4.md`.
+**Released:** ✅ **LIVE in production 2026-07-16** — code-only, serving `N4WIQvz0k7RSXD_iurA9u`, `main` @ `fe077f1` (accordion `dd5b316` + harness/review `fe077f1`), dual-pushed gitea+github; **no migration (prod stays at 25)**; prod schema drift empty; read-only prod smoke clean (login 200, `/opportunities` → login, 0 console/hydration errors); V1.3 Underwriting/Offer-Memo intact (no such code changed). Marked a **UI-preparation slice**, not a separate Version 1.4 domain capability; V1.4 is **not** complete.
