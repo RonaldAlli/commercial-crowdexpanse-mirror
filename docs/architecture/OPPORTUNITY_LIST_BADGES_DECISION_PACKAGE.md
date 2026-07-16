@@ -16,8 +16,15 @@
 > **LB-14 Projection completeness** (see §8); LB-1…LB-8 ratified as written. The authoritative statement
 > now lives in `CLOSING_CENTER_ARCHITECTURE_LOCK.md` (Slice 7); this package is preserved
 > as the decision record. Implementation proceeds on a dedicated feature branch and
-> **stops before merge**. After release, Version 1.4 moves into formal acceptance /
-> freeze / tag — not straight into Version 2.0.
+> **stops before merge**.
+>
+> **✅ RELEASED — LIVE in production 2026-07-16** (`main` @ `edd4824`, code-only, serving
+> `pgfa3y2AzXBEWuUkYQ6Fo`; feature branch merged + deleted). Released via the standard
+> code-only workflow (restore-verified backup, FF-merge, dual-push, build, pm2 restart —
+> no migration). Verified: authed list renders (200), schema drift empty, migration count
+> unchanged (26), Board/Dashboard/Timeline untouched, behavior green on `_test` (12 unit +
+> 16 E2E + 9 Playwright). After release, Version 1.4 moves into formal acceptance / freeze
+> / tag — not straight into Version 2.0.
 >
 > **Slice context:** Closing Center, Version 1.4, Roadmap item #7 — the final read
 > surface. The Closing read model is otherwise complete: **Closing Center** (one deal's
