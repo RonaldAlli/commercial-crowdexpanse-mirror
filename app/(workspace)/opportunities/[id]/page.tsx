@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { EmptyState } from "@/components/empty-state";
 import { NotesSection } from "@/components/notes-section";
 import { Icon } from "@/components/icons";
+import { OwnerPrimaryContactCard, type OwnerPrimaryContactView } from "@/components/owner-primary-contact-card";
 import { PageHeader } from "@/components/page-header";
 import { StageSelect } from "@/components/stage-select";
 import { Badge, statusTone } from "@/components/ui/badge";
@@ -29,16 +30,103 @@ import { TransactionTimelinePanel } from "@/components/transaction-timeline-pane
 import { listGeneratedAgreements } from "@/lib/documents/assignment-agreement-service";
 import { getActiveScenarioResult } from "@/lib/underwriting";
 import { checklistCategoryLabel } from "@/lib/closing-options";
+import { contactMethodLabel, outreachStatusLabel, outreachStatusTone, touchTypeLabel } from "@/lib/contact-options";
 import { matchStatusLabel, matchStatusTone } from "@/lib/match-options";
 import { STAGE_OPTIONS, stageLabel } from "@/lib/opportunity-options";
+import { diligenceFocusForStage, diligenceStatusLabel, diligenceStatusTone, isPostContractStage, summarizeDiligence } from "@/lib/opportunity-diligence";
+import { ensureOpportunityDiligence } from "@/lib/opportunity-diligence-service";
 import { titleCase } from "@/lib/property-options";
 
 import { deleteOpportunity, moveOpportunityStage } from "../actions";
+import { updateDiligenceItemAction } from "../diligence-actions";
 
 export const dynamic = "force-dynamic";
 
 function usd(value: number | null) {
   return value == null ? null : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
+}
+
+function isoDate(value: Date | null) {
+  return value ? value.toISOString().slice(0, 10) : "";
+}
+
+function shortDate(value: Date | null) {
+  return value
+    ? value.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        timeZone: "UTC",
+      })
+    : "—";
+}
+
+function buildMailto(email: string, subject: string) {
+  return `mailto:${email}?subject=${encodeURIComponent(subject)}`;
+}
+
+function buildSms(phone: string, message: string) {
+  return `sms:${phone}?body=${encodeURIComponent(message)}`;
+}
+
+function OutreachActions({
+  email,
+  phone,
+  workspaceHref,
+  workspaceLabel,
+  emailSubject,
+  smsMessage,
+}: {
+  email: string | null;
+  phone: string | null;
+  workspaceHref: string;
+  workspaceLabel: string;
+  emailSubject: string;
+  smsMessage: string;
+}) {
+  const hasDirectMethod = Boolean(email || phone);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        {phone ? (
+          <a
+            href={`tel:${phone}`}
+            className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          >
+            Call
+          </a>
+        ) : null}
+        {phone ? (
+          <a
+            href={buildSms(phone, smsMessage)}
+            className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          >
+            Text
+          </a>
+        ) : null}
+        {email ? (
+          <a
+            href={buildMailto(email, emailSubject)}
+            className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          >
+            Email
+          </a>
+        ) : null}
+        <Link
+          href={workspaceHref}
+          className="inline-flex items-center rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 transition hover:bg-brand-100"
+        >
+          {workspaceLabel}
+        </Link>
+      </div>
+      {!hasDirectMethod ? (
+        <p className="text-xs text-slate-500">
+          No direct phone or email is stored yet. Open the workspace and add contact details before requesting documents.
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 export default async function OpportunityDetailPage({
@@ -53,8 +141,85 @@ export default async function OpportunityDetailPage({
   const opportunity = await prisma.opportunity.findFirst({
     where: { id: params.id, organizationId: user.organizationId },
     include: {
-      property: { select: { id: true, name: true, city: true, state: true, assetType: true } },
-      seller: { select: { id: true, name: true } },
+      property: {
+        select: {
+          id: true,
+          name: true,
+          city: true,
+          state: true,
+          assetType: true,
+          owner: {
+            select: {
+              id: true,
+              displayName: true,
+              contacts: {
+                where: { isPrimary: true },
+                take: 1,
+                orderBy: { createdAt: "desc" },
+                select: {
+                  id: true,
+                  ownerId: true,
+                  label: true,
+                  contactName: true,
+                  company: true,
+                  email: true,
+                  phone: true,
+                  mailingAddress: true,
+                  notes: true,
+                  outreachStatus: true,
+                  preferredContactMethod: true,
+                  nextFollowUpAt: true,
+                  assignedUser: { select: { name: true } },
+                },
+              },
+            },
+          },
+        },
+      },
+      seller: {
+        select: {
+          id: true,
+          name: true,
+          company: true,
+          email: true,
+          phone: true,
+          outreachStatus: true,
+          preferredContactMethod: true,
+          nextFollowUpAt: true,
+          assignedUser: { select: { name: true } },
+          touchHistory: {
+            select: { type: true, createdAt: true },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
+          owner: {
+            select: {
+              id: true,
+              displayName: true,
+              contacts: {
+                where: { isPrimary: true },
+                take: 1,
+                orderBy: { createdAt: "desc" },
+                select: {
+                  id: true,
+                  ownerId: true,
+                  label: true,
+                  contactName: true,
+                  company: true,
+                  email: true,
+                  phone: true,
+                  mailingAddress: true,
+                  notes: true,
+                  outreachStatus: true,
+                  preferredContactMethod: true,
+                  nextFollowUpAt: true,
+                  assignedUser: { select: { name: true } },
+                },
+              },
+            },
+          },
+        },
+      },
     },
   });
 
@@ -85,6 +250,7 @@ export default async function OpportunityDetailPage({
     getFinancingRecord(user.organizationId, opportunity.id),
     getActiveScenarioResult(user.organizationId, opportunity.id),
   ]);
+  const diligenceItems = await ensureOpportunityDiligence(user.organizationId, opportunity.id);
   // Assignment (v1.4 Slice 4). Read-only here — a CLOSING-write user starts it explicitly.
   // Its generated agreement drafts are Documents-owned (append-only, AS-M).
   const [assignment, assignmentDrafts] = await Promise.all([
@@ -96,25 +262,23 @@ export default async function OpportunityDetailPage({
   const canResolveEscrowNow = canResolveEscrow(user.role);
   const canResolveFinancingNow = canResolveFinancing(user.role);
   const canExecuteAssignmentNow = canExecuteAssignment(user.role);
+  const postContract = isPostContractStage(opportunity.stage);
   // Members are only needed for the checklist; documents are shared by the closing evidence
   // picker, the escrow proof-of-deposit picker, and the financing document links.
-  const [closingMembers, opportunityDocuments] =
-    closing || escrow || financing
-      ? await Promise.all([
-          closing
-            ? prisma.user.findMany({
-                where: { organizationId: user.organizationId, lifecycleState: "ACTIVE" },
-                select: { id: true, name: true },
-                orderBy: { name: "asc" },
-              })
-            : Promise.resolve([] as { id: string; name: string }[]),
-          prisma.document.findMany({
-            where: { organizationId: user.organizationId, opportunityId: opportunity.id },
-            select: { id: true, title: true },
-            orderBy: { createdAt: "desc" },
-          }),
-        ])
-      : [[], []];
+  const [closingMembers, opportunityDocuments] = await Promise.all([
+    closing
+      ? prisma.user.findMany({
+          where: { organizationId: user.organizationId, lifecycleState: "ACTIVE" },
+          select: { id: true, name: true },
+          orderBy: { name: "asc" },
+        })
+      : Promise.resolve([] as { id: string; name: string }[]),
+    prisma.document.findMany({
+      where: { organizationId: user.organizationId, opportunityId: opportunity.id },
+      select: { id: true, title: true },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
 
   // Group items by category (DD-only in slice 1) and map to the client view shape.
   const closingItemsByCategory = new Map<string, ChecklistItemView[]>();
@@ -252,6 +416,62 @@ export default async function OpportunityDetailPage({
     { label: "Contract value", value: usd(opportunity.contractValueUsd) },
     { label: "Assignment fee", value: usd(opportunity.assignmentFeeUsd) },
   ];
+  const diligenceSummary = summarizeDiligence(diligenceItems);
+  const sellerLastTouch = opportunity.seller?.touchHistory[0] ?? null;
+  const propertyOwnerPrimaryContact = opportunity.property.owner?.contacts[0];
+  const sellerOwnerPrimaryContact = opportunity.seller?.owner?.contacts[0];
+  const primaryDecisionMaker = sellerOwnerPrimaryContact
+    ? {
+        ...sellerOwnerPrimaryContact,
+        ownerName: opportunity.seller?.owner?.displayName ?? "Owner",
+      }
+    : propertyOwnerPrimaryContact
+      ? {
+          ...propertyOwnerPrimaryContact,
+          ownerName: opportunity.property.owner?.displayName ?? "Owner",
+        }
+      : null;
+  const propertyLabel = opportunity.property.name;
+  const ownerContactCards: Array<{ title: string; owner: OwnerPrimaryContactView | null }> = [];
+  const seenOwnerIds = new Set<string>();
+  const pushOwnerContact = (
+    title: string,
+    owner:
+      | {
+          id: string;
+          displayName: string;
+          contacts: Array<{
+            id: string;
+            ownerId: string;
+            label: string | null;
+            contactName: string | null;
+            company: string | null;
+            email: string | null;
+            phone: string | null;
+            mailingAddress: string | null;
+            notes: string | null;
+            outreachStatus: "NEW" | "ATTEMPTING" | "CONTACTED" | "RESPONDED" | "QUALIFIED" | "DEAD" | "DO_NOT_CONTACT";
+            preferredContactMethod: "CALL" | "TEXT" | "EMAIL" | "MAIL" | null;
+            nextFollowUpAt: Date | null;
+            assignedUser: { name: string } | null;
+          }>;
+        }
+      | null
+      | undefined,
+  ) => {
+    if (!owner || seenOwnerIds.has(owner.id)) return;
+    seenOwnerIds.add(owner.id);
+    ownerContactCards.push({
+      title,
+      owner: {
+        ...owner.contacts[0],
+        ownerId: owner.id,
+        ownerName: owner.displayName,
+      },
+    });
+  };
+  pushOwnerContact("Property owner primary contact", opportunity.property.owner);
+  pushOwnerContact("Seller owner primary contact", opportunity.seller?.owner);
 
   const deleteOpportunityBound = deleteOpportunity.bind(null, opportunity.id);
 
@@ -331,9 +551,351 @@ export default async function OpportunityDetailPage({
             ) : null}
           </article>
 
+          <article className="card p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="eyebrow">Seller pursuit</p>
+                <h2 className="text-base font-semibold text-slate-900">Outreach lives here until the deal is truly ready</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Contact workflow stays in Contacts; this section shows the relationship state that feeds the opportunity.
+                </p>
+              </div>
+              {opportunity.seller ? (
+                <Link className="btn-ghost" href={`/contacts/seller/${opportunity.seller.id}`}>
+                  Open seller workspace
+                </Link>
+              ) : null}
+            </div>
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Seller relationship</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {opportunity.seller ? "This contact should move the opportunity from lead to LOI." : "Link a seller to run direct outreach from the opportunity."}
+                    </p>
+                  </div>
+                  {opportunity.seller ? (
+                    <Badge tone={outreachStatusTone(opportunity.seller.outreachStatus)}>
+                      {outreachStatusLabel(opportunity.seller.outreachStatus)}
+                    </Badge>
+                  ) : null}
+                </div>
+
+                {opportunity.seller ? (
+                  <div className="mt-4 space-y-3">
+                    <div>
+                      <Link href={`/sellers/${opportunity.seller.id}`} className="text-sm font-semibold text-brand-700 hover:underline">
+                        {opportunity.seller.name}
+                      </Link>
+                      {opportunity.seller.company ? <p className="mt-1 text-xs text-slate-500">{opportunity.seller.company}</p> : null}
+                    </div>
+                    <dl className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <dt className="text-xs text-slate-500">Email</dt>
+                        <dd className="mt-0.5 text-sm font-medium text-slate-900">{opportunity.seller.email ?? "—"}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-slate-500">Phone</dt>
+                        <dd className="mt-0.5 text-sm font-medium text-slate-900">{opportunity.seller.phone ?? "—"}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-slate-500">Best method</dt>
+                        <dd className="mt-0.5 text-sm font-medium text-slate-900">{contactMethodLabel(opportunity.seller.preferredContactMethod)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-slate-500">Assigned teammate</dt>
+                        <dd className="mt-0.5 text-sm font-medium text-slate-900">{opportunity.seller.assignedUser?.name ?? "Unassigned"}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-slate-500">Last touch</dt>
+                        <dd className="mt-0.5 text-sm font-medium text-slate-900">
+                          {sellerLastTouch ? `${touchTypeLabel(sellerLastTouch.type)} · ${shortDate(sellerLastTouch.createdAt)}` : "—"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-slate-500">Next follow-up</dt>
+                        <dd className="mt-0.5 text-sm font-medium text-slate-900">{shortDate(opportunity.seller.nextFollowUpAt)}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                ) : (
+                  <p className="mt-4 text-sm text-slate-400">No seller linked yet.</p>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Decision-maker contact</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      This should be the owner-side person we use for real document requests and diligence pressure.
+                    </p>
+                  </div>
+                  {primaryDecisionMaker ? (
+                    <Badge tone={outreachStatusTone(primaryDecisionMaker.outreachStatus)}>
+                      {outreachStatusLabel(primaryDecisionMaker.outreachStatus)}
+                    </Badge>
+                  ) : null}
+                </div>
+
+                {primaryDecisionMaker ? (
+                  <div className="mt-4 space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        href={`/contacts/owner/${primaryDecisionMaker.id}`}
+                        className="text-sm font-semibold text-brand-700 hover:underline"
+                      >
+                        {primaryDecisionMaker.contactName ?? primaryDecisionMaker.label ?? "Primary owner contact"}
+                      </Link>
+                      {primaryDecisionMaker.company ? <span className="text-xs text-slate-500">{primaryDecisionMaker.company}</span> : null}
+                    </div>
+                    <dl className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <dt className="text-xs text-slate-500">Email</dt>
+                        <dd className="mt-0.5 text-sm font-medium text-slate-900">{primaryDecisionMaker.email ?? "—"}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-slate-500">Phone</dt>
+                        <dd className="mt-0.5 text-sm font-medium text-slate-900">{primaryDecisionMaker.phone ?? "—"}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-slate-500">Best method</dt>
+                        <dd className="mt-0.5 text-sm font-medium text-slate-900">{contactMethodLabel(primaryDecisionMaker.preferredContactMethod)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-slate-500">Assigned teammate</dt>
+                        <dd className="mt-0.5 text-sm font-medium text-slate-900">{primaryDecisionMaker.assignedUser?.name ?? "Unassigned"}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-slate-500">Next follow-up</dt>
+                        <dd className="mt-0.5 text-sm font-medium text-slate-900">{shortDate(primaryDecisionMaker.nextFollowUpAt)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-slate-500">Owner</dt>
+                        <dd className="mt-0.5 text-sm font-medium text-slate-900">
+                          <Link href={`/owners/${primaryDecisionMaker.ownerId}`} className="text-brand-700 hover:underline">
+                            {primaryDecisionMaker.ownerName}
+                          </Link>
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                ) : (
+                  <p className="mt-4 text-sm text-slate-400">No primary owner contact stored yet. Add one in the owner contact workspace so diligence requests have a real target.</p>
+                )}
+              </div>
+            </div>
+          </article>
+
+          <article className="card p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="eyebrow">Pre-contract diligence</p>
+                <h2 className="text-base font-semibold text-slate-900">Request, receive, review, and flag missing documents before contract</h2>
+                <p className="mt-1 text-sm text-slate-500">{diligenceFocusForStage(opportunity.stage)}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge tone={diligenceSummary.readyForUnderwriting ? "success" : "warning"}>
+                  {diligenceSummary.readyForUnderwriting ? "Ready for underwriting" : `${diligenceSummary.reviewed}/${diligenceSummary.total} reviewed`}
+                </Badge>
+                {diligenceSummary.missing > 0 ? <Badge tone="danger">{diligenceSummary.missing} missing</Badge> : null}
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-5">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Requested</p>
+                <p className="mt-2 text-2xl font-semibold text-slate-900">{diligenceSummary.requested}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Received</p>
+                <p className="mt-2 text-2xl font-semibold text-slate-900">{diligenceSummary.received}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Reviewed</p>
+                <p className="mt-2 text-2xl font-semibold text-slate-900">{diligenceSummary.reviewed}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Missing</p>
+                <p className="mt-2 text-2xl font-semibold text-slate-900">{diligenceSummary.missing}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Pipeline tie-in</p>
+                <p className="mt-2 text-sm font-semibold text-slate-900">
+                  {postContract ? "Historical only" : opportunity.stage === "UNDERWRITING" ? "Feeds analyzer" : "Feeds stage movement"}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Seller outreach from diligence</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Use this when we need access, context, pricing clarity, or follow-up on missing documents.
+                    </p>
+                  </div>
+                  {opportunity.seller ? (
+                    <Badge tone={outreachStatusTone(opportunity.seller.outreachStatus)}>
+                      {outreachStatusLabel(opportunity.seller.outreachStatus)}
+                    </Badge>
+                  ) : null}
+                </div>
+                {opportunity.seller ? (
+                  <div className="mt-4 space-y-3">
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">{opportunity.seller.name}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {opportunity.seller.company ?? "Direct seller record"} · best method {contactMethodLabel(opportunity.seller.preferredContactMethod)}
+                      </p>
+                    </div>
+                    <OutreachActions
+                      email={opportunity.seller.email}
+                      phone={opportunity.seller.phone}
+                      workspaceHref={`/contacts/seller/${opportunity.seller.id}`}
+                      workspaceLabel="Open seller workspace"
+                      emailSubject={`Follow-up on ${propertyLabel}`}
+                      smsMessage={`Following up on ${propertyLabel}.`}
+                    />
+                  </div>
+                ) : (
+                  <p className="mt-4 text-sm text-slate-400">
+                    No seller linked yet. Link a seller first so diligence outreach has a direct contact.
+                  </p>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Decision-maker outreach from diligence</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Use this for T-12, rent roll, OM, taxes, insurance, utility bills, and any owner-side document push.
+                    </p>
+                  </div>
+                  {primaryDecisionMaker ? (
+                    <Badge tone={outreachStatusTone(primaryDecisionMaker.outreachStatus)}>
+                      {outreachStatusLabel(primaryDecisionMaker.outreachStatus)}
+                    </Badge>
+                  ) : null}
+                </div>
+                {primaryDecisionMaker ? (
+                  <div className="mt-4 space-y-3">
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">
+                        {primaryDecisionMaker.contactName ?? primaryDecisionMaker.label ?? "Primary owner contact"}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {primaryDecisionMaker.ownerName} · best method {contactMethodLabel(primaryDecisionMaker.preferredContactMethod)}
+                      </p>
+                    </div>
+                    <OutreachActions
+                      email={primaryDecisionMaker.email}
+                      phone={primaryDecisionMaker.phone}
+                      workspaceHref={`/contacts/owner/${primaryDecisionMaker.id}`}
+                      workspaceLabel="Open owner contact workspace"
+                      emailSubject={`Document request for ${propertyLabel}`}
+                      smsMessage={`Requesting diligence documents for ${propertyLabel}.`}
+                    />
+                  </div>
+                ) : (
+                  <p className="mt-4 text-sm text-slate-400">
+                    No primary owner contact is stored yet. Add one so document requests can be made from this diligence section.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 overflow-x-auto">
+              <table className="w-full min-w-[1100px] border-collapse">
+                <thead className="border-b border-slate-200 bg-slate-50/60">
+                  <tr>
+                    <th className="table-head">Document</th>
+                    <th className="table-head">Status</th>
+                    <th className="table-head">Requested</th>
+                    <th className="table-head">Received</th>
+                    <th className="table-head">Reviewed</th>
+                    <th className="table-head">Linked file</th>
+                    <th className="table-head">Notes</th>
+                    <th className="table-head">Save</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {diligenceItems.map((item) => {
+                    const updateAction = updateDiligenceItemAction.bind(null, opportunity.id, item.id);
+                    const formId = `diligence-${item.id}`;
+                    return (
+                      <tr key={item.id} className="align-top transition-colors hover:bg-slate-50/60">
+                        <td className="table-cell">
+                          <form id={formId} action={updateAction} />
+                          <div>
+                            <p className="font-medium text-slate-900">{item.label}</p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {item.status === "MISSING" ? "Still outstanding and blocking clean underwriting." : "Track the request and review cycle here."}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="table-cell">
+                          <input type="hidden" form={formId} name="redirectTo" value={`/opportunities/${opportunity.id}`} />
+                          <select form={formId} name="status" defaultValue={item.status} className="input min-w-[170px]">
+                            {["NOT_REQUESTED", "REQUESTED", "RECEIVED", "REVIEWED", "MISSING", "NOT_APPLICABLE"].map((status) => (
+                              <option key={status} value={status}>
+                                {diligenceStatusLabel(status as typeof item.status)}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="table-cell">
+                          <input form={formId} name="requestedAt" type="date" defaultValue={isoDate(item.requestedAt)} className="input min-w-[145px]" />
+                        </td>
+                        <td className="table-cell">
+                          <input form={formId} name="receivedAt" type="date" defaultValue={isoDate(item.receivedAt)} className="input min-w-[145px]" />
+                        </td>
+                        <td className="table-cell">
+                          <input form={formId} name="reviewedAt" type="date" defaultValue={isoDate(item.reviewedAt)} className="input min-w-[145px]" />
+                        </td>
+                        <td className="table-cell">
+                          <select form={formId} name="documentId" defaultValue={item.documentId ?? ""} className="input min-w-[220px]">
+                            <option value="">No linked file</option>
+                            {opportunityDocuments.map((document) => (
+                              <option key={document.id} value={document.id}>
+                                {document.title}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="table-cell">
+                          <textarea
+                            form={formId}
+                            name="notes"
+                            defaultValue={item.notes ?? ""}
+                            className="input min-h-[96px] min-w-[240px] py-3"
+                            placeholder="What is missing, what was found, and what matters?"
+                          />
+                        </td>
+                        <td className="table-cell">
+                          <div className="flex flex-col items-start gap-2">
+                            <Badge tone={diligenceStatusTone(item.status)}>{diligenceStatusLabel(item.status)}</Badge>
+                            <button form={formId} type="submit" className="btn">
+                              Save
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </article>
+
           {/* Closing Center — one grouped operational workspace (v1.4, Option C). A pure
               presentation container: a persistent readiness header + accordion sections over
               the SAME self-contained domain cards, each receiving the SAME props as before. */}
+          {postContract ? (
           <section id="closing-center" className="card scroll-mt-6" aria-labelledby="closing-center-heading">
             {/* Persistent readiness header — renders exactly the authoritative summary. */}
             <div className="border-b border-slate-100 px-5 py-4">
@@ -441,6 +1003,15 @@ export default async function OpportunityDetailPage({
               </AccordionSection>
             </div>
           </section>
+          ) : (
+            <article className="card p-6">
+              <p className="eyebrow">Post-contract execution</p>
+              <h2 className="text-base font-semibold text-slate-900">Closing Center opens once the opportunity reaches Under Contract</h2>
+              <p className="mt-2 text-sm text-slate-500">
+                Before contract, work seller pursuit and pre-contract diligence above. Once this deal moves to <span className="font-medium text-slate-700">Under Contract</span>, escrow, financing, assignment, and closing checklist execution take over here.
+              </p>
+            </article>
+          )}
         </div>
 
         <div className="space-y-6 lg:col-span-1">
@@ -470,6 +1041,8 @@ export default async function OpportunityDetailPage({
               </div>
             </div>
           </article>
+
+          {ownerContactCards.length > 0 ? ownerContactCards.map((card) => <OwnerPrimaryContactCard key={card.owner?.ownerId ?? card.title} title={card.title} owner={card.owner} />) : null}
 
           <TransactionTimelinePanel timeline={timeline} basePath={`/opportunities/${opportunity.id}`} />
         </div>

@@ -9,6 +9,7 @@ import { Badge, statusTone } from "@/components/ui/badge";
 import { requireUser } from "@/lib/auth";
 import { can, canMoveStage } from "@/lib/permissions";
 import { ilike, listQueryString, parseListParams, totalPages } from "@/lib/list-params";
+import { isPostContractStage, summarizeDiligence } from "@/lib/opportunity-diligence";
 import { prisma } from "@/lib/prisma";
 import { STAGE_OPTIONS, STAGE_ORDER, stageLabel } from "@/lib/opportunity-options";
 import { projectClosingBadges } from "@/lib/transaction-dashboard";
@@ -46,6 +47,7 @@ const OPP_INCLUDE = {
   financing: { select: { status: true } },
   assignment: { select: { status: true } },
   closingChecklist: { select: { items: { select: { required: true, status: true } } } },
+  diligenceItems: { select: { key: true, status: true } },
 } satisfies Prisma.OpportunityInclude;
 
 type OppWithRels = Prisma.OpportunityGetPayload<{ include: typeof OPP_INCLUDE }>;
@@ -64,6 +66,7 @@ const BOARD_SELECT = {
   priority: true,
   contractValueUsd: true,
   assignmentFeeUsd: true,
+  diligenceItems: { select: { key: true, status: true } },
   property: { select: { name: true, assetType: true } },
 } satisfies Prisma.OpportunitySelect;
 
@@ -301,6 +304,11 @@ function Board({ opportunities, role }: { opportunities: BoardOpp[]; role: UserR
                       )}
                       {opp.priority ? <Badge tone={statusTone(opp.priority)}>{opp.priority}</Badge> : null}
                     </div>
+                    {!isPostContractStage(opp.stage) ? (
+                      <p className="mt-2 text-xs text-slate-500">
+                        Docs: {summarizeDiligence(opp.diligenceItems).reviewed}/{summarizeDiligence(opp.diligenceItems).total} reviewed
+                      </p>
+                    ) : null}
                     {moveableStages.length > 1 ? (
                       <div className="mt-2">
                         <StageSelect action={moveOpportunityStage.bind(null, opp.id)} current={opp.stage} stages={moveableStages} className="w-full" />
@@ -332,6 +340,7 @@ function ListTable({ opportunities }: { opportunities: OppWithRels[] }) {
               <th className="table-head">Target close</th>
               <th className="table-head text-right">Contract</th>
               <th className="table-head text-right">Fee</th>
+              <th className="table-head">Pre-contract docs</th>
               <th className="table-head">Seller</th>
             </tr>
           </thead>
@@ -363,6 +372,25 @@ function ListTable({ opportunities }: { opportunities: OppWithRels[] }) {
                 </td>
                 <td className="table-cell metric text-right">{usdFull(opp.contractValueUsd)}</td>
                 <td className="table-cell metric text-right font-medium text-emerald-600">{usdFull(opp.assignmentFeeUsd)}</td>
+                <td className="table-cell whitespace-nowrap">
+                  {isPostContractStage(opp.stage) ? (
+                    <Badge tone="success">Closing phase</Badge>
+                  ) : (
+                    (() => {
+                      const summary = summarizeDiligence(opp.diligenceItems);
+                      return (
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium text-slate-900">
+                            {summary.reviewed}/{summary.total} reviewed
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {summary.missing > 0 ? `${summary.missing} missing` : summary.readyForUnderwriting ? "Ready for underwriting" : `${summary.received} received`}
+                          </p>
+                        </div>
+                      );
+                    })()
+                  )}
+                </td>
                 <td className="table-cell whitespace-nowrap text-slate-600">{opp.seller?.name ?? "Unassigned"}</td>
               </tr>
             ))}
