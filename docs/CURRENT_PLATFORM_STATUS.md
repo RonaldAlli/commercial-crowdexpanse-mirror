@@ -47,7 +47,8 @@
 
 | Phase | Status |
 |---|---|
-| Discovery (6 docs) | ✅ complete — PENDING FOUNDER REVIEW |
+| Discovery (6 docs) | ✅ complete |
+| Waves 1–7 | ✅ complete — [Restoration Acceptance + Merge Readiness](./releases/PLATFORM_ROADMAP_RESTORATION_ACCEPTANCE.md) PENDING FOUNDER ACCEPTANCE; not merged/deployed |
 | Wave 1 — Security / isolation / integrity | ✅ complete |
 | Wave 4 — Docs / nav / UI integration | ✅ complete |
 | Waves 2, 3, 5, 6, 7 | ⏸ not started (await Founder authorization) |
