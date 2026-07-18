@@ -20,7 +20,7 @@
 | **Wave 2** | V1.3 Underwriting integrity — verification (byte-identical modules; 145 unit + 166 e2e) | ✅ Complete | ⏳ Pending | ❌ No | ❌ No |
 | **Wave 3** | V1.4 Closing integrity — verification (byte-identical modules; 97 unit + 245 e2e; PAID gate) | ✅ Complete | ⏳ Pending | ❌ No | ❌ No |
 | **Wave 4** | Shared projections · navigation · UI integration + documentation reconciliation (ATM advisory label) | ✅ Complete | ✅ **Accepted** (branch-only) | ❌ No | ❌ No |
-| **Wave 5** | CRM integration & quality — CRM CRUD/lifecycle tests (unit → integration → E2E layering), single-primary rule, remaining D-CRM-TEST | ⏸ Not started | — | ❌ No | ❌ No |
+| **Wave 5** | CRM integration & quality — CRM CRUD/lifecycle tests (unit → integration → E2E layering), single-primary rule, remaining D-CRM-TEST | 📋 Criteria defined ([acceptance-first](./releases/PLATFORM_RESTORATION_WAVE_5_ACCEPTANCE.md)); execution not started | ⏳ Pending auth | ❌ No | ❌ No |
 | **Wave 6** | Import & ATM Wholesale integration refinements (confirm coverage; optional route relocation) | ⏸ Not started | — | ❌ No | ❌ No |
 | **Wave 7** | Full platform acceptance — complete gate + final acceptance package; **only after this** is a controlled merge + deploy considered | ⏸ Not started | — | ❌ No | ❌ No |
 

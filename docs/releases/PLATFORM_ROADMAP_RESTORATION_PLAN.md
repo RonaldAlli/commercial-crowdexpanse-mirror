@@ -72,7 +72,9 @@ impact · test evidence · regression evidence · production risk · rollback pl
   add the CRM layer to the roadmap surface (done in the Canonical Roadmap), refresh review dates.
 - **Migration:** no. **Risk:** docs only.
 
-### Wave 5 — CRM integration (the main quality wave)
+### Wave 5 — CRM integration (the main quality wave) · 📋 **Acceptance criteria DEFINED (acceptance-first); execution PENDING FOUNDER AUTHORIZATION**
+> Objective exit criteria written up-front in [Wave 5 Acceptance](./PLATFORM_RESTORATION_WAVE_5_ACCEPTANCE.md) (§3 criteria, §4 gate, §6 stop conditions). No work started.
+
 - **Scope:** add the missing **tests** for Owner Contacts, Outreach, and Diligence
   (org-isolation, CRUD/lifecycle, single-primary invariant, diligence↔Closing boundary lock);
   **document** the outreach-grain source of truth (D-CRM-OUTREACH-OWNERSHIP) in
