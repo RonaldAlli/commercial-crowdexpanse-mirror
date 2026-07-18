@@ -76,6 +76,7 @@ impact · test evidence · regression evidence · production risk · rollback pl
 - **Migration:** **none expected.** If a test reveals a real defect, document it in the register first,
   fix narrowly, and only add a migration if a confirmed defect requires it (separately reviewed).
 - **Risk:** low (tests + docs). This wave carries the most net-new value (closes the test gap).
+- **Test-layering direction (Founder guidance):** split assertions into **unit** (services/pure logic) → **integration** (domain boundaries: CRM↔Closing, CRM↔Underwriting) → **E2E** (complete user workflows), keeping E2E focused on user behavior and reducing maintenance cost. The Wave 1 `e2e-crm-isolation.mjs` boundary assertions migrate toward this layering as CRM behavior is stabilized.
 
 ### Wave 6 — Import & ATM Wholesale integration
 - **Scope:** confirm Lead-Import remediation coverage (already 20 tests); document ATM Wholesale as
