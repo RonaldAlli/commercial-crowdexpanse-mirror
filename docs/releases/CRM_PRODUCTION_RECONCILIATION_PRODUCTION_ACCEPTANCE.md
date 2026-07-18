@@ -1,10 +1,17 @@
 # CRM Production Reconciliation — Production Acceptance Package
 
-> **Status: PENDING FOUNDER PRODUCTION ACCEPTANCE.** The Founder-accepted CRM reconciliation
-> branch (with security remediations) has been merged to `main` and **deployed to production**
-> through a controlled build, restoring the guarantee that clean `main` reproduces the live
-> application. The Phase 2.0.1 Automation rollout **remains paused**; the executor was **not**
+> **Status: ✅ FOUNDER PRODUCTION ACCEPTED — 2026-07-18** (Founder: Ronald Delroy Anthony
+> Allicock). The Founder-accepted CRM reconciliation branch (with security remediations) was
+> merged to `main` and **deployed to production** through a controlled build, and the final
+> ownership defect (D23) has been resolved. Clean `main` now reproduces the live application. The
+> Phase 2.0.1 Automation rollout **remains paused** (D19 still open); the executor was **not**
 > started.
+>
+> **Acceptance record:** Founder Ronald Delroy Anthony Allicock · 2026-07-18 · deployed
+> implementation tip `c5f46f9` · production build `YPHm2Nw65jWb7JlF7eLUn` · backup
+> `20260718-041113Z` · DB 30 migrations, no drift · **D18 closed · D20 closed · D21 resolved ·
+> D22 resolved · D23 resolved · D19 still open**. This acceptance applies **only** to the CRM
+> production reconciliation; it does **not** authorize Automation.
 >
 > **Companions:** [CRM Reconciliation Acceptance](./CRM_PRODUCTION_RECONCILIATION_ACCEPTANCE.md) ·
 > [CRM Operations Boundary](../architecture/CRM_OPERATIONS_BOUNDARY.md) ·
@@ -113,11 +120,21 @@ A clean deployment from `main` now reproduces production. **D18 is closed.**
 
 - **D19 (automation runtime launch blocker) — STILL OPEN.** Not touched here; it continues to block
   the Automation dark start. Automation remains paused.
-- **Re-opened D5 (root-owned working-tree paths)** — recommend a `chown` sweep.
+- **D23 (root-owned working-tree paths) — RESOLVED 2026-07-18.** An operator ran a surgical `sudo
+  chown -R deploy:deploy` on the two affected dirs (the app repo only — not `/opt/crowdexpanse/backups`,
+  `/etc`, `/var`, TLS, or other apps); all 4 paths are now `deploy:deploy`, **0 non-deploy paths**
+  remain. Verified: git clean at `e2aab35`, tracked content + migration checksums unchanged, build
+  ID unchanged (no rebuild), web healthy, DB 30/no-drift, CRM counts intact, automation absent.
+  Permissions normalized per-path (world-writable `666`→`644`, `777`→`755`; secrets stay `600`) —
+  **0 world-writable paths** remain. **Recurrence prevention:** a read-only source-ownership guard
+  (`scripts/lib/ownership-guard.mjs` + `scripts/predeploy-check.mjs`, unit-tested) now fails the
+  build if any repo source path is not owned by the build user — it never runs `chown`/`sudo`.
+  Standing rule (D5/D23): builds/Prisma/deps/git/app-file-creation must run as **deploy**, never root.
 - The 8 pre-existing platform `npm audit` advisories (Next.js image opt., etc.) are unchanged from
   the `v1.4.0` baseline — **not** introduced by this branch; tracked as separate upgrade debt.
 
 ---
 
-*Status: PENDING FOUNDER PRODUCTION ACCEPTANCE. Automation remains paused; Phase 2.0.1 does not
-resume until D19 is resolved and the Founder authorizes it.*
+*Status: FOUNDER PRODUCTION ACCEPTED — 2026-07-18 (Ronald Delroy Anthony Allicock). CRM
+reconciliation only. Automation remains paused; Phase 2.0.1 does not resume until D19 is resolved
+and the Founder authorizes it.*

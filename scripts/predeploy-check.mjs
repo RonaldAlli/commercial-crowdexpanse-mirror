@@ -18,6 +18,8 @@
 import { existsSync, lstatSync, readdirSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
+import { SOURCE_ROOTS, ALLOWED_FOREIGN_PREFIXES, findForeignOwned } from "./lib/ownership-guard.mjs";
+
 const distDir = process.env.NEXT_DIST_DIR || ".next";
 const isCI = !!process.env.CI;
 const uid = typeof process.getuid === "function" ? process.getuid() : null;
@@ -90,6 +92,52 @@ if (existsSync(distDir)) {
       `"${distDir}" is not writable by the current user (${err.code || err.message}).`,
       `Fix ownership/permissions, then rebuild as the deploy user (never with sudo):\n` +
         `  sudo chown -R $(id -un):$(id -gn) ${distDir}`,
+    );
+  }
+}
+
+// 4. Source-tree ownership guard (Tech Debt D23). The repository source roots must be owned by
+//    the build (deploy) user; a root-owned path there (from an external/privileged build) blocks
+//    normal `git` reset/checkout and future builds. Read-only: it scans + reports, and NEVER
+//    runs chown/sudo or mutates anything. Host-only (CI containers legitimately run as root).
+if (uid !== null && !isCI) {
+  const entries = [];
+  const CAP_SRC = 20;
+  const scan = (path) => {
+    if (entries.length >= CAP_SRC + 1) return;
+    let st;
+    try {
+      st = lstatSync(path);
+    } catch {
+      return; // missing path (e.g. optional root file) — skip
+    }
+    entries.push({ path, uid: st.uid });
+    if (st.isDirectory() && !st.isSymbolicLink()) {
+      let kids;
+      try {
+        kids = readdirSync(path, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const k of kids) {
+        if (entries.length >= CAP_SRC + 1) return;
+        scan(join(path, k.name));
+      }
+    }
+  };
+  for (const root of SOURCE_ROOTS) if (existsSync(root)) scan(root);
+
+  const foreignSrc = findForeignOwned(entries, uid, ALLOWED_FOREIGN_PREFIXES);
+  if (foreignSrc.length > 0) {
+    fail(
+      `Repository source contains ${foreignSrc.length} path(s) not owned by the current user ` +
+        `(uid ${uid}) — an external/privileged build likely created them (Tech Debt D23). This ` +
+        `blocks normal git operations and future builds.`,
+      `Offending paths (showing up to ${CAP_SRC}):\n` +
+        foreignSrc.slice(0, CAP_SRC).map((p) => `  ${p}`).join("\n") +
+        `\n\nFix ownership as an operator (NOT via this guard, which never chowns):\n` +
+        `  sudo chown -R $(id -un):$(id -gn) ${foreignSrc.slice(0, 3).join(" ")}\n` +
+        `Do NOT run builds/npm/prisma/git as root — that is the root cause (D5/D23).`,
     );
   }
 }
