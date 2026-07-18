@@ -66,6 +66,16 @@ unmoved and fast-forwardable; branch 0 behind. 4. Frozen refs (`release/1.3`,`re
 `v1.4.0`) unmoved. 5. Complete gate green (§ Wave 7 §3). **Strict fast-forward only — no squash, no
 merge commit.**
 
+### 6a. Final merge pre-flight (run immediately before the fast-forward — only if the Founder accepts)
+Perform these checks at the moment of merge; proceed **only if all remain true** (any failure → stop
+and re-review, do not merge):
+1. `git fetch` all remotes. 2. `main` has **not advanced** (still `ba1bd7c` on local/Gitea/GitHub).
+3. `stabilize/roadmap-restoration` tip matches on local/Gitea/GitHub. 4. Working tree **clean**; **no
+untracked files**. 5. Ownership guard (`scripts/predeploy-check.mjs`) passes. 6. **No schema drift**
+(`prisma migrate status`; branch adds no migration). 7. Production still matches the Wave 7
+assumptions (build `YPHm2Nw65jWb7JlF7eLUn`, 30 migrations, Automation absent). 8. Frozen refs unmoved.
+Only then perform the strict fast-forward and push the identical `main` tip to both remotes.
+
 ## 7. Deployment prerequisites (only if Founder authorizes deploy after merge)
 Standard predeploy gate (prisma validate/status, tsc, unit, full E2E, isolated build, secret scan,
 dependency audit, `xlsx` absent, ownership guard, frozen-ref check) · fresh production backup ·
@@ -78,14 +88,21 @@ Confirm `main` = branch tip on both remotes; frozen refs unmoved; `git diff v1.4
 empty; unit 61 / E2E 42 green from `main`; `crm-integrity.mjs` clean; Automation still absent.
 
 ## 9. Recommendation
-**READY TO MERGE** (strict fast-forward, branch-level), on the evidence: additive-only change surface,
-zero frozen-code change, kernel byte-identical to `v1.4.0`, complete gate green, no schema/migration,
-and `main` already reproduces production. **Deploy is a separate, optional Founder step** (its only
-production-visible effect is the advisory ATM label). **D19 and D-CRM-PRIMARY-CONCURRENCY remain
-separately gated and are NOT blockers for this branch** — Automation stays paused regardless.
+Stated as three distinct things — evidence, engineering assessment, and final authorization — so the
+engineering process is not read as having approved the merge:
 
-*This is a recommendation for the Founder's decision, not an action. No merge or deploy is performed
-until the Founder explicitly authorizes it.*
+- **Evidence.** Additive-only change surface (docs + tests + one presentation-only UI label); zero
+  frozen-code change; kernel byte-identical to `v1.4.0`; complete validation gate green; no
+  schema/migration; `main` already reproduces production. D19 and D-CRM-PRIMARY-CONCURRENCY remain
+  separately gated (not blockers for this branch).
+- **Engineering assessment.** The restoration branch **satisfies the documented restoration
+  objectives and validation criteria**. Based on the evidence gathered, it **appears ready for
+  Founder consideration for a strict fast-forward merge.** This is an engineering assessment, not an
+  approval.
+- **Final authorization.** The **final merge and any subsequent deployment remain separate Founder
+  decisions.** No merge or deploy is performed until the Founder explicitly authorizes it. Deploy is
+  a separate optional step (its only production-visible effect is the advisory ATM label); Automation
+  stays paused regardless.
 
 ## 10. Automation hold confirmation
 Automation remains **paused**; executor **absent**; D19 **open**; migration 27 inert; no Automation
