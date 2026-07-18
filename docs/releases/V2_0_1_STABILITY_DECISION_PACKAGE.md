@@ -4,6 +4,12 @@
 > Audit](./V2_0_1_STABILIZATION_AUDIT.md) and [Change Inventory](./V2_0_1_CHANGE_INVENTORY.md).
 > This package presents options **neutrally**. It does **not** make the decision. The automation
 > rollout stays PAUSED until you choose.
+>
+> **UPDATE 2026-07-17:** Decision 1 has been advanced along the **1a (adopt & reconcile)** path —
+> the live CRM work is now captured on `stabilize/crm-production-reconciliation` (faithful,
+> isolated-tested, pushed) and awaits your review/acceptance before merge. Decisions 2 (automation
+> launch fix) and 3 (sequencing) remain open. See [CRM Reconciliation
+> Acceptance](./CRM_PRODUCTION_RECONCILIATION_ACCEPTANCE.md).
 
 ---
 

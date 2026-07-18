@@ -6,8 +6,14 @@
 > uncommitted** (0 new commits); they are live in production but absent from git `main`.
 
 **Owner/source (all):** shared "BreadBasket Deploy" identity (concurrent development session).
-**Relationship to Phase 2.0.1:** unrelated CRM/sourcing feature work. **Accepted-suite test
-coverage:** none (the one bundled test file is untracked and not in the gate).
+**Relationship to Phase 2.0.1:** unrelated CRM/sourcing feature work.
+
+> **UPDATE 2026-07-17:** all "keep" files below are now **captured** on
+> `stabilize/crm-production-reconciliation` in 7 structured commits (byte-identical to
+> production). The two loose root scripts (`ce_*.js`) were **excluded** (preserved in the backup
+> archive + prod working tree; recommend removal). The ATM-calculator unit test is now wired into
+> the unit gate (55 files). See [CRM Reconciliation
+> Acceptance](./CRM_PRODUCTION_RECONCILIATION_ACCEPTANCE.md).
 
 Recommendation legend: **keep** (retain, needs commit+review) · **revise** · **revert** ·
 **defer** · **investigate**.

@@ -4,6 +4,15 @@
 > changed, no migration applied, no process started, no executor launched. The Phase 2.0.1
 > automation rollout remains **PAUSED** at the dark-start step. Production is **healthy**.
 >
+> **UPDATE 2026-07-17 (stabilization progress):** the live CRM work (audit finding **D18**) has
+> been **faithfully captured** on branch `stabilize/crm-production-reconciliation` (40 files,
+> byte-identical to production; 3 migrations checksum-verified; isolated tests green — 55 unit
+> files + 39/39 E2E at 30 migrations). See [CRM Reconciliation
+> Acceptance](./CRM_PRODUCTION_RECONCILIATION_ACCEPTANCE.md) + [CRM Operations
+> Boundary](../architecture/CRM_OPERATIONS_BOUNDARY.md). **D21** (worktree isolation) is resolved
+> for this branch via a dedicated worktree with its own `node_modules`. Automation stays paused;
+> the branch is **not merged or deployed** — PENDING FOUNDER ACCEPTANCE.
+>
 > **Companions:** [Change Inventory](./V2_0_1_CHANGE_INVENTORY.md) · [Stability Decision
 > Package](./V2_0_1_STABILITY_DECISION_PACKAGE.md) · [Implementation Acceptance](./V2_0_1_IMPLEMENTATION_ACCEPTANCE.md) ·
 > [Architecture Traceability](./V2_0_1_ARCHITECTURE_TRACEABILITY.md).
