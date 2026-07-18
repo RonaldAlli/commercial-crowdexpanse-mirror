@@ -5,9 +5,10 @@
 > (*navigation*) and [Current Platform Status](./CURRENT_PLATFORM_STATUS.md) (*live operational
 > state*). Documentation-only. **As of 2026-07-18.**
 >
-> **Branch:** `stabilize/roadmap-restoration` (not merged). **Program rule:** every wave stops for
-> Founder review; **no merge or deploy** occurs until the full-platform acceptance (Wave 7) is
-> Founder-accepted. Automation stays paused (D19 open) throughout.
+> **Status: ✅ FOUNDER-ACCEPTED + MERGED to `main` `d5998a3` (strict fast-forward, 2026-07-18).** The
+> restoration branch history is preserved (the branch is an ancestor of `main`). **Deployment is a
+> separate, not-yet-authorized Founder decision** — production still serves the prior build; nothing
+> was deployed. Automation stays paused (D19 open).
 
 ---
 
@@ -15,14 +16,14 @@
 
 | Phase / Wave | Purpose | Status | Founder review | Merge | Deploy |
 |---|---|---|---|---|---|
-| **Discovery** | Reconstruct roadmap; inventory; defect register; source-of-truth; off-roadmap assessment; restoration plan (6 docs) | ✅ Complete | ⏳ Pending | ❌ No | ❌ No |
-| **Wave 1** | Security · organization isolation · data integrity (CRM isolation + diligence↔Closing boundary E2E; read-only integrity audit) | ✅ Complete | ✅ **Accepted** (branch-only) | ❌ No | ❌ No |
-| **Wave 2** | V1.3 Underwriting integrity — verification (byte-identical modules; 145 unit + 166 e2e) | ✅ Complete | ⏳ Pending | ❌ No | ❌ No |
-| **Wave 3** | V1.4 Closing integrity — verification (byte-identical modules; 97 unit + 245 e2e; PAID gate) | ✅ Complete | ⏳ Pending | ❌ No | ❌ No |
-| **Wave 4** | Shared projections · navigation · UI integration + documentation reconciliation (ATM advisory label) | ✅ Complete | ✅ **Accepted** (branch-only) | ❌ No | ❌ No |
-| **Wave 5** | CRM integration & quality — CRM unit + integration/boundary tests; single-primary invariant; D-CRM-TEST closed | ✅ Complete ([acceptance](./releases/PLATFORM_RESTORATION_WAVE_5_ACCEPTANCE.md)) | ⏳ Pending | ❌ No | ❌ No |
-| **Wave 6** | Import pipeline & ATM Wholesale — idempotency/provenance/cross-org integration + ATM no-write boundary (verify existing behavior) | ✅ Complete ([acceptance](./releases/PLATFORM_RESTORATION_WAVE_6_ACCEPTANCE.md)) | ⏳ Pending | ❌ No | ❌ No |
-| **Wave 7** | Full-platform consolidation + Merge Readiness Decision Package (no new implementation) | ✅ Complete ([acceptance](./releases/PLATFORM_ROADMAP_RESTORATION_ACCEPTANCE.md)) | ⏳ Pending | ❌ No | ❌ No |
+| **Discovery** | Reconstruct roadmap; inventory; defect register; source-of-truth; off-roadmap assessment; restoration plan (6 docs) | ✅ Complete | ✅ Accepted | ✅ merged | ⏸ pending |
+| **Wave 1** | Security · organization isolation · data integrity (CRM isolation + diligence↔Closing boundary E2E; read-only integrity audit) | ✅ Complete | ✅ **Accepted** | ✅ merged | ⏸ pending |
+| **Wave 2** | V1.3 Underwriting integrity — verification (byte-identical modules; 145 unit + 166 e2e) | ✅ Complete | ✅ Accepted | ✅ merged | ⏸ pending |
+| **Wave 3** | V1.4 Closing integrity — verification (byte-identical modules; 97 unit + 245 e2e; PAID gate) | ✅ Complete | ✅ Accepted | ✅ merged | ⏸ pending |
+| **Wave 4** | Shared projections · navigation · UI integration + documentation reconciliation (ATM advisory label) | ✅ Complete | ✅ **Accepted** | ✅ merged | ⏸ pending |
+| **Wave 5** | CRM integration & quality — CRM unit + integration/boundary tests; single-primary invariant; D-CRM-TEST closed | ✅ Complete ([acceptance](./releases/PLATFORM_RESTORATION_WAVE_5_ACCEPTANCE.md)) | ✅ Accepted | ✅ merged | ⏸ pending |
+| **Wave 6** | Import pipeline & ATM Wholesale — idempotency/provenance/cross-org integration + ATM no-write boundary (verify existing behavior) | ✅ Complete ([acceptance](./releases/PLATFORM_RESTORATION_WAVE_6_ACCEPTANCE.md)) | ✅ Accepted | ✅ merged | ⏸ pending |
+| **Wave 7** | Full-platform consolidation + Merge Readiness Decision Package (no new implementation) | ✅ Complete ([acceptance](./releases/PLATFORM_ROADMAP_RESTORATION_ACCEPTANCE.md)) | ✅ Accepted | ✅ merged | ⏸ pending |
 
 **Execution order so far:** Discovery → Wave 1 → Wave 4 → *(governance: Index + Current-Status)* →
 Wave 2 → Wave 3. (Waves 2–4 were interleaved by Founder authorization; numeric order is shown above
@@ -47,8 +48,8 @@ for reference.)
 
 ## Headline
 
-Discovery + Waves 1–4 complete; **the frozen V1.3 Underwriting and V1.4 Closing foundations are
-positively verified intact** (byte-identical + full test evidence), CRM isolation + diligence↔Closing
-boundary are proven, and documentation governance is repaired. Waves 5–7 remain — the focus shifts
-from *proving the architecture is intact* to *improving CRM quality* while preserving the frozen
-boundaries. **Nothing is merged or deployed; Automation stays paused until after Wave 7 acceptance.**
+Discovery + Waves 1–7 complete, **Founder-accepted, and merged to `main` `d5998a3`** (strict
+fast-forward; branch history preserved). Frozen V1.3 Underwriting + V1.4 Closing verified intact
+(byte-identical); CRM/Import/ATM quality raised through tests; no frozen-code, schema, or migration
+change. **Deployment remains a separate, not-yet-authorized Founder decision** — production still
+serves the prior build. Automation stays paused (D19 open).

@@ -14,8 +14,8 @@
 
 | Fact | Value |
 |---|---|
-| `main` tip | `ba1bd7c` (local = Gitea = GitHub) |
-| Serving build | `YPHm2Nw65jWb7JlF7eLUn` · web health `ok` |
+| `main` tip | `d5998a3` (local = Gitea = GitHub) — roadmap-restoration merged 2026-07-18 |
+| Serving build | `YPHm2Nw65jWb7JlF7eLUn` · web health `ok` (built pre-merge; `main` is ahead — restoration **not yet deployed**) |
 | Applied migrations | **30** (no drift, 0 rolled-back/unfinished) |
 | Data integrity | clean — 0 cross-org / 0 orphan / 0 duplicate (audit: `scripts/audit/crm-integrity.mjs`) |
 
@@ -41,18 +41,15 @@
   [CRM Operations Boundary](./architecture/CRM_OPERATIONS_BOUNDARY.md) + ADR-0006 (CSV-only import).
   ATM Wholesale is **advisory / non-authoritative** (not Underwriting truth).
 
-## Roadmap-restoration program (branch `stabilize/roadmap-restoration`)
+## Roadmap-restoration program
 
 > High-level progress view: [Restoration Progress Matrix](./PLATFORM_RESTORATION_PROGRESS.md).
 
 | Phase | Status |
 |---|---|
-| Discovery (6 docs) | ✅ complete |
-| Waves 1–7 | ✅ complete — [Restoration Acceptance + Merge Readiness](./releases/PLATFORM_ROADMAP_RESTORATION_ACCEPTANCE.md) PENDING FOUNDER ACCEPTANCE; not merged/deployed |
-| Wave 1 — Security / isolation / integrity | ✅ complete |
-| Wave 4 — Docs / nav / UI integration | ✅ complete |
-| Waves 2, 3, 5, 6, 7 | ⏸ not started (await Founder authorization) |
-| Merge / deploy | none — branch work only; production stays on the current build |
+| Discovery + Waves 1–7 | ✅ complete, Founder-accepted — [Restoration Acceptance + Merge Readiness](./releases/PLATFORM_ROADMAP_RESTORATION_ACCEPTANCE.md) |
+| Merge | ✅ **MERGED** to `main` `d5998a3` (strict fast-forward, 2026-07-18); branch history preserved |
+| Deploy | ⏸ separate, **not-yet-authorized** Founder decision — production still serves the prior build |
 
 ## Open technical debt gating future work
 
