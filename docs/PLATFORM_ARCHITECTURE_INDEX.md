@@ -57,6 +57,9 @@ operational figures link back to the current-status doc to avoid re-creating doc
 
 ## 4. Platform restoration (in progress — `stabilize/roadmap-restoration`)
 
+> **"Where are we?"** → [Restoration Progress Matrix](./PLATFORM_RESTORATION_PROGRESS.md) (Wave ·
+> Purpose · Status · Founder review · Merge · Deploy).
+
 | Doc | Role |
 |---|---|
 | [Canonical Roadmap](./roadmap/CANONICAL_PLATFORM_ROADMAP.md) | Rebuilt roadmap (Discovery) |

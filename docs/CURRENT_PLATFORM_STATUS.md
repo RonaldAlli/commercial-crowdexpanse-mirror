@@ -43,6 +43,8 @@
 
 ## Roadmap-restoration program (branch `stabilize/roadmap-restoration`)
 
+> High-level progress view: [Restoration Progress Matrix](./PLATFORM_RESTORATION_PROGRESS.md).
+
 | Phase | Status |
 |---|---|
 | Discovery (6 docs) | ✅ complete — PENDING FOUNDER REVIEW |
