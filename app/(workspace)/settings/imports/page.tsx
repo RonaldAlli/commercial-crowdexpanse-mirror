@@ -19,7 +19,7 @@ export default async function ImportSettingsPage() {
   const user = await requireRole(UserRole.ADMIN);
   const [counts, jobs] = await Promise.all([
     getLeadImportCounts(user.organizationId),
-    listLeadImportJobs(12),
+    listLeadImportJobs(user.organizationId, 12),
   ]);
 
   return (
@@ -148,7 +148,7 @@ export default async function ImportSettingsPage() {
                         })}
                       </td>
                       <td className="table-cell">
-                        <div className="max-w-[320px] truncate font-mono text-xs text-slate-600">{job.sourceFile}</div>
+                        <div className="max-w-[320px] truncate font-mono text-xs text-slate-600">{job.sourceName}</div>
                         <div className="mt-1 text-xs text-slate-400">{job.id}</div>
                       </td>
                       <td className="table-cell">
@@ -168,7 +168,7 @@ export default async function ImportSettingsPage() {
                       </td>
                       <td className="table-cell metric">{summary ? summary.skipped.toLocaleString("en-US") : "—"}</td>
                       <td className="table-cell">
-                        <code className="text-xs text-slate-500">{job.logFile}</code>
+                        <code className="text-xs text-slate-500">{job.exitCode === null || job.exitCode === undefined ? "—" : `exit ${job.exitCode}`}</code>
                       </td>
                     </tr>
                   );

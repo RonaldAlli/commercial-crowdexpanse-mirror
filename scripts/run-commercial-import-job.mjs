@@ -112,9 +112,18 @@ main().catch(async (error) => {
   const args = parseArgs(process.argv.slice(2));
   const jobFile = args["job-file"];
   if (jobFile) {
+    // Preserve the existing record (esp. organizationId) so a hard-failed job stays
+    // org-attributable and visible to its owning organization (never dropped by fail-closed).
+    let existing = {};
+    try {
+      existing = JSON.parse(await fsp.readFile(jobFile, "utf8"));
+    } catch {
+      existing = {};
+    }
     const finishedAt = new Date().toISOString();
     await writeJson(jobFile, {
-      id: path.basename(jobFile, ".json"),
+      ...existing,
+      id: existing.id ?? path.basename(jobFile, ".json"),
       status: "failed",
       finishedAt,
       updatedAt: finishedAt,

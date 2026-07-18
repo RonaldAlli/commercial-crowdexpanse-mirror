@@ -6,48 +6,22 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 
 import { prisma } from "@/lib/prisma";
+import {
+  jobDir,
+  toPublicJob,
+  type LeadImportJobRecord,
+  type PublicLeadImportJob,
+} from "@/lib/lead-import-jobs-core";
 
-export type LeadImportJobStatus = "queued" | "running" | "succeeded" | "failed";
-
-export type LeadImportJobSummary = {
-  sourceFile: string;
-  dryRun: boolean;
-  totalLoaded: number;
-  deduped: number;
-  attempted: number;
-  skipped: number;
-  ownersCreated: number;
-  ownersReused: number;
-  propertiesCreated: number;
-  propertiesResolved: number;
-  externalIdsAttached: number;
-  opportunitiesCreated: number;
-  opportunitiesReused: number;
-  notesCreated: number;
-  errors: Array<{ leadId: string; message: string }>;
-};
-
-export type LeadImportJobRecord = {
-  id: string;
-  status: LeadImportJobStatus;
-  createdAt: string;
-  updatedAt: string;
-  startedAt?: string | null;
-  finishedAt?: string | null;
-  exitCode?: number | null;
-  organizationSlug: string;
-  actorEmail: string;
-  sourceFile: string;
-  provider: string;
-  dryRun: boolean;
-  limit: number | null;
-  logFile: string;
-  summaryFile: string;
-  summary?: LeadImportJobSummary | null;
-  error?: string | null;
-};
-
-const JOB_DIR = "/tmp/commercial-import-jobs";
+// Re-export the org-scoped read surface + types from the pure core (unit-tested there).
+export {
+  listLeadImportJobs,
+  getLeadImportJob,
+  type LeadImportJobStatus,
+  type LeadImportJobSummary,
+  type LeadImportJobRecord,
+  type PublicLeadImportJob,
+} from "@/lib/lead-import-jobs-core";
 
 function assertSafeImportPath(input: string) {
   if (!path.isAbsolute(input)) {
@@ -65,34 +39,6 @@ function assertSafeImportPath(input: string) {
   return normalized;
 }
 
-async function ensureJobDir() {
-  await fs.mkdir(JOB_DIR, { recursive: true });
-}
-
-async function readJobFile(file: string): Promise<LeadImportJobRecord | null> {
-  try {
-    const content = await fs.readFile(file, "utf8");
-    return JSON.parse(content) as LeadImportJobRecord;
-  } catch {
-    return null;
-  }
-}
-
-export async function listLeadImportJobs(limit = 12): Promise<LeadImportJobRecord[]> {
-  await ensureJobDir();
-  const files = await fs.readdir(JOB_DIR);
-  const jobs = (
-    await Promise.all(
-      files
-        .filter((file) => file.endsWith(".json"))
-        .map((file) => readJobFile(path.join(JOB_DIR, file))),
-    )
-  )
-    .filter((job): job is LeadImportJobRecord => job !== null)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  return jobs.slice(0, limit);
-}
-
 export async function getLeadImportCounts(organizationId: string) {
   const [owners, properties, opportunities, notes, externalIds] = await Promise.all([
     prisma.owner.count({ where: { organizationId } }),
@@ -105,25 +51,31 @@ export async function getLeadImportCounts(organizationId: string) {
 }
 
 export async function queueLeadImportJob(input: {
+  organizationId: string;
   organizationSlug: string;
   actorEmail: string;
   sourceFile: string;
   provider: string;
   dryRun: boolean;
   limit: number | null;
-}) {
-  await ensureJobDir();
+}): Promise<PublicLeadImportJob> {
+  if (!input.organizationId) {
+    throw new Error("Organization context is required to queue an import.");
+  }
+  const dir = jobDir();
+  await fs.mkdir(dir, { recursive: true });
   const id = crypto.randomUUID();
   const createdAt = new Date().toISOString();
   const sourceFile = assertSafeImportPath(input.sourceFile);
   await fs.access(sourceFile);
 
-  const logFile = path.join(JOB_DIR, `${id}.log`);
-  const summaryFile = path.join(JOB_DIR, `${id}.summary.json`);
-  const jobFile = path.join(JOB_DIR, `${id}.json`);
+  const logFile = path.join(dir, `${id}.log`);
+  const summaryFile = path.join(dir, `${id}.summary.json`);
+  const jobFile = path.join(dir, `${id}.json`);
 
   const record: LeadImportJobRecord = {
     id,
+    organizationId: input.organizationId,
     status: "queued",
     createdAt,
     updatedAt: createdAt,
@@ -171,5 +123,6 @@ export async function queueLeadImportJob(input: {
   });
   child.unref();
 
-  return record;
+  // Return only the safe projection (no absolute paths leak out of this module).
+  return toPublicJob(record);
 }

@@ -37,7 +37,7 @@ export function LeadImportForm({
           }
           setSuccess(result?.success ?? "Import job queued.");
           setJobId(result?.jobId ?? null);
-          setQueuedSourceFile(result?.sourceFile ?? null);
+          setQueuedSourceFile(result?.sourceName ?? null);
         });
       }}
     >

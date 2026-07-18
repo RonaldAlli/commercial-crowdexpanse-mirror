@@ -22,8 +22,10 @@ export async function startLeadImportAction(formData: FormData) {
       return { error: "Lead file is too large (25MB max)." };
     }
     const lower = uploaded.name.toLowerCase();
-    if (![".json", ".csv", ".tsv", ".txt", ".xlsx", ".xls"].some((ext) => lower.endsWith(ext))) {
-      return { error: "Supported lead files are JSON, CSV, TSV/TXT, XLSX, and XLS." };
+    // CSV-only intake (ADR-0006): Excel (.xlsx/.xls) is intentionally NOT accepted — the
+    // SheetJS untrusted-file parse path was removed to eliminate its known-CVE surface.
+    if (![".json", ".csv", ".tsv", ".txt"].some((ext) => lower.endsWith(ext))) {
+      return { error: "Supported lead files are JSON, CSV, and TSV/TXT. Excel (.xlsx/.xls) is not supported — export to CSV first." };
     }
 
     const storageKey = buildStorageKey(user.organizationId, `lead-import-${uploaded.name || "batch.json"}`);
@@ -51,6 +53,7 @@ export async function startLeadImportAction(formData: FormData) {
 
   try {
     const job = await queueLeadImportJob({
+      organizationId: user.organizationId,
       organizationSlug: user.organizationSlug,
       actorEmail,
       sourceFile,
@@ -62,7 +65,8 @@ export async function startLeadImportAction(formData: FormData) {
     return {
       success: `Import job queued${dryRun ? " (dry run)" : ""}.`,
       jobId: job.id,
-      sourceFile,
+      // Safe display name only — never the absolute server path.
+      sourceName: job.sourceName,
     };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Unable to queue import job." };
