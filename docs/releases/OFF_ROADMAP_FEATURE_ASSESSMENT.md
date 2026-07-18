@@ -5,6 +5,8 @@
 > read-only production queries (2026-07-18). Companion to the [Source-of-Truth
 > Matrix](../architecture/PLATFORM_SOURCE_OF_TRUTH_MATRIX.md) and `CRM_OPERATIONS_BOUNDARY.md`.
 
+> **Wave 5 update (2026-07-18):** the test gap (D-CRM-TEST) is **closed** — CRM unit tests (diligence + contact-options pure logic, 13 cases) + integration/boundary tests (`e2e-crm-integration.mjs`, 9 assertions: single-primary invariant, CRM↔Underwriting boundary, free-form status, delete-no-orphan). One documented risk (D-CRM-PRIMARY-CONCURRENCY: no schema `@@unique` on primary — deferred to a separate migration decision). Existing behavior only; no new rules. See [Wave 5 Acceptance](./PLATFORM_RESTORATION_WAVE_5_ACCEPTANCE.md).
+
 **Overall verdict:** all five are **architecturally compatible, additive, org-scoped, and cleanly
 isolated** from the frozen underwriting/closing domains; production data is clean. The one systemic
 gap is **missing tests** for three of them (Owner Contacts, Outreach, Diligence).

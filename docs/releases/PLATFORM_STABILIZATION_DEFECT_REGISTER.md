@@ -14,13 +14,15 @@ maintainability/latent risk) · Low (hygiene/docs). **No defect below is Critica
 
 ## A. New findings
 
+> **Wave 5 update (2026-07-18):** D-CRM-TEST **CLOSED** — CRM unit tests added (`opportunity-diligence`, `contact-options` — 13 cases) + integration/boundary tests (`e2e-crm-integration.mjs` — single-primary invariant, CRM↔Underwriting boundary, free-form status, delete-no-orphan). New documented risk **D-CRM-PRIMARY-CONCURRENCY** (below). Existing behavior tested, no new rules invented. See [Wave 5 Acceptance](./PLATFORM_RESTORATION_WAVE_5_ACCEPTANCE.md).
+>
 > **Wave 1 update (2026-07-18):** D-CRM-TEST **partially closed** (org-isolation + diligence↔Closing
 > boundary tests added — `scripts/e2e-crm-isolation.mjs`, 14 assertions; deeper CRUD/lifecycle unit
 > tests remain for Wave 5). D-CRM-OUTREACH-OWNERSHIP **RESOLVED** (documented in
 > `CRM_OPERATIONS_BOUNDARY.md §2a`). Read-only integrity audit added (`scripts/audit/crm-integrity.mjs`),
 > clean against test + prod. See [Wave 1 Acceptance](./PLATFORM_RESTORATION_WAVE_1_ACCEPTANCE.md).
 
-### D-CRM-TEST — Off-roadmap CRM features lack accepted-suite tests · **Medium** · *partially closed (Wave 1); remainder Wave 5*
+### D-CRM-TEST — Off-roadmap CRM features lack accepted-suite tests · **Medium** · ✅ *CLOSED (Wave 5)*
 - **Feature/milestone:** CRM Owner Contacts, Contact/Seller Outreach, Opportunity Diligence (off-roadmap, migr 28–30).
 - **Expected:** platform features carry unit/E2E coverage in the accepted suite (as V1.3/V1.4 do).
 - **Actual:** Owner Contacts, Outreach, and Diligence have **no tests** in `tests/unit/**` or the E2E suite. (Lead-Import has 20 unit tests; ATM-Wholesale has 1.)
@@ -36,6 +38,14 @@ maintainability/latent risk) · Low (hygiene/docs). **No defect below is Critica
 - **Architecture violation:** none today. **Data risk:** none. 
 - **Required fix:** document the boundary in the [Source-of-Truth Matrix](../architecture/PLATFORM_SOURCE_OF_TRUTH_MATRIX.md) + `CRM_OPERATIONS_BOUNDARY.md` (owner-contact outreach = per-contact; seller/buyer outreach = per-lead). **Test:** optional. **Migration:** no.
 - **Order:** Wave 5 (documentation, then confirm no dedup needed).
+
+### D-CRM-PRIMARY-CONCURRENCY — single-primary invariant is application-enforced, no schema constraint · **Low/Medium (risk, not an active defect)**
+- **Feature:** "one primary contact per `Owner`" (scope confirmed from `owners/actions.ts`: the make-primary transaction does `updateMany where {organizationId, ownerId}` → set target primary). There is **no schema-level `@@unique`** on primary.
+- **Expected:** the invariant holds under all conditions.
+- **Actual:** it holds for **sequential** operations (Wave 5 integration test asserts this deterministically). Under **concurrency**, the application-level transactions do not guarantee mutual exclusion (READ COMMITTED) — two near-simultaneous make-primary ops could theoretically leave >1 primary. The Wave 5 probe observed **1 primary this run** (row-lock serialization), i.e. it did **not** reproduce the race, but the outcome is **not guaranteed**.
+- **Production impact:** **none observed** — prod has **0 owners with >1 primary**, and `scripts/audit/crm-integrity.mjs` guards it. Not an active defect.
+- **Required fix (deferred, NOT done in Wave 5):** if the invariant must be concurrency-safe, add a **partial unique index** `@@unique([ownerId]) WHERE isPrimary` (Postgres partial index) — a **separately-reviewed migration + defect/migration decision package** per the Wave 5 stop rule. Do **not** silently migrate.
+- **Order:** separate migration decision (post-restoration); guarded meanwhile by the audit script.
 
 > **Wave 4 update (2026-07-18):** D-DOC-1…4 **RESOLVED** — `RELEASE_PLAN.md`, `VERSION_2_0.md`, `EXECUTIVE_DASHBOARD.md` corrected (prod=30, 1.4 Released, 2.0.1 accepted-paused, CRM added) and pointed at the [Canonical Roadmap](../roadmap/CANONICAL_PLATFORM_ROADMAP.md) as the single status surface. D-DOC-5 **mitigated** (ATM advisory banner added in-product; route relocation optional). See [Wave 4 Acceptance](./PLATFORM_RESTORATION_WAVE_4_ACCEPTANCE.md).
 

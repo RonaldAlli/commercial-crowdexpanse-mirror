@@ -1,10 +1,10 @@
 # Platform Restoration — Wave 5 Acceptance (CRM Integration & Quality)
 
-> **Status: PENDING FOUNDER REVIEW — ACCEPTANCE CRITERIA DEFINED; EXECUTION NOT STARTED.**
-> Acceptance-first: this document defines Wave 5's **objective exit criteria before any work
-> begins**. Execution proceeds only on explicit Founder authorization, and Wave 5 is "done" **only
-> when every criterion in §3 is satisfied** and the gate in §4 is green. **No merge, no deploy;
-> Automation paused (D19 untouched) throughout.**
+> **Status: ✅ COMPLETE (2026-07-18) — PENDING FOUNDER REVIEW.** Acceptance-first: the objective
+> exit criteria (§3) were defined before any work and are now satisfied; the gate (§4) is green;
+> evidence in §5. One **documented risk** surfaced (D-CRM-PRIMARY-CONCURRENCY) and was handled per
+> §6 — documented, **not** migrated. Tested **existing** behavior only; no new lifecycle/rule
+> invented. **No merge, no deploy; Automation paused (D19 untouched).**
 >
 > Companion: [Restoration Plan](./PLATFORM_ROADMAP_RESTORATION_PLAN.md) ·
 > [Defect Register](./PLATFORM_STABILIZATION_DEFECT_REGISTER.md) ·
@@ -82,10 +82,58 @@ on workflows; move pure-logic/boundary assertions to unit/integration where appr
 · isolated production build · secret scan · dependency audit (`xlsx` absent) · ownership guard ·
 **frozen-ref + frozen-module unchanged** · `crm-integrity.mjs` clean (test + prod read-only).
 
-## 5. Results / evidence (to be filled during execution — currently EMPTY)
+## 5. Results / evidence
 
-*(unit tests added: … · integration tests added: … · E2E added: … · coverage deltas: … · gate
-output: … · frozen re-verification: … · files changed: … · commits: …)*
+**Existing-behavior source of truth (documented before testing):**
+- **Outreach status is free-form** — `contacts/actions.ts` `parseEnumValue` accepts any valid
+  `ContactOutreachStatus` (fallback `NEW`); **no enforced state machine**. Tested as such.
+- **Diligence status is free-form** — `diligence-actions.ts` `parseStatus` accepts any valid
+  `OpportunityDiligenceStatus`; setting a status writes cascade **timestamps** (requested/received/
+  reviewed) as a side-effect; **no enforced sequential transition**. Tested as such (timestamp
+  cascade left in the action, not refactored — no behavior change).
+- **Single-primary invariant = one primary per `Owner`** — `owners/actions.ts` transaction
+  (`updateMany where {organizationId, ownerId}` → set target). **No schema `@@unique`.**
+
+**Unit tests added (13 cases, pure logic):**
+- `tests/unit/crm/contact-options.test.ts` — exhaustive `outreachStatusLabel/Tone`,
+  `contactMethodLabel(null + each)`, `touchTypeLabel`.
+- `tests/unit/crm/opportunity-diligence.test.ts` — labels/tones, `isPostContractStage`,
+  `diligenceFocusForStage` (defers to Closing Center), and the `summarizeDiligence` /
+  `readyForUnderwriting` rule (`missing===0 && ≥3 core received/reviewed`).
+
+**Integration / boundary tests added (`scripts/e2e-crm-integration.mjs`, 9 assertions):**
+- Single-primary invariant (sequential) — switching primary leaves exactly one; old one unset.
+- **Concurrency probe** — two concurrent make-primary ops; observed **1 primary** this run (not
+  reproduced), but no schema guarantee → **D-CRM-PRIMARY-CONCURRENCY** documented; a sequential
+  op always restores exactly one.
+- Diligence status free-form (REVIEWED settable directly); outreach status free-form.
+- **CRM↔Underwriting boundary** — CRM/diligence work creates **0** Underwriting/ScenarioResult/
+  UnderwritingDecision rows.
+- Delete-no-orphan — Owner delete cascades its contacts.
+
+**E2E layer note:** DB-backed workflow coverage lives in `e2e-crm-integration.mjs` +
+`e2e-crm-isolation.mjs` (the repo's E2E harness is script-based over the test DB — the accepted
+pattern; browser-E2E via Playwright is a separate infra track, out of scope). CRM↔Closing boundary
+E2E is in `e2e-crm-isolation.mjs` (Wave 1) — completing all diligence leaves the PAID gate not ready.
+
+**Gate:** `tsc 0` · unit **60 files / 93.0%** (was 58) · **E2E 41 scripts** (was 40) · isolated
+build OK · `crm-integrity.mjs` clean (test + **prod** read-only) · frozen V1.3/V1.4 modules
+**byte-unchanged vs `v1.4.0`** · `xlsx` absent · ownership guard passes.
+
+**Behavior classification (per Founder direction):** all work is **testing existing intended
+behavior** — no confirmed defect required a fix, and **no new behavior/lifecycle/rule was added**.
+The one finding (concurrency) is a **documented risk**, deferred to a separate migration decision.
+
+## 5b. Criteria status (§3)
+- §3.1 D-CRM-TEST items — ✅ Owner Contacts / Outreach / Diligence covered.
+- §3.2 unit coverage (diligence + contact-options pure logic) — ✅ (was 0).
+- §3.3 integration (single-primary, delete-no-orphan, CRM↔Closing [Wave 1], CRM↔Underwriting) — ✅.
+- §3.4 E2E workflows — ✅ via DB-backed scripts (browser-E2E out of scope, noted).
+- §3.5 org-isolation regression locks + audit clean — ✅.
+- §3.6 boundary-regression (frozen unchanged; PAID un-bypassable; no new SoT) — ✅.
+- §3.7 docs updated (defect register, off-roadmap, this record, progress matrix) — ✅.
+- §4 validation gate — ✅ green.
+- §6 stop conditions — one risk surfaced (concurrency); **documented, not migrated** (correct handling).
 
 ## 6. Stop conditions (halt Wave 5 for Founder review)
 
