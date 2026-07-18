@@ -22,6 +22,7 @@ const navigation: NavItem[] = [
   { href: "/analyzer", label: "Deal Analyzer", icon: "analyzer", section: "Overview", title: "Deal analyzer" },
   { href: "/matches", label: "Matches", icon: "spark", section: "Overview", title: "Buyer matches" },
   { href: "/closing", label: "Closing", icon: "check", section: "Overview", title: "Transaction dashboard" },
+  { href: "/contacts", label: "Contacts", icon: "mail", section: "Records", title: "Contacts" },
   { href: "/owners", label: "Owners", icon: "buyers", section: "Records", title: "Owners" },
   { href: "/sellers", label: "Sellers", icon: "sellers", section: "Records", title: "Sellers" },
   { href: "/buyers", label: "Buyers", icon: "buyers", section: "Records", title: "Buyers" },
@@ -32,6 +33,7 @@ const navigation: NavItem[] = [
   { href: "/documents", label: "Documents", icon: "files", section: "Workflow", title: "Documents" },
   { href: "/settings/team", label: "Team", icon: "buyers", section: "Settings", title: "Team" },
   { href: "/settings/organization", label: "Organization", icon: "properties", section: "Settings", title: "Organization" },
+  { href: "/settings/imports", label: "Imports", icon: "upload", section: "Settings", title: "Lead imports" },
   { href: "/settings/security", label: "Access denials", icon: "activity", section: "Settings", title: "Access denials" },
 ];
 
@@ -100,25 +102,31 @@ export function WorkspaceShell({
                 .filter((item) => item.section === section)
                 .map((item) => {
                   const active = pathname.startsWith(item.href);
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={() => setSidebarOpen(false)}
-                      className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                        active
-                          ? "bg-brand-50 text-brand-700"
-                          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  const className = `group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    active
+                      ? "bg-brand-50 text-brand-700"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  }`;
+                  const icon = (
+                    <Icon
+                      name={item.icon}
+                      className={`h-[1.15rem] w-[1.15rem] ${
+                        active ? "text-brand-600" : "text-slate-400 group-hover:text-slate-500"
                       }`}
-                    >
-                      <Icon
-                        name={item.icon}
-                        className={`h-[1.15rem] w-[1.15rem] ${
-                          active ? "text-brand-600" : "text-slate-400 group-hover:text-slate-500"
-                        }`}
-                      />
+                    />
+                  );
+
+                  return (
+                    <form key={item.href} action={item.href} method="get" className="w-full">
+                      <button
+                        type="submit"
+                        onClick={() => setSidebarOpen(false)}
+                        className={`${className} w-full appearance-none border-0 bg-transparent text-left`}
+                      >
+                      {icon}
                       {item.label}
-                    </Link>
+                      </button>
+                    </form>
                   );
                 })}
             </div>

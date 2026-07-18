@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/empty-state";
 import { FieldProvenanceCard } from "@/components/field-provenance";
 import { NotesSection } from "@/components/notes-section";
 import { Icon } from "@/components/icons";
+import { OwnerPrimaryContactCard } from "@/components/owner-primary-contact-card";
 import { PageHeader } from "@/components/page-header";
 import { PropertyRefreshForm } from "@/components/property-refresh-form";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +33,17 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
     where: { id: params.id, organizationId: user.organizationId },
     include: {
       seller: { select: { id: true, name: true } },
-      owner: { select: { id: true, displayName: true } },
+      owner: {
+        select: {
+          id: true,
+          displayName: true,
+          contacts: {
+            where: { isPrimary: true },
+            take: 1,
+            orderBy: { createdAt: "desc" },
+          },
+        },
+      },
       opportunities: { orderBy: { updatedAt: "desc" } },
       activities: { orderBy: { createdAt: "desc" }, take: 10 },
     },
@@ -76,6 +87,13 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
     { label: "Estimated value", value: property.estimatedValueUsd != null ? usd(property.estimatedValueUsd) : null },
     { label: "Cap rate", value: property.capRate != null ? `${property.capRate}%` : null },
   ];
+  const primaryOwnerContact = property.owner
+    ? {
+        ...property.owner.contacts[0],
+        ownerId: property.owner.id,
+        ownerName: property.owner.displayName,
+      }
+    : null;
 
   const deletePropertyBound = deleteProperty.bind(null, property.id);
 
@@ -222,6 +240,8 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
               </div>
             </div>
           </article>
+
+          <OwnerPrimaryContactCard title="Owner primary contact" owner={primaryOwnerContact} />
 
           {/* Manual source refresh (2b): ingestion pipeline over the Property manual adapter — distinct from Edit. */}
           {canViewRefresh ? (

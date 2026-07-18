@@ -1,4 +1,7 @@
+import Link from "next/link";
+
 import { EmptyState } from "@/components/empty-state";
+import { HardLink } from "@/components/hard-link";
 import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/stat-card";
 import { Badge, type Tone } from "@/components/ui/badge";
@@ -114,12 +117,12 @@ export default async function DashboardPage() {
   const latestAnalysis = await latestUnderwritingSummary(user.organizationId);
 
   const stats = [
-    { label: "Sellers", value: String(sellerCount), detail: "Motivated sellers tracked in acquisitions." },
-    { label: "Buyers", value: String(buyerCount), detail: "Capital partners on file for matching." },
-    { label: "Properties", value: String(propertyCount), detail: "Commercial assets in the system." },
-    { label: "Opportunities", value: String(opportunityCount), detail: "Deals across the 13-stage pipeline." },
-    { label: "Tasks", value: String(taskCount), detail: "Execution items, open and completed." },
-    { label: "Documents", value: String(documentCount), detail: "Files uploaded across deals." },
+    { label: "Sellers", value: String(sellerCount), detail: "Motivated sellers tracked in acquisitions.", href: "/sellers" },
+    { label: "Buyers", value: String(buyerCount), detail: "Capital partners on file for matching.", href: "/buyers" },
+    { label: "Properties", value: String(propertyCount), detail: "Commercial assets in the system.", href: "/properties" },
+    { label: "Opportunities", value: String(opportunityCount), detail: "Deals across the 13-stage pipeline.", href: "/opportunities" },
+    { label: "Tasks", value: String(taskCount), detail: "Execution items, open and completed.", href: "/tasks" },
+    { label: "Documents", value: String(documentCount), detail: "Files uploaded across deals.", href: "/documents" },
   ];
 
   const analyzerMetrics = latestAnalysis
@@ -153,34 +156,40 @@ export default async function DashboardPage() {
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
             <div>
               <p className="eyebrow">Pipeline</p>
-              <h2 className="mt-0.5 text-base font-semibold text-slate-900">Recent opportunities</h2>
+              <HardLink href="/opportunities" className="mt-0.5 inline-block text-base font-semibold text-slate-900 hover:text-brand-700">
+                Recent opportunities
+              </HardLink>
             </div>
             {opportunities.length > 0 ? (
-              <Badge tone="brand">{opportunityCount} total</Badge>
+              <HardLink href="/opportunities" className="rounded-full focus:outline-none focus:ring-4 focus:ring-brand-500/10">
+                <Badge tone="brand">{opportunityCount} total</Badge>
+              </HardLink>
             ) : null}
           </div>
           {opportunities.length > 0 ? (
             <ul className="divide-y divide-slate-100">
               {opportunities.map((opportunity) => (
-                <li
-                  key={opportunity.id}
-                  className="flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-slate-50/60"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-slate-900">{opportunity.title}</p>
-                    <p className="mt-0.5 text-xs text-slate-500">
-                      {titleCase(opportunity.property.assetType)} · {opportunity.property.city},{" "}
-                      {opportunity.property.state}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1.5">
-                    <Badge tone="info" dot>
-                      {titleCase(opportunity.stage)}
-                    </Badge>
-                    <span className="metric text-sm font-medium text-emerald-600">
-                      {formatUsd(opportunity.assignmentFeeUsd ?? opportunity.contractValueUsd, true)}
-                    </span>
-                  </div>
+                <li key={opportunity.id}>
+                  <Link
+                    href={`/opportunities/${opportunity.id}`}
+                    className="flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-slate-50/60 focus:outline-none focus:ring-4 focus:ring-inset focus:ring-brand-500/10"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-slate-900">{opportunity.title}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {titleCase(opportunity.property.assetType)} · {opportunity.property.city},{" "}
+                        {opportunity.property.state}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1.5">
+                      <Badge tone="info" dot>
+                        {titleCase(opportunity.stage)}
+                      </Badge>
+                      <span className="metric text-sm font-medium text-emerald-600">
+                        {formatUsd(opportunity.assignmentFeeUsd ?? opportunity.contractValueUsd, true)}
+                      </span>
+                    </div>
+                  </Link>
                 </li>
               ))}
             </ul>
