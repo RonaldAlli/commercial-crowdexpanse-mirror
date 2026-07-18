@@ -14,7 +14,12 @@ export type GateItem = { required: boolean; status: ChecklistItemStatus };
  * which is not a valid state for a required item) blocks. Pure — no side effects.
  */
 export function isClosingReady(items: GateItem[]): boolean {
-  return items.every((i) => !i.required || i.status === "COMPLETE" || i.status === "WAIVED");
+  const required = items.filter((i) => i.required);
+  // Fail CLOSED on a checklist with no required items: an empty or all-optional checklist is a
+  // misconfiguration, and `[].every()` would otherwise return true — silently opening the PAID gate
+  // on the ABSENCE of requirements (OPP-1). The gate must open only when real requirements are met.
+  if (required.length === 0) return false;
+  return required.every((i) => i.status === "COMPLETE" || i.status === "WAIVED");
 }
 
 /** The required items that still block the PAID gate (for surfacing "what's left"). */
@@ -29,6 +34,11 @@ export function blockingItems<T extends GateItem>(items: T[]): T[] {
  * server action (the enforcement path carries its own reason) and the detail UI.
  */
 export function closingBlockMessage<T extends GateItem & { label: string }>(items: T[]): string | null {
+  // Keep the message consistent with isClosingReady's fail-closed rule (OPP-1): a checklist with no
+  // required items is not "ready" (null) — it is misconfigured, and the message must say so.
+  if (items.filter((i) => i.required).length === 0) {
+    return "Cannot move to Paid — the closing checklist has no required items (configuration issue).";
+  }
   const outstanding = blockingItems(items).map((i) => i.label);
   if (outstanding.length === 0) return null;
   const noun = outstanding.length === 1 ? "item" : "items";

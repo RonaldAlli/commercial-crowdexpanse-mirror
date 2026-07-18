@@ -145,7 +145,7 @@ test("missing optional domain records still produce a visible row (nulls, no exc
   assert.equal(row.assignment, null);
   assert.equal(row.nextMilestone, null); // no live deadlines
   assert.equal(row.readiness?.requiredTotal, 0);
-  assert.equal(row.readiness?.ready, true); // an empty checklist is vacuously ready
+  assert.equal(row.readiness?.ready, false); // OPP-1: an empty checklist is NOT vacuously ready (fail closed)
 });
 
 test("a ready deal reports ready with no blockers", () => {
