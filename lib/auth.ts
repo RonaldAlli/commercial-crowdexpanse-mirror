@@ -93,6 +93,7 @@ export type CurrentUser = {
   role: UserRole;
   organizationId: string;
   organizationName: string;
+  organizationSlug: string;
 };
 
 /** Resolve the signed session to a live user record, or null. */
@@ -133,6 +134,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     role: user.role,
     organizationId: user.organizationId,
     organizationName: user.organization.name,
+    organizationSlug: user.organization.slug,
   };
 }
 

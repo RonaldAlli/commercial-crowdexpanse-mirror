@@ -138,6 +138,40 @@ enum MatchStatus {
   CONFIRMED
 }
 
+enum ContactOutreachStatus {
+  NEW
+  ATTEMPTING
+  CONTACTED
+  RESPONDED
+  QUALIFIED
+  DEAD
+  DO_NOT_CONTACT
+}
+
+enum ContactMethod {
+  CALL
+  TEXT
+  EMAIL
+  MAIL
+}
+
+enum ContactTouchType {
+  CALL
+  TEXT
+  EMAIL
+  MAIL
+  NOTE
+}
+
+enum OpportunityDiligenceStatus {
+  NOT_REQUESTED
+  REQUESTED
+  RECEIVED
+  REVIEWED
+  MISSING
+  NOT_APPLICABLE
+}
+
 enum UserRole {
   ADMIN
   ACQUISITIONS
@@ -264,6 +298,10 @@ model User {
   notes                   Note[]
   documents               Document[]
   activities              ActivityLog[]
+  assignedOwnerContacts   OwnerContact[]     @relation("OwnerContactAssignee")
+  assignedSellers         Seller[]           @relation("SellerAssignee")
+  assignedBuyers          Buyer[]            @relation("BuyerAssignee")
+  contactTouches          ContactTouch[]     @relation("ContactTouchActor")
 
   @@index([organizationId])
   @@index([organizationId, lifecycleState])
@@ -291,6 +329,9 @@ model Organization {
   settings               OrganizationSettings?
   emailMessages          EmailMessage[]
   owners                 Owner[]
+  ownerContacts          OwnerContact[]
+  contactTouches         ContactTouch[]
+  diligenceItems         OpportunityDiligenceItem[]
   ownerMerges            OwnerMergeRecord[]
   observations           Observation[]
   signals                IntelligenceSignal[]
@@ -472,6 +513,7 @@ model Owner {
   mergedFrom     Owner[]                   @relation("OwnerMerge")
   aliases        OwnerAlias[]
   externalIds    OwnerExternalIdentifier[]
+  contacts       OwnerContact[]
   sellers        Seller[]
   properties     Property[]
 
@@ -480,6 +522,64 @@ model Owner {
   @@index([matchKey])
   @@index([mergedIntoId])
   @@map("owners")
+}
+
+model OwnerContact {
+  id                     String                @id @default(cuid())
+  organizationId         String
+  ownerId                String
+  label                  String?
+  contactName            String?
+  company                String?
+  email                  String?
+  phone                  String?
+  mailingAddress         String?
+  notes                  String?
+  isPrimary              Boolean               @default(false)
+  outreachStatus         ContactOutreachStatus @default(NEW)
+  preferredContactMethod ContactMethod?
+  nextFollowUpAt         DateTime?
+  assignedUserId         String?
+  doNotCall              Boolean               @default(false)
+  doNotEmail             Boolean               @default(false)
+  doNotText              Boolean               @default(false)
+  badPhone               Boolean               @default(false)
+  badEmail               Boolean               @default(false)
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+  organization           Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner                  Owner                 @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  assignedUser           User?                 @relation("OwnerContactAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  touchHistory           ContactTouch[]
+
+  @@index([organizationId])
+  @@index([ownerId])
+  @@index([assignedUserId])
+  @@map("owner_contacts")
+}
+
+model ContactTouch {
+  id             String           @id @default(cuid())
+  organizationId String
+  ownerContactId String?
+  sellerId       String?
+  buyerId        String?
+  type           ContactTouchType
+  summary        String?
+  createdById    String?
+  createdAt      DateTime         @default(now())
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ownerContact   OwnerContact?    @relation(fields: [ownerContactId], references: [id], onDelete: SetNull)
+  seller         Seller?          @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  buyer          Buyer?           @relation(fields: [buyerId], references: [id], onDelete: SetNull)
+  createdBy      User?            @relation("ContactTouchActor", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([ownerContactId])
+  @@index([sellerId])
+  @@index([buyerId])
+  @@index([createdById])
+  @@map("contact_touches")
 }
 
 // Reversible, audited record of an owner merge (Commit 1a-2). Structural only —
@@ -592,51 +692,75 @@ model EmailMessage {
 }
 
 model Seller {
-  id             String        @id @default(cuid())
-  organizationId String
-  ownerId        String? // v1.2: the canonical Owner this deal contact represents (nullable, additive)
-  name           String
-  company        String?
-  email          String?
-  phone          String?
-  motivation     String?
-  city           String?
-  state          String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  owner          Owner?        @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  properties     Property[]
-  opportunities  Opportunity[]
-  notes          Note[]
-  documents      Document[]
-  activities     ActivityLog[]
+  id                     String                @id @default(cuid())
+  organizationId         String
+  ownerId                String? // v1.2: the canonical Owner this deal contact represents (nullable, additive)
+  name                   String
+  company                String?
+  email                  String?
+  phone                  String?
+  motivation             String?
+  city                   String?
+  state                  String?
+  outreachStatus         ContactOutreachStatus @default(NEW)
+  preferredContactMethod ContactMethod?
+  nextFollowUpAt         DateTime?
+  assignedUserId         String?
+  doNotCall              Boolean               @default(false)
+  doNotEmail             Boolean               @default(false)
+  doNotText              Boolean               @default(false)
+  badPhone               Boolean               @default(false)
+  badEmail               Boolean               @default(false)
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+  organization           Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner                  Owner?                @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  assignedUser           User?                 @relation("SellerAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  properties             Property[]
+  opportunities          Opportunity[]
+  notes                  Note[]
+  documents              Document[]
+  activities             ActivityLog[]
+  touchHistory           ContactTouch[]
 
   @@index([organizationId])
   @@index([ownerId])
+  @@index([assignedUserId])
   @@map("sellers")
 }
 
 model Buyer {
-  id                 String        @id @default(cuid())
-  organizationId     String
-  name               String
-  company            String?
-  email              String?
-  phone              String?
-  targetAssetTypes   AssetType[]
-  targetStates       String[]
-  minimumPurchaseUsd Int?
-  maximumPurchaseUsd Int?
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
-  organization       Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  matches            BuyerMatch[]
-  notes              Note[]
-  documents          Document[]
-  activities         ActivityLog[]
+  id                     String                @id @default(cuid())
+  organizationId         String
+  name                   String
+  company                String?
+  email                  String?
+  phone                  String?
+  targetAssetTypes       AssetType[]
+  targetStates           String[]
+  minimumPurchaseUsd     Int?
+  maximumPurchaseUsd     Int?
+  outreachStatus         ContactOutreachStatus @default(NEW)
+  preferredContactMethod ContactMethod?
+  nextFollowUpAt         DateTime?
+  assignedUserId         String?
+  doNotCall              Boolean               @default(false)
+  doNotEmail             Boolean               @default(false)
+  doNotText              Boolean               @default(false)
+  badPhone               Boolean               @default(false)
+  badEmail               Boolean               @default(false)
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+  organization           Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedUser           User?                 @relation("BuyerAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  matches                BuyerMatch[]
+  notes                  Note[]
+  documents              Document[]
+  activities             ActivityLog[]
+  touchHistory           ContactTouch[]
 
   @@index([organizationId])
+  @@index([assignedUserId])
   @@map("buyers")
 }
 
@@ -843,6 +967,7 @@ model Opportunity {
   escrow           EscrowRecord?
   financing        FinancingRecord?
   assignment       AssignmentRecord?
+  diligenceItems   OpportunityDiligenceItem[]
   tasks            Task[]
   notes            Note[]
   documents        Document[]
@@ -853,6 +978,30 @@ model Opportunity {
   @@index([propertyId])
   @@index([sellerId])
   @@map("opportunities")
+}
+
+model OpportunityDiligenceItem {
+  id             String                    @id @default(cuid())
+  organizationId String
+  opportunityId  String
+  key            String
+  label          String
+  position       Int
+  status         OpportunityDiligenceStatus @default(NOT_REQUESTED)
+  requestedAt    DateTime?
+  receivedAt     DateTime?
+  reviewedAt     DateTime?
+  notes          String?
+  documentId     String?
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity    Opportunity               @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@unique([opportunityId, key])
+  @@index([organizationId])
+  @@index([opportunityId, position])
+  @@map("opportunity_diligence_items")
 }
 
 // DEPRECATED (v1.3, Commit 3a). DealAnalysis is superseded by the canonical
