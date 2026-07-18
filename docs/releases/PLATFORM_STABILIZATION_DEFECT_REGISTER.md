@@ -37,20 +37,22 @@ maintainability/latent risk) · Low (hygiene/docs). **No defect below is Critica
 - **Required fix:** document the boundary in the [Source-of-Truth Matrix](../architecture/PLATFORM_SOURCE_OF_TRUTH_MATRIX.md) + `CRM_OPERATIONS_BOUNDARY.md` (owner-contact outreach = per-contact; seller/buyer outreach = per-lead). **Test:** optional. **Migration:** no.
 - **Order:** Wave 5 (documentation, then confirm no dedup needed).
 
-### D-DOC-1 — Roadmap volumes understate production migration state · **Low**
+> **Wave 4 update (2026-07-18):** D-DOC-1…4 **RESOLVED** — `RELEASE_PLAN.md`, `VERSION_2_0.md`, `EXECUTIVE_DASHBOARD.md` corrected (prod=30, 1.4 Released, 2.0.1 accepted-paused, CRM added) and pointed at the [Canonical Roadmap](../roadmap/CANONICAL_PLATFORM_ROADMAP.md) as the single status surface. D-DOC-5 **mitigated** (ATM advisory banner added in-product; route relocation optional). See [Wave 4 Acceptance](./PLATFORM_RESTORATION_WAVE_4_ACCEPTANCE.md).
+
+### D-DOC-1 — Roadmap volumes understate production migration state · **Low** · ✅ *RESOLVED (Wave 4)*
 - `VERSION_2_0.md`, `EXECUTIVE_DASHBOARD.md` state "prod at 26 migrations / automation not applied." Reality: **prod at 30** (migration 27 applied but executor paused; CRM 28–30). Repro: `prisma migrate status` on prod = 30.
 - **Fix:** reconcile the roadmap volumes to prod=30 + the accepted CRM layer. **Migration:** no. **Order:** Wave 4/7 (doc reconciliation).
 
-### D-DOC-2 — `RELEASE_PLAN.md` marks 1.4 "Planned" · **Low**
+### D-DOC-2 — `RELEASE_PLAN.md` marks 1.4 "Planned" · **Low** · ✅ *RESOLVED (Wave 4)*
 - Contradicts `V1_4_ACCEPTANCE.md` (1.4 accepted/released/frozen 2026-07-16). **Fix:** update to Released. **Order:** doc reconciliation.
 
-### D-DOC-3 — CRM layer absent from the roadmap surface · **Low**
+### D-DOC-3 — CRM layer absent from the roadmap surface · **Low** · ✅ *RESOLVED (Wave 4)*
 - The accepted, in-production CRM features appear only in `releases/`+`architecture/`, not the roadmap volumes. **Fix:** add the CRM entry (now captured in the [Canonical Roadmap](../roadmap/CANONICAL_PLATFORM_ROADMAP.md) seq 9). **Order:** doc reconciliation.
 
-### D-DOC-4 — Dashboard / MODULE_ROADMAPS lag · **Low**
+### D-DOC-4 — Dashboard / MODULE_ROADMAPS lag · **Low** · ✅ *RESOLVED (Wave 4, Dashboard)*
 - `EXECUTIVE_DASHBOARD.md` "last reviewed 2026-07-16" predates the 2.0.1 prod migration + CRM reconciliation. **Fix:** refresh review date + status. **Order:** doc reconciliation.
 
-### D-DOC-5 — `/analyzer/atm-wholesale` route location · **Low (cosmetic)**
+### D-DOC-5 — `/analyzer/atm-wholesale` route location · **Low (cosmetic)** · 🟡 *mitigated (Wave 4: advisory banner)*
 - ATM Wholesale (a CRM wholesale tool) lives under the underwriting analyzer route group. It does **not** couple to `lib/analysis.ts` and persists nothing, so it is not a source-of-truth risk — only a navigational/roadmap-labeling mismatch. **Fix:** document (and optionally relocate under a CRM route group in a later, separately-reviewed change — not required for correctness). **Order:** Wave 6 (optional).
 
 ---

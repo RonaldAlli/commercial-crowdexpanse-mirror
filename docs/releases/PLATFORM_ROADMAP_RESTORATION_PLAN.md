@@ -60,7 +60,9 @@ impact · test evidence · regression evidence · production risk · rollback pl
   existing suite; add (optional) an assertion test that CRM diligence cannot affect Closing readiness.
   **No code change.** **Migration:** no.
 
-### Wave 4 — Projections & UI + documentation reconciliation
+### Wave 4 — Projections & UI + documentation reconciliation · ✅ **DONE (2026-07-18) — PENDING FOUNDER REVIEW**
+> Doc drift corrected (RELEASE_PLAN/VERSION_2_0/EXECUTIVE_DASHBOARD), CRM integrated into the roadmap surface, navigation audited (clean/role-aware), shared projections verified (no duplication), ATM advisory banner added, diligence UI confirmed pre-contract. Gate green (unit 58, E2E 40, build). See [Wave 4 Acceptance](./PLATFORM_RESTORATION_WAVE_4_ACCEPTANCE.md).
+
 - **Scope:** (a) confirm TX-6 reuse (verify-only); (b) **reconcile documentation drift** (D-DOC-1…5):
   update `VERSION_2_0.md`/`EXECUTIVE_DASHBOARD.md` to prod=30, fix `RELEASE_PLAN.md` (1.4 Released),
   add the CRM layer to the roadmap surface (done in the Canonical Roadmap), refresh review dates.
