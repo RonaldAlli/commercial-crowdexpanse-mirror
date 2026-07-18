@@ -13,18 +13,44 @@ unit **62 files / 93%** · E2E **42/42** · isolated build OK · V1.3 underwriti
 
 ---
 
-## Reference — the stage model this audit revealed
-The `stage` field is a **free-standing label, never derived from or synchronized with** the domain
-objects that own each fact. Classifying stages (per Founder direction) makes the findings precise:
+## Governing model (Founder-defined) — stages are PROJECTIONS, not truth
+**Pipeline stages are operational projections over authoritative business facts.** A stage never
+*owns* truth — it *visualizes* it. Every fact flows through three layers:
 
-| Class | Stages | Truth owner | Transition posture |
-|---|---|---|---|
-| **Workflow** | LEAD, SELLER_CONTACTED, INTERESTED_SELLER, FINANCIALS_REQUESTED, UNDERWRITING, OFFER_READY | operational (some none) | may warrant lightweight "truth exists" checks |
-| **State** | T12_RECEIVED, RENT_ROLL_RECEIVED, LOI_SENT, UNDER_CONTRACT, BUYER_MATCHED, PAID | external facts / domain records | must stay freely settable (deals import mid-lifecycle) |
-| **Hybrid** | CLOSING | Checklist + Escrow + Financing + Assignment | workflow label over multi-object truth |
+1. **Business event** — what actually happened (e.g., "contract executed").
+2. **Authoritative truth** — the object that owns it (`Document`, `BuyerMatch`, `Scenario`,
+   `OpportunityDiligenceItem`, `ClosingChecklist`, …).
+3. **Pipeline label** — the stage that *displays* it (`UNDER_CONTRACT`, …).
 
-This is *why* the transition matrix looks "too permissive": permissiveness is **correct** for State
-stages and **under-specified** for Workflow stages — a stage↔truth question, not an adjacency one.
+Under this model the structural findings largely dissolve: **OWN-2** (T12_RECEIVED vs the diligence
+item) disappears once the stage merely *reflects* the `OpportunityDiligenceItem` that owns the fact;
+**OWN-4** becomes a product choice — a stage either projects a real artifact or must not *imply* one
+exists. Keeping every stage a **read-only projection** is what prevents the pipeline from becoming a
+second source of truth. (This supersedes my earlier Workflow/State/Hybrid framing, which is now just a
+secondary lens.)
+
+### Opportunity Semantic Contract (decision-input — observable facts from code; **rulings are the Founder's**)
+Per stage: business event · truth owner (today) · proving artifact (today) · **decision needed**. A
+worksheet for your rulings — **not** an architecture lock, and no synchronization code until it's ruled.
+
+| Stage | Business event | Truth owner (today) | Proving artifact (today) | Decision needed |
+|---|---|---|---|---|
+| LEAD | Lead captured | `Opportunity` | Opportunity + Property | baseline — none |
+| SELLER_CONTACTED | Seller contacted | `ContactTouch` / `Seller.outreachStatus` | ContactTouch | project from outreach truth? |
+| INTERESTED_SELLER | Seller interested | *(none — soft)* | none | define a truth owner, or accept a soft label? |
+| FINANCIALS_REQUESTED | Financials requested | `OpportunityDiligenceItem` | diligence item | project from diligence? |
+| T12_RECEIVED | T‑12 received | `diligenceItem(t12)` | diligence item | project from diligence (resolves OWN-2) |
+| RENT_ROLL_RECEIVED | Rent roll received | `diligenceItem(rent_roll)` | diligence item | project from diligence (resolves OWN-2) |
+| UNDERWRITING | Underwriting underway | `UnderwritingScenario` / `Decision` | Scenario | activity or state? |
+| OFFER_READY | Offer prepared | `UnderwritingDecision` + Offer‑Memo `Document` | Offer‑Memo doc | require approved decision + memo? |
+| LOI_SENT | LOI sent | `Document(LOI)` *(gen deferred)* | none | create the LOI artifact, or accept the label? |
+| UNDER_CONTRACT | Contract executed | executed‑contract `Document` *(none formal)* + `contractValueUsd?` | none formal | **require an executed‑contract artifact? (OWN-4)** |
+| BUYER_MATCHED | Buyer matched | `BuyerMatch` | BuyerMatch | must a `BuyerMatch` exist? |
+| CLOSING | Closing underway | Checklist + Escrow + Financing + Assignment | ClosingChecklist | (hybrid — already well-owned) |
+| PAID | Deal closed / funded | Checklist COMPLETE **(+ funding/escrow/assignment?)** | ClosingChecklist | **what proves PAID, per acquisition model? (OWN-3)** |
+
+*All stage consumers today — board/list, dashboard, timeline, badges — are already read-only
+projections; the governing model asks that they stay that way.*
 
 ---
 
@@ -58,7 +84,8 @@ stages and **under-specified** for Workflow stages — a stage↔truth question,
 
 ---
 
-## B. Confirmed inconsistencies — RUNTIME-REPRODUCED · NOT fixed (design decisions)
+## B. Architecture Decisions Required — runtime-reproduced (OWN-2, OWN-3)
+*Real, evidence-based — but decisions/undefined semantics, not defects. Resolve via the governing model + Semantic Contract above.*
 
 ### OWN-2 · Pipeline stage vs Diligence = dual, unsynchronized source of truth · **MEDIUM/HIGH**
 - **Runtime-confirmed:** stage set to `T12_RECEIVED` while the `t12` diligence item is `NOT_REQUESTED`;
@@ -84,7 +111,7 @@ stages and **under-specified** for Workflow stages — a stage↔truth question,
 
 ---
 
-## C. Structural / policy findings (design decisions — no code change proposed yet)
+## C. Architecture Decisions Required — governing & undefined (OWN-1, OWN-4) · plus policy question (OPP-3)
 
 - **OWN-1 · No formal contract for stage semantics · HIGH (governing decision).** The deeper issue
   beneath "stage is a free label" is that **the platform has never formally defined what each stage
@@ -109,10 +136,11 @@ stages and **under-specified** for Workflow stages — a stage↔truth question,
 
 ## Summary — three decision buckets
 **A · Confirmed code defects (fix now):** OPP-1, OPP-4 — ✅ fixed + regression-tested, Founder-accepted.
-**B · Confirmed architectural inconsistencies (your product/design decisions):** OWN-1 (governing),
-OWN-2, OWN-3, OWN-4 — real, evidence-based; **no code until stage semantics are ruled.**
-**C · Policy questions:** admin-warning on disruptive jumps (OPP-3); whether specific Workflow stages
-should validate backing-truth existence; what PAID means across acquisition strategies.
+**B · Architecture Decisions Required (some *undefined*, not merely inconsistent — your ruling):** OWN-1
+(the governing projection model above), OWN-2, OWN-3, OWN-4 — real, evidence-based; **no code until the
+Opportunity Semantic Contract is ruled.**
+**C · Policy questions:** admin-warning on disruptive jumps (OPP-3); whether specific stages should
+validate backing-truth existence; what PAID means across acquisition strategies.
 
 | ID | Finding | Bucket | State |
 |---|---|---|---|
@@ -124,7 +152,10 @@ should validate backing-truth existence; what PAID means across acquisition stra
 | OWN-4 | stages with no backing artifact | B | Design decision |
 | OPP-3 | ADMIN moves unguarded (audited, unwarned) | C | Policy question |
 
-**Sequencing (per Founder direction):** rule the **stage-semantics contract (OWN-1) first**, then
-OWN-2/OWN-3/OWN-4 and the policy questions — **only then** implement any stage↔truth synchronization,
-validation, or template-policy code. Synchronizing before the semantics are defined would encode the
-wrong rules. The two fixed defects (OPP-1, OPP-4) are self-contained and independent of all of the above.
+**Sequencing (per Founder direction) — the next work is the *Opportunity Semantic Contract*, not code.**
+For **every stage**, rule: (1) what business event occurred · (2) what object owns the truth · (3) what
+artifact proves it · (4) what projection displays it · (5) what consumers rely on it. The matrix above
+is its decision-input draft (observable facts filled; rulings are yours). **Only after those rulings**
+implement any stage↔truth synchronization, validation, or template-policy code — synchronizing first
+would encode the wrong rules. The two fixed defects (OPP-1, OPP-4) are self-contained and independent
+of all of the above.
