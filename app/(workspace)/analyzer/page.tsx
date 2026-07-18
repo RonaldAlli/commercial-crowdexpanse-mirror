@@ -57,6 +57,11 @@ export default async function AnalyzerPage() {
       eyebrow="Underwriting"
       title="Deal Analyzer"
       description="Underwrite each opportunity — NOI, cap rate, DSCR, debt yield, and spread."
+      actions={
+        <Link className="btn-ghost" href="/analyzer/atm-wholesale">
+          ATM wholesale calculator
+        </Link>
+      }
     />
   );
 
