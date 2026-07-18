@@ -6,21 +6,14 @@
 
 ---
 
-## 0. Current production state (authoritative snapshot)
+## 0. Current production state
 
-| Fact | Value (as of 2026-07-18) |
-|---|---|
-| `main` tip | `ba1bd7c` (local = Gitea = GitHub) |
-| Production build | `YPHm2Nw65jWb7JlF7eLUn` · web healthy |
-| Production migrations | **30** (no drift; 1–27 roadmap/automation, 28–30 CRM) |
-| Frozen tags | `v1.3.0` (`bca39f4` → `d341c0a`) · `v1.4.0` (`c1133ad` → `ece38aa`) — annotated tag object → peeled commit |
-| Automation | **accepted (2.0.1) but PAUSED** — migration 27 in prod, executor **never started**, 0 jobs / 0 executions ([D19](./roadmap/TECHNICAL_DEBT.md) open) |
-| CRM layer | Founder-accepted 2026-07-18 (migr 28–30); additive, org-scoped, isolated from Underwriting/Closing |
-| Data integrity | clean (0 cross-org / 0 orphan / 0 duplicate) — audit: `scripts/audit/crm-integrity.mjs` |
-| Restoration | Discovery + Waves 1 & 4 done on `stabilize/roadmap-restoration` (pending review) |
-
-> The **[Canonical Platform Roadmap](./roadmap/CANONICAL_PLATFORM_ROADMAP.md)** is the maintained
-> current-status surface; other roadmap docs link to it. Avoid duplicating operational values.
+**→ [CURRENT_PLATFORM_STATUS.md](./CURRENT_PLATFORM_STATUS.md)** is the **single operational
+current-state surface** (commit, build, migration count, automation/process state, restoration
+status — with an "as of" timestamp). This index deliberately does **not** duplicate those volatile
+values; it is **stable navigation + architecture references** only. The [Canonical Platform
+Roadmap](./roadmap/CANONICAL_PLATFORM_ROADMAP.md) holds the stable roadmap chronology; per-version
+operational figures link back to the current-status doc to avoid re-creating documentation drift.
 
 ---
 

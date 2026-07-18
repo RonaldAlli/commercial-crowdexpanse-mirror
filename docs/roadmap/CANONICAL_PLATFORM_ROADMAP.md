@@ -12,6 +12,11 @@
 > **Authoritative:** the roadmap + accepted architecture. Production behavior is evidence of what
 > exists, not proof it is correct. This document reconstructs the *intended and accepted* sequence
 > and marks each item's real status against code/prod.
+>
+> **Live operational values** (current `main` tip, serving build, migration count, automation
+> process state) live in **one** place — [CURRENT_PLATFORM_STATUS.md](../CURRENT_PLATFORM_STATUS.md).
+> This roadmap holds the **stable chronology**; where it references a figure like "prod 30" it is a
+> point-in-time note — defer to the current-status doc for the live number.
 
 ---
 
