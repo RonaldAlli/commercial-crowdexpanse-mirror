@@ -27,6 +27,7 @@
     "db:migrate:status": "prisma migrate status",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "import:dealautomator-leads": "tsx scripts/import-dealautomator-commercial-leads.ts",
     "playwright:install": "playwright install chromium",
     "test:visual": "npm run build:isolated && playwright test",
     "test:visual:closing": "playwright test tests/visual/closing-center.behavior.spec.ts",
@@ -40,7 +41,8 @@
     "next": "14.2.20",
     "nodemailer": "^6.10.1",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1",
