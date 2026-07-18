@@ -1,13 +1,43 @@
 # CRM Production Reconciliation — Acceptance Package
 
-> **Status: PENDING FOUNDER ACCEPTANCE.** This branch captures the live production CRM work
-> (contacts / outreach / diligence / lead-import / ATM-wholesale) faithfully in Git so that
-> `main` can once again represent production. **Nothing is merged or deployed.** The Phase 2.0.1
-> Automation rollout **remains paused**.
+> **Status: PENDING FOUNDER ACCEPTANCE (remediated 2026-07-18).** This branch captures the live
+> production CRM work (contacts / outreach / diligence / lead-import / ATM-wholesale) faithfully
+> in Git so that `main` can once again represent production, **plus two bounded security
+> remediations** applied on top of the faithful-capture commits. **Nothing is merged or
+> deployed.** The Phase 2.0.1 Automation rollout **remains paused**.
 >
 > **Branch:** `stabilize/crm-production-reconciliation` (from `main` `ee7bfc9`).
 > **Companions:** [CRM Operations Boundary](../architecture/CRM_OPERATIONS_BOUNDARY.md) ·
+> [ADR-0006 Import File Parser](../architecture/adr/ADR-0006-CRM-IMPORT-FILE-PARSER.md) ·
 > [Stabilization Audit](./V2_0_1_STABILIZATION_AUDIT.md) · [Change Inventory](./V2_0_1_CHANGE_INVENTORY.md).
+
+---
+
+## 0. Remediation (2026-07-18) — applied before acceptance
+
+Two review findings were corrected in **separate remediation commits** (the 7 faithful-capture
+commits are unchanged):
+
+**R1 — Import-job organization isolation.** `listLeadImportJobs` no longer reads all jobs
+globally. The read surface was extracted to a pure, testable `lib/lead-import-jobs-core.ts` and
+is now **organization-scoped and fail-closed**: `listLeadImportJobs(organizationId)` returns only
+the caller's jobs; `getLeadImportJob(organizationId, jobId)` validates job-id shape **and** org
+ownership, returning a **uniform `null`** on mismatch/missing-org (no cross-org existence
+disclosure); records without an `organizationId` are suppressed; the public projection **never
+returns absolute server paths** (only a basename display name). `page.tsx` now passes
+`user.organizationId`; the UI no longer renders `sourceFile`/`logFile` paths. Every job record now
+records `organizationId`.
+
+**R2 — Safe import parsing (ADR-0006, Option A: CSV-only).** The SheetJS `xlsx` untrusted-file
+parser was **removed entirely** (`npm ls xlsx` → empty; dependency + lockfile + source). Intake is
+CSV/TSV/TXT/JSON via the existing bounded parser, with a **pre-parse file-size cap** (15 MB, via
+`stat` before read) and **row/column/cell-length limits** enforced during parsing (50,000 / 200 /
+20,000). `.xlsx`/`.xls` are rejected explicitly; the upload allowlist dropped Excel.
+
+**Tests added (20, all pass):** `tests/unit/crm/lead-import-jobs-core.test.ts` (10 — A/B
+isolation, cross-org read denial, missing-org fail-closed, malformed metadata, id-traversal
+rejection, no-path-leak) + `tests/unit/crm/lead-import-parse.test.ts` (10 — Excel/oversized/row/
+column/cell rejection, valid CSV).
 
 ---
 
@@ -143,8 +173,10 @@ access and do not broaden accepted formats.**
 | `prisma validate` | valid |
 | `prisma migrate status` | 30 migrations, up to date, no drift |
 | `tsc --noEmit` (final committed tree) | **0 errors** |
-| Unit suite | **PASS** — 55 files (incl. ATM-calculator test), all critical ≥90% branch, overall **93.0%** |
+| Unit suite | **PASS** — **57 files** (incl. ATM-calculator + 2 new CRM security tests), all critical ≥90% branch, overall **93.0%** |
 | Full E2E suite | **39/39 scripts pass** (also clears the D21 contamination that failed the shared-env run) |
+| Dependency audit | `xlsx` **removed** from the tree (untrusted-file parser risk eliminated). Remaining `npm audit` findings are **pre-existing platform-dependency** advisories (Next.js image opt., etc.) present at `v1.4.0` — out of scope, tracked separately. |
+| Isolated production build | passes |
 | Frozen kernel vs `v1.4.0` | `lib/analysis.ts`, `lib/closing.ts`, `lib/transaction-dashboard.ts` **unchanged** |
 | Automation spine vs `07add1e` | **byte-unchanged**; automation still inert |
 
@@ -162,6 +194,19 @@ untouched; the automation spine + migration 27 are byte-unchanged; frozen refs
 (`release/1.3`/`release/1.4`/`v1.3.0`/`v1.4.0`) unmoved.
 
 ---
+
+## 10b. Production exposure assessment (read-only, 2026-07-18)
+
+- **Who can access:** the import UI/action is **ADMIN-only** (`requireRole(UserRole.ADMIN)`) — not
+  publicly accessible.
+- **Has it been used:** yes — 2 historical job files exist in prod `/tmp/commercial-import-jobs`
+  (2026-07-16). They were written by the pre-fix code and **lack `organizationId`**, so the
+  remediated read code fails them closed (they will not list) — safe by design.
+- **Unsafe files retained:** **none** — no `.xlsx`/`.xls` found in the job dir, `uploads/`, or
+  `imports/`; no lingering lead-import upload files.
+- **Immediate risk:** **none** (admin-only, no retained unsafe files, feature not publicly
+  exposed). **No emergency production change was made.** The remediation reaches production only
+  through the normal, Founder-gated merge + deploy of this branch.
 
 ## 11. Known risks & rollback considerations
 

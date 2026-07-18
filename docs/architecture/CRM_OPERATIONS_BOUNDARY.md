@@ -85,13 +85,24 @@ pipeline stage, or any frozen domain's truth.
   outreach send (email/SMS) must go through an explicit, policy-gated, audited channel (the
   Automation communication phase / AU-11) — **never** directly from a CRM action.
 
-## 9. Import provenance & source-of-truth rules
+## 9. Import ownership & provenance (LOCKED)
 
-- The DealAutomator importer creates/reuses `Owner`/`Property`/`Opportunity`/`Note`/external-id
-  records **within the actor's organization** (membership verified). Imported data is **sourced,
-  not authoritative** beyond what the domains already own; the importer must **fail closed** on
-  org mismatch and must **never** create cross-organization links. Import job metadata must be
-  org-scoped (current gap noted in the acceptance package §7).
+- **Import jobs are owned by exactly one organization.** Every job record carries a required
+  `organizationId`; a record without one is unreadable (fail closed) and never surfaced.
+- **Import metadata is never globally visible.** Listing and reading jobs is organization-scoped;
+  a cross-org read returns a uniform not-found (no existence disclosure), and **absolute server
+  paths are never returned** to any user (only a sanitized display name).
+- **Imported records retain source/provenance** and stay within the actor's organization
+  (actor↔organization membership is verified; the importer fails closed on mismatch and never
+  creates cross-organization links).
+- **Import is not an alternate authoritative CRM database.** Existing `Seller`, `Owner`,
+  `Opportunity`, and `ActivityLog` ownership remains authoritative; import is a **sourcing**
+  channel, not a competing source of truth.
+- **Import may create/reuse records only through approved domain services** (property resolver,
+  identity, etc.) and **cannot bypass** validation, permissions, deduplication, or organization
+  scoping.
+- **Untrusted-file parsing is bounded** (ADR-0006): CSV-only intake, no Excel/SheetJS in the
+  path, with pre-parse size + row/column/cell limits.
 
 ---
 
