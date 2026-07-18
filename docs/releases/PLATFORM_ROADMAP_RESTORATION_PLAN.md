@@ -51,7 +51,9 @@ impact · test evidence · regression evidence · production risk · rollback pl
   [Wave 1 Acceptance](./PLATFORM_RESTORATION_WAVE_1_ACCEPTANCE.md).
 - **Migration:** no. **Risk:** none (tests + docs only).
 
-### Wave 2 — Underwriting integrity
+### Wave 2 — Underwriting integrity · ✅ **DONE (2026-07-18) — PENDING FOUNDER REVIEW**
+> All 14 V1.3 modules byte-identical to v1.4.0; 145 underwriting unit tests + e2e-underwriting (166 assertions) pass; guarantees (determinism/lineage/decision/comparison/offer-memo) intact; no defect. See [Wave 2 Acceptance](./PLATFORM_RESTORATION_WAVE_2_ACCEPTANCE.md).
+
 - **Scope:** verify-only. Re-run the underwriting unit + E2E gate on the branch and record it as
   evidence. **No code change** — V1.3 is byte-intact. **Migration:** no.
 
