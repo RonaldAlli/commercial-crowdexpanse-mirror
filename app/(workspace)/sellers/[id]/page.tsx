@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { EmptyState } from "@/components/empty-state";
 import { NotesSection } from "@/components/notes-section";
 import { Icon } from "@/components/icons";
+import { OwnerPrimaryContactCard } from "@/components/owner-primary-contact-card";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { requireUser } from "@/lib/auth";
@@ -29,7 +30,17 @@ export default async function SellerDetailPage({ params }: { params: { id: strin
   const seller = await prisma.seller.findFirst({
     where: { id: params.id, organizationId: user.organizationId },
     include: {
-      owner: { select: { id: true, displayName: true } },
+      owner: {
+        select: {
+          id: true,
+          displayName: true,
+          contacts: {
+            where: { isPrimary: true },
+            take: 1,
+            orderBy: { createdAt: "desc" },
+          },
+        },
+      },
       properties: { orderBy: { createdAt: "desc" } },
       opportunities: { orderBy: { updatedAt: "desc" } },
       activities: { orderBy: { createdAt: "desc" }, take: 10 },
@@ -46,6 +57,13 @@ export default async function SellerDetailPage({ params }: { params: { id: strin
     { label: "Phone", value: seller.phone },
     { label: "Market", value: [seller.city, seller.state].filter(Boolean).join(", ") || null },
   ];
+  const primaryOwnerContact = seller.owner
+    ? {
+        ...seller.owner.contacts[0],
+        ownerId: seller.owner.id,
+        ownerName: seller.owner.displayName,
+      }
+    : null;
 
   const deleteSellerBound = deleteSeller.bind(null, seller.id);
 
@@ -123,6 +141,8 @@ export default async function SellerDetailPage({ params }: { params: { id: strin
               )}
             </div>
           </article>
+
+          <OwnerPrimaryContactCard title="Owner primary contact" owner={primaryOwnerContact} />
 
           {/* Properties */}
           <article className="card">
