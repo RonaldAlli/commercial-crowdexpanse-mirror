@@ -69,26 +69,33 @@ stages and **under-specified** for Workflow stages — a stage↔truth question,
   the diligence-named stages in favor of the diligence truth, or (d) accept as State stages + document.
   *Highest user-trust impact — the system can display contradictory state.*
 
-### OWN-3 · PAID validates the due-diligence checklist only — not funding/escrow/assignment · **MEDIUM**
-- **Runtime-confirmed:** PAID gate goes **ready** after completing the 4 due-diligence items with
-  **zero** `FinancingRecord` / `EscrowRecord` / `AssignmentRecord`; the default template is
-  `DUE_DILIGENCE`-only.
-- **Root cause:** gate = `isClosingReady(checklist.items)`; domains are decoupled by V1.4 design (AS-J:
-  domains never auto-seed the checklist).
-- **Decision needed (business):** define **"PAID = successful completion of the org's configured
-  closing policy,"** and let the **closing template/policy** encode which artifacts are required per
-  deal type (cash / seller-finance / subject-to / double-close / assignment). No hard-coded rule.
-  *The OPP-1 fix supports this — an org that adds a required Financing/Escrow/Assignment item now has
-  it enforced by the same gate.*
+### OWN-3 · PAID validates the due-diligence checklist only — **OBSERVATION, not a defect** · design decision
+- **Runtime-confirmed behavior (explicitly not labeled wrong):** PAID goes **ready** on the 4
+  due-diligence items with **zero** `FinancingRecord` / `EscrowRecord` / `AssignmentRecord`; the
+  default template is `DUE_DILIGENCE`-only. This is *by V1.4 design* (AS-J: domains never auto-seed
+  the checklist) — it is documented here as an observation, not a bug.
+- **Why it's a decision, not a defect:** whether PAID must require Financing/Escrow/Assignment depends
+  on the **business model** — cash purchase, assignment, seller-finance, subject-to, and double-close
+  do not all require the same artifacts. Treating today's behavior as "wrong" would itself be an error.
+- **Proposed framing (yours to ratify):** **"PAID = successful completion of the org's *configured
+  closing policy*,"** with the closing template/policy encoding required artifacts per deal type. No
+  hard-coded rule. *The OPP-1 fix already makes any such added required item enforceable by the same
+  gate — so this needs a policy decision, not new gate logic.*
 
 ---
 
 ## C. Structural / policy findings (design decisions — no code change proposed yet)
 
-- **OWN-1 · stage↔truth decoupling · HIGH (governing decision).** Adopt: *"stage is an operational
+- **OWN-1 · No formal contract for stage semantics · HIGH (governing decision).** The deeper issue
+  beneath "stage is a free label" is that **the platform has never formally defined what each stage
+  *means*** — so it cannot answer: *Is `UNDERWRITING` an activity or a state? Is `UNDER_CONTRACT` a
+  workflow milestone or evidence that an executed contract exists? Is `BUYER_MATCHED` merely
+  informational or must a `BuyerMatch` object exist?* Proposed contract: *"stage is an operational
   workflow label that must be consistent with authoritative domain truth **where that truth exists**"*
-  + the Workflow/State/Hybrid classification above. This governs OWN-2/OWN-4 and correctly retires my
+  + the Workflow/State/Hybrid classification above. This governs OWN-2/OWN-3/OWN-4 and retires my
   earlier "OPP-2 adjacency" framing (**withdrawn** — imported/mid-lifecycle deals make adjacency wrong).
+  **Do NOT implement stage↔truth synchronization until this semantics contract is ruled — synchronizing
+  before the semantics are defined would encode the wrong rules.**
 - **OWN-4 · stages with no backing artifact · MEDIUM.** `INTERESTED_SELLER`, `LOI_SENT`,
   `UNDER_CONTRACT` record facts no object owns (LOI generation deferred; no executed-contract object;
   `contractValueUsd` optional). Resolve via the OWN-1 classification (State stages may be intentionally
@@ -100,17 +107,24 @@ stages and **under-specified** for Workflow stages — a stage↔truth question,
 
 ---
 
-## Summary
-| ID | Finding | Severity | State |
-|---|---|---|---|
-| OPP-1 | PAID gate fail-open (empty/all-optional checklist) | MEDIUM | ✅ Fixed + regression |
-| OPP-4 | Invalid stage silent no-op | LOW | ✅ Fixed + regression |
-| OWN-2 | stage ⇄ diligence dual truth | MEDIUM/HIGH | Runtime-confirmed · design decision |
-| OWN-3 | PAID ignores funding/escrow/assignment | MEDIUM | Runtime-confirmed · policy decision |
-| OWN-1 | stage↔truth decoupling (governing) | HIGH | Design decision |
-| OWN-4 | stages with no backing artifact | MEDIUM | Design decision |
-| OPP-3 | ADMIN moves unguarded (audited, unwarned) | Low | Policy review |
+## Summary — three decision buckets
+**A · Confirmed code defects (fix now):** OPP-1, OPP-4 — ✅ fixed + regression-tested, Founder-accepted.
+**B · Confirmed architectural inconsistencies (your product/design decisions):** OWN-1 (governing),
+OWN-2, OWN-3, OWN-4 — real, evidence-based; **no code until stage semantics are ruled.**
+**C · Policy questions:** admin-warning on disruptive jumps (OPP-3); whether specific Workflow stages
+should validate backing-truth existence; what PAID means across acquisition strategies.
 
-**Next** (awaiting Founder decisions on OWN-1/OWN-2/OWN-3): only after the stage-semantics and
-PAID-policy decisions are made should any stage↔truth synchronization or template-policy code be
-written. The two fixed defects (OPP-1, OPP-4) are self-contained and independent of those decisions.
+| ID | Finding | Bucket | State |
+|---|---|---|---|
+| OPP-1 | PAID gate fail-open (empty/all-optional checklist) | A | ✅ Fixed + regression |
+| OPP-4 | Invalid stage silent no-op | A | ✅ Fixed + regression |
+| OWN-1 | No formal stage-semantics contract (governing) | B | Design decision |
+| OWN-2 | stage ⇄ diligence dual truth | B | Runtime-confirmed · design decision |
+| OWN-3 | PAID scope = due-diligence only | B | **Observation, not a defect** · business-policy decision |
+| OWN-4 | stages with no backing artifact | B | Design decision |
+| OPP-3 | ADMIN moves unguarded (audited, unwarned) | C | Policy question |
+
+**Sequencing (per Founder direction):** rule the **stage-semantics contract (OWN-1) first**, then
+OWN-2/OWN-3/OWN-4 and the policy questions — **only then** implement any stage↔truth synchronization,
+validation, or template-policy code. Synchronizing before the semantics are defined would encode the
+wrong rules. The two fixed defects (OPP-1, OPP-4) are self-contained and independent of all of the above.
