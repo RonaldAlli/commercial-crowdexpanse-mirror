@@ -57,7 +57,9 @@ impact · test evidence · regression evidence · production risk · rollback pl
 - **Scope:** verify-only. Re-run the underwriting unit + E2E gate on the branch and record it as
   evidence. **No code change** — V1.3 is byte-intact. **Migration:** no.
 
-### Wave 3 — Closing integrity
+### Wave 3 — Closing integrity · ✅ **DONE (2026-07-18) — PENDING FOUNDER REVIEW**
+> All 13 V1.4 modules byte-identical to v1.4.0; PAID-gate action unchanged; 97 closing unit tests + 245 closing-domain e2e assertions pass; composed PAID gate + terminal snapshots + TX projections intact; diligence provably can't bypass the gate; no defect. See [Wave 3 Acceptance](./PLATFORM_RESTORATION_WAVE_3_ACCEPTANCE.md).
+
 - **Scope:** verify-only. Re-confirm the composed PAID gate + terminal-state protections via the
   existing suite; add (optional) an assertion test that CRM diligence cannot affect Closing readiness.
   **No code change.** **Migration:** no.
