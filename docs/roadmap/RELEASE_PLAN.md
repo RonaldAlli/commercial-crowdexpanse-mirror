@@ -1,6 +1,10 @@
 # Volume 3 — Release Plan
 
 > Development is organized into **releases**, not a flat feature list. Each release has a theme, a scope, a checklist, and a Definition of Done. See the [EMP](./ENGINEERING_MASTER_PLAN.md) for the lifecycle and global DoD.
+>
+> **Authoritative current status:** the [Canonical Platform Roadmap](./CANONICAL_PLATFORM_ROADMAP.md)
+> is the single up-to-date status surface (prod migration count, frozen tags, accepted/paused state).
+> This table is kept in sync with it (updated 2026-07-18, roadmap-restoration Wave 4).
 
 ## Release sequence
 
@@ -8,10 +12,12 @@
 |---|---|---|---|
 | **1.0** | Foundation (auth, multi-tenancy, core records, pipeline) | ✅ Shipped | — |
 | **1.1** | **Operational Excellence** | ✅ Shipped (`v1.1.0`) | [VERSION_1_1.md](./VERSION_1_1.md) |
-| **1.2** | **Commercial Intelligence** | 🟢 In progress (Slices 1–2 live, `v1.2.0-slice.1/2`) | [VERSION_1_2.md](./VERSION_1_2.md) |
-| **1.3** | **Commercial Underwriting** | ✅ **Released (`v1.3.0`, accepted 2026-07-15)** | [VERSION_1_3.md](./VERSION_1_3.md) · [Acceptance](../releases/V1_3_ACCEPTANCE.md) |
-| **1.4** | **Closing Center** | 🔴 Planned | [VERSION_1_4.md](./VERSION_1_4.md) |
-| **2.0** | **Automation & AI** | 🔴 Planned | [VERSION_2_0.md](./VERSION_2_0.md) |
+| **1.2** | **Commercial Intelligence** | 🟡 Partial — Slices 1–2 accepted (`v1.2.0-slice.1/2`); remainder deferred, no whole-version freeze | [VERSION_1_2.md](./VERSION_1_2.md) |
+| **1.3** | **Commercial Underwriting** | ✅ **Released · Frozen (`v1.3.0`, 2026-07-15)** | [VERSION_1_3.md](./VERSION_1_3.md) · [Acceptance](../releases/V1_3_ACCEPTANCE.md) |
+| **1.4** | **Closing Center** | ✅ **Released · Frozen (`v1.4.0`, 2026-07-16)** | [VERSION_1_4.md](./VERSION_1_4.md) · [Acceptance](../releases/V1_4_ACCEPTANCE.md) |
+| **2.0.1** | **Automation Foundation** | 🟠 Accepted + in prod (migration 27) but **executor paused** (D19 open) | [V2_0_1 Impl Acceptance](../releases/V2_0_1_IMPLEMENTATION_ACCEPTANCE.md) |
+| **CRM** | **CRM Operations** (off-roadmap, accepted) | ✅ Deployed + Founder-accepted 2026-07-18 (migr 28–30) | [CRM Production Acceptance](../releases/CRM_PRODUCTION_RECONCILIATION_PRODUCTION_ACCEPTANCE.md) |
+| **2.0** | **Automation & AI** (full) | 🔴 Planned (architecture ratified; phases separately gated) | [VERSION_2_0.md](./VERSION_2_0.md) |
 
 > Note: the Deal Analyzer already computes NOI/cap rate/DSCR/debt yield, so 1.3 hardens an existing foundation rather than starting from zero. Underwriting improvements may be pulled forward opportunistically when they unblock 1.2 intelligence.
 
