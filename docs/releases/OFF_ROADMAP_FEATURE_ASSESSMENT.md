@@ -7,6 +7,8 @@
 
 > **Wave 5 update (2026-07-18):** the test gap (D-CRM-TEST) is **closed** — CRM unit tests (diligence + contact-options pure logic, 13 cases) + integration/boundary tests (`e2e-crm-integration.mjs`, 9 assertions: single-primary invariant, CRM↔Underwriting boundary, free-form status, delete-no-orphan). One documented risk (D-CRM-PRIMARY-CONCURRENCY: no schema `@@unique` on primary — deferred to a separate migration decision). Existing behavior only; no new rules. See [Wave 5 Acceptance](./PLATFORM_RESTORATION_WAVE_5_ACCEPTANCE.md).
 
+> **Wave 6 update (2026-07-18):** Import + ATM Wholesale **verified** — added ATM boundary/edge unit tests (structural no-`prisma`/no-`analysis` lock + div-by-zero/MAO/non-finite, 5 cases) + `scripts/e2e-lead-import-integration.mjs` (12 assertions running the REAL importer: idempotency/convergence [run 2 = 0 new, domain-level dedup], provenance external-id+note+activity, cross-org actor fail-closed, org-scoping). ATM page reads confirmed org-scoped SELECT-only (advisory, unsaved). Existing behavior only; no new format/dedup policy/ATM persistence. See [Wave 6 Acceptance](./PLATFORM_RESTORATION_WAVE_6_ACCEPTANCE.md).
+
 **Overall verdict:** all five are **architecturally compatible, additive, org-scoped, and cleanly
 isolated** from the frozen underwriting/closing domains; production data is clean. The one systemic
 gap is **missing tests** for three of them (Owner Contacts, Outreach, Diligence).

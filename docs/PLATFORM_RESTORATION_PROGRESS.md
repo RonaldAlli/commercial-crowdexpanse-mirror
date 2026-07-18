@@ -21,7 +21,7 @@
 | **Wave 3** | V1.4 Closing integrity — verification (byte-identical modules; 97 unit + 245 e2e; PAID gate) | ✅ Complete | ⏳ Pending | ❌ No | ❌ No |
 | **Wave 4** | Shared projections · navigation · UI integration + documentation reconciliation (ATM advisory label) | ✅ Complete | ✅ **Accepted** (branch-only) | ❌ No | ❌ No |
 | **Wave 5** | CRM integration & quality — CRM unit + integration/boundary tests; single-primary invariant; D-CRM-TEST closed | ✅ Complete ([acceptance](./releases/PLATFORM_RESTORATION_WAVE_5_ACCEPTANCE.md)) | ⏳ Pending | ❌ No | ❌ No |
-| **Wave 6** | Import & ATM Wholesale integration refinements (confirm coverage; optional route relocation) | ⏸ Not started | — | ❌ No | ❌ No |
+| **Wave 6** | Import pipeline & ATM Wholesale — idempotency/provenance/cross-org integration + ATM no-write boundary (verify existing behavior) | ✅ Complete ([acceptance](./releases/PLATFORM_RESTORATION_WAVE_6_ACCEPTANCE.md)) | ⏳ Pending | ❌ No | ❌ No |
 | **Wave 7** | Full platform acceptance — complete gate + final acceptance package; **only after this** is a controlled merge + deploy considered | ⏸ Not started | — | ❌ No | ❌ No |
 
 **Execution order so far:** Discovery → Wave 1 → Wave 4 → *(governance: Index + Current-Status)* →
