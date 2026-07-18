@@ -41,8 +41,7 @@
     "next": "14.2.20",
     "nodemailer": "^6.10.1",
     "react": "^18",
-    "react-dom": "^18",
-    "xlsx": "^0.18.5"
+    "react-dom": "^18"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1",

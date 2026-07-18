@@ -1,8 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { AssetType, OpportunityStage, type OwnerEntityType } from "@prisma/client";
-import * as XLSX from "xlsx";
 
 import { prisma } from "../lib/prisma";
 import { resolveOrCreateProperty } from "../lib/intelligence/property-resolver";
@@ -78,7 +78,14 @@ type ImportSummary = {
 };
 
 const DEFAULT_PROVIDER = "dealautomator.com/commercial-lead";
-const SUPPORTED_EXTENSIONS = new Set([".json", ".csv", ".tsv", ".txt", ".xlsx", ".xls"]);
+// CSV-only intake (ADR-0006). Excel (.xlsx/.xls) is intentionally unsupported — the SheetJS
+// untrusted-file parser was removed to eliminate its known-CVE / resource-exhaustion surface.
+const SUPPORTED_EXTENSIONS = new Set([".json", ".csv", ".tsv", ".txt"]);
+// Pre-parse resource limits (fail closed before materializing a hostile file).
+const MAX_IMPORT_FILE_BYTES = 15_000_000; // 15 MB
+const MAX_IMPORT_ROWS = 50_000;
+const MAX_IMPORT_COLUMNS = 200;
+const MAX_CELL_LENGTH = 20_000;
 
 const HEADER_ALIASES: Record<string, keyof LeadRecord> = {
   leadid: "lead_id",
@@ -483,12 +490,30 @@ function rowToLeadRecord(raw: Record<string, unknown>, sourceFile: string): Lead
   return canonical;
 }
 
+function assertCell(value: unknown): unknown {
+  if (typeof value === "string" && value.length > MAX_CELL_LENGTH) {
+    throw new Error(`Cell value exceeds the maximum length of ${MAX_CELL_LENGTH} characters.`);
+  }
+  return value;
+}
+
 function parseJsonRecords(content: string, sourceFile: string): LeadRecord[] {
   const parsed = JSON.parse(content);
   if (!Array.isArray(parsed)) {
     throw new Error("Expected a JSON array of lead records.");
   }
-  return parsed.map((entry) => rowToLeadRecord((entry ?? {}) as Record<string, unknown>, sourceFile));
+  if (parsed.length > MAX_IMPORT_ROWS) {
+    throw new Error(`Too many records: ${parsed.length} (max ${MAX_IMPORT_ROWS}).`);
+  }
+  return parsed.map((entry) => {
+    const obj = (entry ?? {}) as Record<string, unknown>;
+    const keys = Object.keys(obj);
+    if (keys.length > MAX_IMPORT_COLUMNS) {
+      throw new Error(`Record has too many fields: ${keys.length} (max ${MAX_IMPORT_COLUMNS}).`);
+    }
+    for (const key of keys) assertCell(obj[key]);
+    return rowToLeadRecord(obj, sourceFile);
+  });
 }
 
 function parseDelimitedRecords(content: string, sourceFile: string): LeadRecord[] {
@@ -500,40 +525,40 @@ function parseDelimitedRecords(content: string, sourceFile: string): LeadRecord[
   if (lines.length < 2) {
     throw new Error("Delimited files need a header row plus at least one record.");
   }
+  if (lines.length - 1 > MAX_IMPORT_ROWS) {
+    throw new Error(`Too many rows: ${lines.length - 1} (max ${MAX_IMPORT_ROWS}).`);
+  }
   const headers = parseDelimitedRow(lines[0], delimiter);
+  if (headers.length > MAX_IMPORT_COLUMNS) {
+    throw new Error(`Too many columns: ${headers.length} (max ${MAX_IMPORT_COLUMNS}).`);
+  }
   return lines.slice(1).map((line) => {
     const values = parseDelimitedRow(line, delimiter);
     const row: Record<string, unknown> = {};
     headers.forEach((header, index) => {
-      row[header] = values[index] ?? "";
+      row[header] = assertCell(values[index] ?? "");
     });
     return rowToLeadRecord(row, sourceFile);
   });
 }
 
-function parseSpreadsheetRecords(buffer: Buffer, sourceFile: string): LeadRecord[] {
-  const workbook = XLSX.read(buffer, { type: "buffer", cellDates: false });
-  const sheetName = workbook.SheetNames[0];
-  if (!sheetName) {
-    throw new Error("Spreadsheet does not contain any sheets.");
-  }
-  const sheet = workbook.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
-  return rows.map((row) => rowToLeadRecord(row, sourceFile));
-}
-
 async function loadRecords(sourceFile: string): Promise<LeadRecord[]> {
   const extension = path.extname(sourceFile).toLowerCase();
+  if (extension === ".xlsx" || extension === ".xls") {
+    throw new Error("Excel files are not supported. Export to CSV and re-upload (ADR-0006).");
+  }
   if (extension && !SUPPORTED_EXTENSIONS.has(extension)) {
     throw new Error(`Unsupported file type: ${extension}`);
+  }
+  // Pre-parse size guard \u2014 reject a hostile/oversized file before reading it into memory.
+  const stat = await fs.stat(sourceFile);
+  if (stat.size > MAX_IMPORT_FILE_BYTES) {
+    throw new Error(`Import file too large: ${stat.size} bytes (max ${MAX_IMPORT_FILE_BYTES}).`);
   }
   const buffer = await fs.readFile(sourceFile);
   const text = buffer.toString("utf8");
   const firstNonWhitespace = text.trimStart()[0];
 
-  if (extension === ".xlsx" || extension === ".xls") {
-    return parseSpreadsheetRecords(buffer, sourceFile);
-  }
   if (extension === ".json" || firstNonWhitespace === "[" || firstNonWhitespace === "{") {
     return parseJsonRecords(text, sourceFile);
   }
@@ -832,8 +857,23 @@ async function main() {
   await prisma.$disconnect();
 }
 
-main().catch(async (error) => {
-  console.error(error);
-  await prisma.$disconnect();
-  process.exit(1);
-});
+// Pure parse/limit surface exported for tests. Importing this module has NO side effects;
+// main() runs only when the file is executed directly (CLI), never on import.
+export {
+  loadRecords,
+  parseDelimitedRecords,
+  parseJsonRecords,
+  SUPPORTED_EXTENSIONS,
+  MAX_IMPORT_FILE_BYTES,
+  MAX_IMPORT_ROWS,
+  MAX_IMPORT_COLUMNS,
+  MAX_CELL_LENGTH,
+};
+
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  main().catch(async (error) => {
+    console.error(error);
+    await prisma.$disconnect();
+    process.exit(1);
+  });
+}
