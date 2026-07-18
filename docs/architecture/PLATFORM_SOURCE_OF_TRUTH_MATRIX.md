@@ -37,11 +37,11 @@
 
 ## 2. Flagged for documentation (not conflicts)
 
-1. **Outreach state grain (D-CRM-OUTREACH-OWNERSHIP).** Outreach fields live on **`OwnerContact`**
-   (per-contact) *and* on `Seller`/`Buyer` (per-lead). These are **different grains of different
-   entities**, so there is **no data conflict** (prod: 0 cross-org, 0 anomalies). The authoritative
-   owner should be **documented**: per-contact outreach = the contact's own state; per-lead outreach
-   = the seller/buyer's overall state. Recommendation: state this in `CRM_OPERATIONS_BOUNDARY.md`.
+1. **Outreach state grain (D-CRM-OUTREACH-OWNERSHIP) — ✅ RESOLVED (Wave 1).** Outreach fields live on
+   **`OwnerContact`** (per-contact) *and* on `Seller`/`Buyer` (per-lead) — **different grains of
+   different entities**, no data conflict (prod: 0 cross-org, 0 anomalies). The authoritative owner
+   per grain is now documented in **`CRM_OPERATIONS_BOUNDARY.md §2a`** (lead-level → `Seller`/`Buyer`;
+   contact-level → `OwnerContact`; latest interaction → `ContactTouch`; historical → `ActivityLog`).
 2. **Diligence vs Closing checklist.** `OpportunityDiligenceItem` (CRM, pre-contract document
    gathering) is deliberately **separate** from `ClosingChecklist` (V1.4, post-contract PAID-gating).
    Verified in code: diligence references `PAID` read-only and defers to the Closing Center; it does

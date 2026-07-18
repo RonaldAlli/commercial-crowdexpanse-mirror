@@ -43,10 +43,13 @@ deployment** until reviewed.
 Each wave stops for Founder review with: defect list · files changed · architecture impact · schema
 impact · test evidence · regression evidence · production risk · rollback plan.
 
-### Wave 1 — Security & organization isolation
-- **Scope:** none required (all clean). Deliver a **regression lock**: add org-isolation tests for the
-  CRM models that currently lack them (folds into Wave 5's tests but prioritized here as the safety net).
-- **Migration:** no. **Risk:** none (tests only).
+### Wave 1 — Security & organization isolation · ✅ **DONE (2026-07-18) — PENDING FOUNDER REVIEW**
+- **Scope:** regression lock — added `scripts/e2e-crm-isolation.mjs` (14 assertions: org-isolation +
+  diligence↔Closing boundary), a reusable read-only `scripts/audit/crm-integrity.mjs`, and resolved the
+  outreach-grain source of truth (`CRM_OPERATIONS_BOUNDARY.md §2a`). Gate green (unit 58, E2E 40,
+  build ok, integrity clean test+prod). No app/schema/migration change. See
+  [Wave 1 Acceptance](./PLATFORM_RESTORATION_WAVE_1_ACCEPTANCE.md).
+- **Migration:** no. **Risk:** none (tests + docs only).
 
 ### Wave 2 — Underwriting integrity
 - **Scope:** verify-only. Re-run the underwriting unit + E2E gate on the branch and record it as

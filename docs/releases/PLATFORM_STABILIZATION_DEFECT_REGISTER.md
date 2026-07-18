@@ -14,7 +14,13 @@ maintainability/latent risk) · Low (hygiene/docs). **No defect below is Critica
 
 ## A. New findings
 
-### D-CRM-TEST — Off-roadmap CRM features lack accepted-suite tests · **Medium**
+> **Wave 1 update (2026-07-18):** D-CRM-TEST **partially closed** (org-isolation + diligence↔Closing
+> boundary tests added — `scripts/e2e-crm-isolation.mjs`, 14 assertions; deeper CRUD/lifecycle unit
+> tests remain for Wave 5). D-CRM-OUTREACH-OWNERSHIP **RESOLVED** (documented in
+> `CRM_OPERATIONS_BOUNDARY.md §2a`). Read-only integrity audit added (`scripts/audit/crm-integrity.mjs`),
+> clean against test + prod. See [Wave 1 Acceptance](./PLATFORM_RESTORATION_WAVE_1_ACCEPTANCE.md).
+
+### D-CRM-TEST — Off-roadmap CRM features lack accepted-suite tests · **Medium** · *partially closed (Wave 1); remainder Wave 5*
 - **Feature/milestone:** CRM Owner Contacts, Contact/Seller Outreach, Opportunity Diligence (off-roadmap, migr 28–30).
 - **Expected:** platform features carry unit/E2E coverage in the accepted suite (as V1.3/V1.4 do).
 - **Actual:** Owner Contacts, Outreach, and Diligence have **no tests** in `tests/unit/**` or the E2E suite. (Lead-Import has 20 unit tests; ATM-Wholesale has 1.)
@@ -23,7 +29,7 @@ maintainability/latent risk) · Low (hygiene/docs). **No defect below is Critica
 - **Required fix:** add focused unit + E2E tests (org-isolation, CRUD/lifecycle, primary-contact rule, diligence status transitions, diligence↔Closing boundary). **Test required:** yes. **Migration:** no.
 - **Order:** Wave 5 (CRM integration).
 
-### D-CRM-OUTREACH-OWNERSHIP — Outreach fields on two surfaces · **Low/Medium**
+### D-CRM-OUTREACH-OWNERSHIP — Outreach fields on two surfaces · **Low/Medium** · ✅ *RESOLVED (Wave 1)*
 - **Feature:** outreach operational fields (`outreachStatus`, `nextFollowUpAt`, `assignedUserId`, do-not-* flags) exist on **`OwnerContact`** (migr 28) **and** on `Seller`/`Buyer` (migr 29).
 - **Expected:** a single, documented authoritative owner per outreach concept.
 - **Actual:** two outreach surfaces. They are **different entities** (owner-contact-level vs seller/buyer-level), so it is **not a data conflict** — but the authoritative owner of "outreach state" is not documented, risking future ambiguity/duplication.

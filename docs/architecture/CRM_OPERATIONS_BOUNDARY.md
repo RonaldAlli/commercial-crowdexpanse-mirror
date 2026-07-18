@@ -26,14 +26,35 @@ pipeline stage, or any frozen domain's truth.
 
 ## 2. Seller Outreach & Operations
 
-- **Owns:** operational outreach state **on the `Seller` row** — `outreachStatus`,
+- **Owns:** operational outreach state **on the `Seller`/`Buyer` row** — `outreachStatus`,
   `preferredContactMethod`, `nextFollowUpAt`, `assignedUserId`, and do-not-contact / bad-contact
   flags (all additive columns).
-- **Authoritative owner of each field:** the `Seller` record. These are **operational CRM
+- **Authoritative owner of each field:** the `Seller`/`Buyer` record. These are **operational CRM
   fields**, distinct from pipeline stage.
 - **Must not duplicate:** `Opportunity` pipeline stage/truth, `Task` scheduling, `ActivityLog`
   history, or `BuyerMatch`. Follow-up dates are a CRM convenience field, **not** a replacement
   for Tasks; if richer scheduling is needed later, it should route through the Task domain.
+
+### 2a. Outreach grain — the two surfaces (resolves D-CRM-OUTREACH-OWNERSHIP)
+
+Outreach fields exist at **two deliberately different grains**; they are **not** duplicates and
+carry no data conflict (production audit: 0 cross-org, 0 anomalies). The authoritative owner of
+each is:
+
+| Concept | Authoritative owner | Grain |
+|---|---|---|
+| A **lead's** overall outreach state (status, do-not-contact, assignee, next follow-up) | `Seller` / `Buyer` row | one per lead |
+| A **specific contact's** outreach state (status, assignee, next follow-up, bad-phone/email) | `OwnerContact` row | one per contact of an owner |
+| The **latest interaction** (call/email/text disposition + timestamp) | `ContactTouch` | one per interaction (append) |
+| A **planned** follow-up | `*.nextFollowUpAt` on the owning row above | scalar hint, not a Task |
+| **Historical** business activity | `ActivityLog` | append-only, platform-owned |
+
+Rule: read outreach state from the row that owns the grain you are displaying (lead-level from
+`Seller`/`Buyer`; contact-level from `OwnerContact`). Do **not** copy one grain's state onto the
+other, and do **not** promote a `nextFollowUpAt` hint into a parallel scheduler — richer
+scheduling routes through `Task` (and, later, approved Automation). **CRM stores outreach intent
+and status only; it never sends communications** — any actual email/SMS send is owned by future
+approved Communications/Automation, never a CRM action.
 
 ## 3. Opportunity vs. Seller ownership
 
