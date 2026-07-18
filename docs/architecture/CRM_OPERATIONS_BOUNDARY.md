@@ -1,6 +1,6 @@
 # CRM Operations — Architecture Boundary
 
-> **Status: PENDING FOUNDER RATIFICATION.** Defines the ownership and boundaries of the CRM
+> **Status: FOUNDER RATIFIED — 2026-07-18** (Founder: Ronald Delroy Anthony Allicock). Defines the ownership and boundaries of the CRM
 > feature set captured on `stabilize/crm-production-reconciliation`, so it extends the platform
 > through existing seams and **never becomes a competing source of truth**. Companion to the
 > [CRM Reconciliation Acceptance](../releases/CRM_PRODUCTION_RECONCILIATION_ACCEPTANCE.md).
@@ -113,4 +113,4 @@ move pipeline stage · compose or bypass the PAID gate · replace the Closing ch
 auto-complete/waive Closing items · feed underwriting calculations · perform cross-organization
 reads/writes · send external communications · introduce a background/automation process.
 
-*Status: PENDING FOUNDER RATIFICATION.*
+*Status: FOUNDER RATIFIED — 2026-07-18.*

@@ -1,6 +1,6 @@
 # ADR-0006 — CRM Lead-Import File Parser
 
-> **Status: PENDING FOUNDER RATIFICATION.** Decision record for how the DealAutomator lead-import
+> **Status: FOUNDER RATIFIED — 2026-07-18** (Founder: Ronald Delroy Anthony Allicock). Decision record for how the DealAutomator lead-import
 > feature parses uploaded files. Companion to the [CRM Reconciliation
 > Acceptance](../../releases/CRM_PRODUCTION_RECONCILIATION_ACCEPTANCE.md) and [CRM Operations
 > Boundary](../CRM_OPERATIONS_BOUNDARY.md).

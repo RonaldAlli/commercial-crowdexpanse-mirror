@@ -1,6 +1,6 @@
 # CRM Production Reconciliation — Acceptance Package
 
-> **Status: PENDING FOUNDER ACCEPTANCE (remediated 2026-07-18).** This branch captures the live
+> **Status: FOUNDER ACCEPTED — 2026-07-18** (Founder: Ronald Delroy Anthony Allicock; accepted branch tip `32f3704`). This branch captures the live
 > production CRM work (contacts / outreach / diligence / lead-import / ATM-wholesale) faithfully
 > in Git so that `main` can once again represent production, **plus two bounded security
 > remediations** applied on top of the faithful-capture commits. **Nothing is merged or
@@ -234,4 +234,4 @@ untouched; the automation spine + migration 27 are byte-unchanged; frozen refs
 
 ---
 
-*Status: CRM PRODUCTION RECONCILIATION — PENDING FOUNDER ACCEPTANCE.*
+*Status: CRM PRODUCTION RECONCILIATION — FOUNDER ACCEPTED 2026-07-18 (tip 32f3704). Production deployment tracked separately in CRM_PRODUCTION_RECONCILIATION_PRODUCTION_ACCEPTANCE.md.*
