@@ -85,7 +85,7 @@ export default async function AtmWholesaleCalculatorPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Underwriting"
+        eyebrow="Advisory · deal prep"
         title="ATM Wholesale Calculator"
         description="Workbook-parity NOI, valuation, financing, cash-flow, and MAO calculator built from the ATM wholesale spreadsheet formulas."
         actions={
@@ -94,6 +94,16 @@ export default async function AtmWholesaleCalculatorPage() {
           </Link>
         }
       />
+      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <span className="font-semibold">Advisory &amp; preliminary — not an approved Underwriting result.</span>{" "}
+        This calculator is a non-authoritative deal-prep tool. Its numbers are not saved and never
+        become Underwriting truth. For the authoritative, deterministic underwriting workflow
+        (scenarios, decision, offer memo), use the{" "}
+        <Link className="font-medium underline" href="/analyzer">
+          Deal Analyzer
+        </Link>
+        .
+      </div>
       <AtmWholesaleCalculator opportunityRecords={opportunityRecords} propertyRecords={propertyRecords} />
     </div>
   );
