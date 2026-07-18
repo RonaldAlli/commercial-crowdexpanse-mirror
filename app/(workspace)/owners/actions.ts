@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { OwnerEntityType } from "@prisma/client";
 
 import { requireUser } from "@/lib/auth";
-import { checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
+import { authorize, checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 import { createOwner as createOwnerService, findCandidatesForInput, getOwner, linkSellerToOwner, linkPropertyToOwner, unlinkSellerFromOwner, unlinkPropertyFromOwner, updateOwnerField } from "@/lib/owners";
 import { clearOwnerOverride as clearOwnerOverrideService } from "@/lib/intelligence/projection";
@@ -27,6 +27,25 @@ export type OwnerCandidateView = { id: string; displayName: string; identityConf
 export type OwnerFormState =
   | { error?: string; candidates?: OwnerCandidateView[]; values?: { displayName: string; entityType: string } }
   | undefined;
+export type OwnerContactFormState = { error?: string } | undefined;
+
+function parseOwnerContact(formData: FormData) {
+  const value = (key: string) => String(formData.get(key) ?? "").trim();
+  return {
+    label: value("label"),
+    contactName: value("contactName"),
+    company: value("company"),
+    email: value("email"),
+    phone: value("phone"),
+    mailingAddress: value("mailingAddress"),
+    notes: value("notes"),
+    isPrimary: String(formData.get("isPrimary") ?? "") === "true",
+  };
+}
+
+function orNull(value: string) {
+  return value.length ? value : null;
+}
 
 /**
  * Create an Owner. Create-time candidate review: unless the form confirms, we
@@ -219,4 +238,147 @@ export async function unlinkPropertyAction(formData: FormData) {
   }
   revalidatePath(`/properties/${propertyId}`);
   redirect(redirectTo);
+}
+
+function hasOwnerContactValue(data: ReturnType<typeof parseOwnerContact>) {
+  return Boolean(data.label || data.contactName || data.company || data.email || data.phone || data.mailingAddress || data.notes);
+}
+
+export async function createOwnerContactAction(
+  ownerId: string,
+  _prev: OwnerContactFormState,
+  formData: FormData,
+): Promise<OwnerContactFormState> {
+  const user = await requireUser();
+  if (!(await checkAuthorized(user, "UPDATE", "OWNER", { targetId: ownerId }))) return { error: GENERIC_DENIAL };
+
+  const owner = await prisma.owner.findFirst({ where: { id: ownerId, organizationId: user.organizationId }, select: { id: true, displayName: true } });
+  if (!owner) return { error: "Owner not found." };
+
+  const data = parseOwnerContact(formData);
+  if (!hasOwnerContactValue(data)) {
+    return { error: "Enter at least one piece of contact information." };
+  }
+
+  const contact = await prisma.$transaction(async (tx) => {
+    if (data.isPrimary) {
+      await tx.ownerContact.updateMany({
+        where: { organizationId: user.organizationId, ownerId },
+        data: { isPrimary: false },
+      });
+    }
+
+    return tx.ownerContact.create({
+      data: {
+        organizationId: user.organizationId,
+        ownerId,
+        label: orNull(data.label),
+        contactName: orNull(data.contactName),
+        company: orNull(data.company),
+        email: orNull(data.email),
+        phone: orNull(data.phone),
+        mailingAddress: orNull(data.mailingAddress),
+        notes: orNull(data.notes),
+        isPrimary: data.isPrimary,
+      },
+    });
+  });
+
+  await prisma.activityLog.create({
+    data: {
+      organizationId: user.organizationId,
+      actorId: user.id,
+      eventType: "owner.contact_created",
+      eventLabel: `Owner contact added: ${owner.displayName}`,
+      eventBody: JSON.stringify({ ownerId, ownerContactId: contact.id }),
+    },
+  });
+
+  revalidatePath(`/owners/${ownerId}`);
+  redirect(`/owners/${ownerId}`);
+}
+
+export async function updateOwnerContactAction(
+  ownerId: string,
+  contactId: string,
+  _prev: OwnerContactFormState,
+  formData: FormData,
+): Promise<OwnerContactFormState> {
+  const user = await requireUser();
+  if (!(await checkAuthorized(user, "UPDATE", "OWNER", { targetId: ownerId }))) return { error: GENERIC_DENIAL };
+
+  const [owner, existing] = await Promise.all([
+    prisma.owner.findFirst({ where: { id: ownerId, organizationId: user.organizationId }, select: { id: true, displayName: true } }),
+    prisma.ownerContact.findFirst({ where: { id: contactId, ownerId, organizationId: user.organizationId } }),
+  ]);
+  if (!owner) return { error: "Owner not found." };
+  if (!existing) return { error: "Owner contact not found." };
+
+  const data = parseOwnerContact(formData);
+  if (!hasOwnerContactValue(data)) {
+    return { error: "Enter at least one piece of contact information." };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    if (data.isPrimary) {
+      await tx.ownerContact.updateMany({
+        where: { organizationId: user.organizationId, ownerId, id: { not: contactId } },
+        data: { isPrimary: false },
+      });
+    }
+
+    await tx.ownerContact.update({
+      where: { id: existing.id },
+      data: {
+        label: orNull(data.label),
+        contactName: orNull(data.contactName),
+        company: orNull(data.company),
+        email: orNull(data.email),
+        phone: orNull(data.phone),
+        mailingAddress: orNull(data.mailingAddress),
+        notes: orNull(data.notes),
+        isPrimary: data.isPrimary,
+      },
+    });
+  });
+
+  await prisma.activityLog.create({
+    data: {
+      organizationId: user.organizationId,
+      actorId: user.id,
+      eventType: "owner.contact_updated",
+      eventLabel: `Owner contact updated: ${owner.displayName}`,
+      eventBody: JSON.stringify({ ownerId, ownerContactId: existing.id }),
+    },
+  });
+
+  revalidatePath(`/owners/${ownerId}`);
+  redirect(`/owners/${ownerId}`);
+}
+
+export async function deleteOwnerContactAction(ownerId: string, contactId: string) {
+  const user = await requireUser();
+  await authorize(user, "UPDATE", "OWNER", { targetId: ownerId });
+
+  const [owner, existing] = await Promise.all([
+    prisma.owner.findFirst({ where: { id: ownerId, organizationId: user.organizationId }, select: { id: true, displayName: true } }),
+    prisma.ownerContact.findFirst({ where: { id: contactId, ownerId, organizationId: user.organizationId } }),
+  ]);
+  if (!owner || !existing) {
+    redirect(`/owners/${ownerId}`);
+  }
+
+  await prisma.ownerContact.delete({ where: { id: existing.id } });
+  await prisma.activityLog.create({
+    data: {
+      organizationId: user.organizationId,
+      actorId: user.id,
+      eventType: "owner.contact_deleted",
+      eventLabel: `Owner contact deleted: ${owner.displayName}`,
+      eventBody: JSON.stringify({ ownerId, ownerContactId: existing.id }),
+    },
+  });
+
+  revalidatePath(`/owners/${ownerId}`);
+  redirect(`/owners/${ownerId}`);
 }

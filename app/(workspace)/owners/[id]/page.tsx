@@ -12,7 +12,7 @@ import { getFieldProvenance } from "@/lib/intelligence/provenance";
 import { listRefreshJobsForEntity } from "@/lib/refresh-jobs";
 import { prisma } from "@/lib/prisma";
 
-import { clearOverrideAction, unlinkPropertyAction, unlinkSellerAction } from "../actions";
+import { clearOverrideAction, deleteOwnerContactAction, unlinkPropertyAction, unlinkSellerAction } from "../actions";
 import { triggerRefreshAction } from "../refresh-actions";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +28,7 @@ export default async function OwnerDetailPage({ params }: { params: { id: string
   const owner = await prisma.owner.findFirst({
     where: { id: params.id, organizationId: org },
     include: {
+      contacts: { orderBy: [{ isPrimary: "desc" }, { createdAt: "desc" }] },
       sellers: { select: { id: true, name: true, company: true }, orderBy: { createdAt: "desc" } },
       properties: { select: { id: true, name: true, addressLine1: true, city: true, state: true }, orderBy: { createdAt: "desc" } },
     },
@@ -64,6 +65,71 @@ export default async function OwnerDetailPage({ params }: { params: { id: string
         <Badge tone="neutral">{titleCase(owner.entityType)}</Badge>
         {owner.status !== "ACTIVE" ? <Badge tone="warning">{titleCase(owner.status)}</Badge> : <Badge tone="success" dot>Active</Badge>}
         <span className="text-xs text-slate-400">Identity key: {owner.matchKey}</span>
+      </div>
+
+      <div className="card p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-slate-700">Owner contacts ({owner.contacts.length})</p>
+            <p className="mt-1 text-xs text-slate-400">Operational outreach details for the owner, assistants, family office, or gatekeeper.</p>
+          </div>
+          {canWrite ? (
+            <Link href={`/owners/${owner.id}/contacts/new`} className="text-xs font-medium text-brand-700 hover:underline">
+              + Add contact
+            </Link>
+          ) : null}
+        </div>
+        {owner.contacts.length === 0 ? (
+          <p className="text-sm text-slate-400">No owner contacts stored yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {owner.contacts.map((contact) => (
+              <article key={contact.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-sm font-semibold text-slate-900">{contact.contactName || contact.label || "Unnamed contact"}</p>
+                      {contact.isPrimary ? <Badge tone="success">Primary</Badge> : null}
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {[contact.label, contact.company].filter(Boolean).join(" · ") || "Owner contact record"}
+                    </p>
+                  </div>
+                  {canWrite ? (
+                    <div className="flex items-center gap-3 text-xs">
+                      <Link href={`/owners/${owner.id}/contacts/${contact.id}/edit`} className="font-medium text-brand-700 hover:underline">
+                        Edit
+                      </Link>
+                      <form action={deleteOwnerContactAction.bind(null, owner.id, contact.id)}>
+                        <button type="submit" className="text-slate-400 hover:text-rose-600">Delete</button>
+                      </form>
+                    </div>
+                  ) : null}
+                </div>
+                <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div>
+                    <dt className="text-xs text-slate-500">Email</dt>
+                    <dd className="mt-0.5 text-sm text-slate-900">{contact.email ?? "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-slate-500">Phone</dt>
+                    <dd className="mt-0.5 text-sm text-slate-900">{contact.phone ?? "—"}</dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt className="text-xs text-slate-500">Mailing address</dt>
+                    <dd className="mt-0.5 text-sm text-slate-900">{contact.mailingAddress ?? "—"}</dd>
+                  </div>
+                </dl>
+                {contact.notes ? (
+                  <div className="mt-3 border-t border-slate-200 pt-3">
+                    <p className="text-xs text-slate-500">Notes</p>
+                    <p className="mt-1 text-sm leading-relaxed text-slate-600">{contact.notes}</p>
+                  </div>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Projected fields with provenance: Projected Value → Winning Signal → Signal History. */}
