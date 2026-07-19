@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { authorize, authorizeStageMove, checkAuthorized, checkStageMove, GENERIC_DENIAL } from "@/lib/authorize";
 import { getClosingGateStatus } from "@/lib/closing-service";
+import { applyStageTransition } from "@/lib/stage-policy-service";
 import { prisma } from "@/lib/prisma";
 import { stageLabel } from "@/lib/opportunity-options";
 
@@ -251,22 +252,21 @@ export async function moveOpportunityStage(id: string, formData: FormData): Prom
     }
   }
 
-  await prisma.opportunity.update({
-    where: { id: existing.id },
-    data: { stage: nextStage as OpportunityStage },
+  // Stage Policy Evaluation (semantic contract): a validated stage requires its authoritative truth
+  // to exist — or a controlled attestation (reason recorded in ActivityLog) for imported/mid-lifecycle
+  // deals. This COMPOSES WITH the role gate and PAID gate above (never replaces them). Persistence +
+  // ActivityLog live in the reusable seam so imports/Automation/API get the identical policy.
+  const result = await applyStageTransition({
+    organizationId: user.organizationId,
+    actorId: user.id,
+    opportunity: { id: existing.id, stage: existing.stage, propertyId: existing.propertyId, sellerId: existing.sellerId },
+    targetStage: nextStage as OpportunityStage,
+    attestationReason: (formData.get("attestationReason") as string | null) ?? null,
   });
-
-  await prisma.activityLog.create({
-    data: {
-      organizationId: user.organizationId,
-      opportunityId: existing.id,
-      propertyId: existing.propertyId,
-      sellerId: existing.sellerId,
-      actorId: user.id,
-      eventType: "opportunity.stage_changed",
-      eventLabel: `Stage: ${stageLabel(existing.stage)} → ${stageLabel(nextStage)}`,
-    },
-  });
+  if (!result.ok) {
+    revalidatePath(`/opportunities/${existing.id}`);
+    return { error: result.error ?? "Unable to change the pipeline stage." };
+  }
 
   revalidatePath("/opportunities");
   revalidatePath(`/opportunities/${existing.id}`);
