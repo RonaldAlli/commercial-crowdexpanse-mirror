@@ -16,8 +16,8 @@ const item = (required: boolean, status: GateItem["status"]): GateItem => ({ req
 const labeled = (label: string, required: boolean, status: GateItem["status"]) => ({ label, required, status });
 
 // --- the gate predicate (CC-2/CC-C) ------------------------------------------
-test("an empty checklist is ready (nothing required blocks)", () => {
-  assert.equal(isClosingReady([]), true);
+test("OPP-1: an empty checklist is NOT ready (fail closed — no required items never opens PAID)", () => {
+  assert.equal(isClosingReady([]), false);
 });
 
 test("a required PENDING item blocks the gate", () => {
@@ -58,8 +58,8 @@ test("closingProgress counts required satisfaction and readiness", () => {
 });
 
 // --- explanatory block message (refinement: explain why PAID is blocked) -----
-test("closingBlockMessage is null when nothing required is outstanding (ready)", () => {
-  assert.equal(closingBlockMessage([]), null);
+test("closingBlockMessage: null when a valid checklist is satisfied; config message when none required (OPP-1)", () => {
+  assert.match(closingBlockMessage([]) ?? "", /configuration/i); // no required items → misconfiguration, not a silent null
   assert.equal(closingBlockMessage([labeled("Title", true, "COMPLETE"), labeled("Env", false, "PENDING")]), null);
 });
 
@@ -115,9 +115,13 @@ test("closingReadinessSummary reports ready with a null message when all require
   assert.equal(s.blockMessage, closingBlockMessage(items));
 });
 
-test("closingReadinessSummary on an empty checklist is ready/zero (empty-state header)", () => {
+test("OPP-1: closingReadinessSummary on an empty checklist is NOT ready (fail closed; UI null-guards, never passes [])", () => {
   const s = closingReadinessSummary([]);
-  assert.deepEqual(s, { ready: true, requiredTotal: 0, requiredSatisfied: 0, outstandingCount: 0, blockMessage: null });
+  assert.equal(s.ready, false);
+  assert.equal(s.requiredTotal, 0);
+  assert.equal(s.requiredSatisfied, 0);
+  assert.equal(s.outstandingCount, 0);
+  assert.match(s.blockMessage ?? "", /configuration/i);
 });
 
 // --- transition guard (CC-5) -------------------------------------------------
