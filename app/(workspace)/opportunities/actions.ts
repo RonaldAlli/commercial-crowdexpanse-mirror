@@ -220,7 +220,7 @@ export async function moveOpportunityStage(id: string, formData: FormData): Prom
   const nextStage = String(formData.get("stage") ?? "").trim();
 
   if (!VALID_STAGES.has(nextStage)) {
-    return;
+    return { error: "Invalid pipeline stage." }; // OPP-4: surface the error, never a silent no-op.
   }
 
   const existing = await prisma.opportunity.findFirst({
