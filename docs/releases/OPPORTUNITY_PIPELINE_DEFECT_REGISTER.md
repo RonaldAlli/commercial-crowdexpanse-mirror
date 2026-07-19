@@ -29,28 +29,56 @@ exists. Keeping every stage a **read-only projection** is what prevents the pipe
 second source of truth. (This supersedes my earlier Workflow/State/Hybrid framing, which is now just a
 secondary lens.)
 
-### Opportunity Semantic Contract (decision-input — observable facts from code; **rulings are the Founder's**)
-Per stage: business event · truth owner (today) · proving artifact (today) · **decision needed**. A
-worksheet for your rulings — **not** an architecture lock, and no synchronization code until it's ruled.
+### Opportunity Semantic Contract — **RATIFIED (Founder rulings, 2026-07-19)**
+Authority per stage + selection mode. **Selection mode** = how the stage relates to its truth:
+*auto* (system sets it), *validated* (allowed only if the truth exists, **else a controlled
+attestation/override**), *manual* (audited human judgment). **Imported/mid-lifecycle deals** advance
+via a **controlled attestation** — reason + actor + timestamp, recorded in `ActivityLog` — never by
+disconnecting the stage from truth. **Truth reversal** (authoritative object later removed/reversed):
+the stage does **not** auto-revert (disruptive); the system **surfaces the inconsistency** for review
+and an ADMIN may correct it.
 
-| Stage | Business event | Truth owner (today) | Proving artifact (today) | Decision needed |
+| Stage | Business event | Authority (truth owner) | Proving artifact | Selection mode |
 |---|---|---|---|---|
-| LEAD | Lead captured | `Opportunity` | Opportunity + Property | baseline — none |
-| SELLER_CONTACTED | Seller contacted | `ContactTouch` / `Seller.outreachStatus` | ContactTouch | project from outreach truth? |
-| INTERESTED_SELLER | Seller interested | *(none — soft)* | none | define a truth owner, or accept a soft label? |
-| FINANCIALS_REQUESTED | Financials requested | `OpportunityDiligenceItem` | diligence item | project from diligence? |
-| T12_RECEIVED | T‑12 received | `diligenceItem(t12)` | diligence item | project from diligence (resolves OWN-2) |
-| RENT_ROLL_RECEIVED | Rent roll received | `diligenceItem(rent_roll)` | diligence item | project from diligence (resolves OWN-2) |
-| UNDERWRITING | Underwriting underway | `UnderwritingScenario` / `Decision` | Scenario | activity or state? |
-| OFFER_READY | Offer prepared | `UnderwritingDecision` + Offer‑Memo `Document` | Offer‑Memo doc | require approved decision + memo? |
-| LOI_SENT | LOI sent | `Document(LOI)` *(gen deferred)* | none | create the LOI artifact, or accept the label? |
-| UNDER_CONTRACT | Contract executed | executed‑contract `Document` *(none formal)* + `contractValueUsd?` | none formal | **require an executed‑contract artifact? (OWN-4)** |
-| BUYER_MATCHED | Buyer matched | `BuyerMatch` | BuyerMatch | must a `BuyerMatch` exist? |
-| CLOSING | Closing underway | Checklist + Escrow + Financing + Assignment | ClosingChecklist | (hybrid — already well-owned) |
-| PAID | Deal closed / funded | Checklist COMPLETE **(+ funding/escrow/assignment?)** | ClosingChecklist | **what proves PAID, per acquisition model? (OWN-3)** |
+| LEAD | Opportunity created | `Opportunity` | Opportunity record | **auto** (on create) |
+| SELLER_CONTACTED | Seller contacted | ≥1 `ContactTouch` | ContactTouch | **validated** (+attest for imports) |
+| INTERESTED_SELLER | Seller interested | Manual CRM judgment | `ActivityLog` (audited) | **manual (audited)** |
+| FINANCIALS_REQUESTED | Financials requested | diligence request state | `OpportunityDiligenceItem` (REQUESTED+) | **validated** |
+| T12_RECEIVED | T‑12 received | `diligenceItem(t12)` | t12 item = RECEIVED/REVIEWED | **validated** |
+| RENT_ROLL_RECEIVED | Rent roll received | `diligenceItem(rent_roll)` | rent_roll = RECEIVED/REVIEWED | **validated** |
+| UNDERWRITING | Underwriting underway | `Underwriting`/active `Scenario` exists | UnderwritingScenario | **validated** |
+| OFFER_READY | Offer ready | decided `Scenario` + offer artifact | `UnderwritingDecision` + Offer‑Memo `Document` | **validated** |
+| LOI_SENT | LOI sent | sent LOI doc / external‑send event | `Document(LOI)` or send event | **validated** (+attest) |
+| UNDER_CONTRACT | Contract executed | executed‑contract artifact / imported attestation | contract `Document` | **validated** (import‑attest) |
+| BUYER_MATCHED | Buyer matched | active `BuyerMatch` | BuyerMatch | **validated** |
+| CLOSING | Closing started | closing checklist/workflow started | `ClosingChecklist` | **auto/validated** |
+| PAID | Deal closed / funded | **org‑configured closing policy satisfied** | `ClosingChecklist` policy (OWN‑3) | **validated** (PAID gate) |
 
-*All stage consumers today — board/list, dashboard, timeline, badges — are already read-only
-projections; the governing model asks that they stay that way.*
+**Governing rule (ratified):** *Opportunity stages are operational projections over authoritative
+business facts. They do not independently own those facts.* All stage consumers (board/list,
+dashboard, timeline, badges) stay read-only projections.
+
+### Implementation — Slice 1 (highest-impact first: the diligence-named stages) · acceptance-first
+**Scope:** `T12_RECEIVED`, `RENT_ROLL_RECEIVED`, `FINANCIALS_REQUESTED` (resolves OWN‑2). Model =
+**validated-on-selection with ActivityLog attestation** (composes with — never replaces — the role
+gate `canMoveStage` and the PAID gate):
+- A `STAGE_TRUTH_REQUIREMENTS` map: `T12_RECEIVED → diligenceItem(t12) ∈ {RECEIVED,REVIEWED}`;
+  `RENT_ROLL_RECEIVED → diligenceItem(rent_roll) ∈ {RECEIVED,REVIEWED}`; `FINANCIALS_REQUESTED →
+  any diligence item REQUESTED+`.
+- In `moveOpportunityStage(target)`: if the requirement is satisfied → proceed normally. If not →
+  require `formData.attestationReason`; **with** a reason → proceed **and** write an
+  `opportunity.stage_attested` ActivityLog (reason + which truth was missing + actor + timestamp);
+  **without** → return `{ error: "<stage> requires <t12 diligence received> — or an attestation reason for an imported/mid-lifecycle deal." }`.
+- **No schema change** — attestation lives in `ActivityLog`. **Imports** (`import-dealautomator…`) set
+  stage via Prisma directly and are out of this UI/action path; they carry their own provenance.
+- **Acceptance/regression (integration):** (a) target=T12_RECEIVED, t12 not received, no reason → error, stage unchanged;
+  (b) same + reason → allowed + attestation logged; (c) t12 RECEIVED → allowed normally, no attestation;
+  (d) role gate + PAID gate still enforced. Gate: tsc/unit/e2e/build green; frozen refs unmoved.
+
+**Sub-decisions for your confirmation before I code:**
+1. **Override UX = attestation reason (recommended)** vs hard block. Recommend attestation (matches your ruling).
+2. **Attestation storage = ActivityLog only, no migration (recommended)** vs a dedicated field/model.
+3. **Slice 1 = the 3 diligence stages** (then UNDERWRITING/BUYER_MATCHED/UNDER_CONTRACT in later slices).
 
 ---
 
@@ -152,10 +180,10 @@ validate backing-truth existence; what PAID means across acquisition strategies.
 | OWN-4 | stages with no backing artifact | B | Design decision |
 | OPP-3 | ADMIN moves unguarded (audited, unwarned) | C | Policy question |
 
-**Sequencing (per Founder direction) — the next work is the *Opportunity Semantic Contract*, not code.**
-For **every stage**, rule: (1) what business event occurred · (2) what object owns the truth · (3) what
-artifact proves it · (4) what projection displays it · (5) what consumers rely on it. The matrix above
-is its decision-input draft (observable facts filled; rulings are yours). **Only after those rulings**
-implement any stage↔truth synchronization, validation, or template-policy code — synchronizing first
-would encode the wrong rules. The two fixed defects (OPP-1, OPP-4) are self-contained and independent
-of all of the above.
+**Status (2026-07-19):** the **Opportunity Semantic Contract is RATIFIED** (authority + selection mode
+per stage; governing rule; attestation model for imports; truth-reversal behavior). OPP-1 + OPP-4 are
+**merged to `main`** (not yet deployed). **Next work = implement the highest-impact contradiction
+first — Slice 1, the diligence-named stages** (validated-on-selection + ActivityLog attestation, spec
+above), on your confirmation of the 3 sub-decisions. Later slices: UNDERWRITING → BUYER_MATCHED →
+UNDER_CONTRACT → OFFER_READY/LOI_SENT → PAID-policy (OWN-3). No synchronization code is written until
+you confirm Slice 1's model.
