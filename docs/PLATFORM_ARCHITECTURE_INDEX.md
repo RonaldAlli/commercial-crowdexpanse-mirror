@@ -17,6 +17,13 @@ operational figures link back to the current-status doc to avoid re-creating doc
 
 ---
 
+## 0b. Baselines — the three permanent references
+| Baseline | Answers |
+|---|---|
+| [Product Baseline](./roadmap/PRODUCT_BASELINE.md) | **What** the application does (accepted capabilities + invariants) |
+| [Operations Baseline](./roadmap/OPERATIONS_BASELINE.md) | **How** production normally behaves (PM2/memory/health/deploy) |
+| [Engineering Baseline](./roadmap/ENGINEERING_BASELINE.md) | **How** changes ship (the release lifecycle + disciplines) |
+
 ## 1. Roadmap & status
 
 | Doc | Purpose |
