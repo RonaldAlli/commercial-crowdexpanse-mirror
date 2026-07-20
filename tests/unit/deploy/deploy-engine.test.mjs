@@ -42,8 +42,18 @@ function makeOps(dir, { failAt, requestedId = "COMMIT_A" } = {}) {
       fs.mkdirSync(abs, { recursive: true });
       fs.writeFileSync(path.join(abs, "BUILD_ID"), "BUILD_NEW");
       fs.writeFileSync(path.join(abs, ".release-id"), ctx.requestedReleaseId);
+      const manifest = { releaseId: ctx.requestedReleaseId, buildId: "BUILD_NEW", commit: "COMMITFULL",
+        builtAt: `t${clock}`, nodeVersion: process.version, schemaVersion: "0001_init", stamp: "new", artifacts: ["BUILD_ID"] };
+      fs.writeFileSync(path.join(abs, "release.json"), JSON.stringify(manifest));
       gate("build");
-      return { releaseDir: rel, absDir: abs, dryRun };
+      return { releaseDir: rel, absDir: abs, dryRun, manifest };
+    },
+    assertSingleActive: async () => {
+      let s = null; try { s = fs.lstatSync(link); } catch { s = null; }
+      if (s && !s.isSymbolicLink()) throw new Error("single-active invariant: .next is a real directory");
+      const t = target();
+      if (t && !fs.existsSync(path.join(dir, t, "BUILD_ID"))) throw new Error("single-active invariant: active target has no BUILD_ID");
+      return { summary: `active=${t ?? "(none)"}` };
     },
     verifyBuild: async (_c, built) => { gate("verifyBuild"); const id = fs.readFileSync(path.join(built.absDir, "BUILD_ID"), "utf8").trim(); if (!id) throw new Error("no BUILD_ID"); return { buildId: id }; },
     validateSwapTarget: async (_c, built) => { if (!fs.existsSync(built.absDir)) throw new Error("swap target missing"); },
@@ -143,6 +153,33 @@ test("IDEMPOTENCY: deploy --dry-run can be re-run safely (never swaps, no no-op 
   assert.equal(a.ok && b.ok, true); assert.equal(a.dryRun && b.dryRun, true);
   assert.equal(_.target(), "releases/prev", "live symlink unchanged by repeated dry-runs");
   assert.deepEqual(_.restarts, [], "no restart across dry-runs");
+  clean(dir);
+});
+
+test("MANIFEST: build writes release.json with releaseId/buildId/commit/builtAt/nodeVersion/schemaVersion/artifacts", async () => {
+  const dir = sandbox(); const { ops } = makeOps(dir, { requestedId: "COMMIT_A" });
+  const r = await runDeploy({ config: { stamp: "S1" } }, ops);
+  assert.equal(r.ok, true);
+  const m = JSON.parse(fs.readFileSync(path.join(dir, "releases", "new", "release.json"), "utf8"));
+  for (const k of ["releaseId", "buildId", "commit", "builtAt", "nodeVersion", "schemaVersion", "artifacts"]) assert.ok(k in m, `manifest has ${k}`);
+  assert.equal(m.releaseId, "COMMIT_A"); assert.equal(m.buildId, "BUILD_NEW");
+  assert.ok(Array.isArray(m.artifacts) && m.artifacts.includes("BUILD_ID"));
+  clean(dir);
+});
+
+test("INVARIANT: swap is refused PRE-SWAP when .next is a real directory (two competing 'current' releases)", async () => {
+  const dir = sandbox(); const { ops, _ } = makeOps(dir);
+  // Corrupt the model: replace the .next symlink with a REAL dir (an un-migrated / broken host state).
+  fs.unlinkSync(path.join(dir, ".next"));
+  fs.mkdirSync(path.join(dir, ".next"));
+  fs.writeFileSync(path.join(dir, ".next", "BUILD_ID"), "BUILD_REALDIR");
+  const r = await runDeploy({}, ops);
+  assert.equal(r.ok, false, "deploy refused");
+  assert.equal(r.rolledBack, false, "failed before swap — nothing to roll back");
+  const states = r.trace.map((t) => `${t.state}:${t.status}`);
+  assert.ok(states.includes("SWAP:error"), "invariant fails at the SWAP entry-criterion");
+  assert.ok(/single-active invariant/.test(r.error), "reported the invariant violation");
+  assert.ok(fs.lstatSync(path.join(dir, ".next")).isDirectory() && !fs.lstatSync(path.join(dir, ".next")).isSymbolicLink(), "the real .next dir was left untouched");
   clean(dir);
 });
 

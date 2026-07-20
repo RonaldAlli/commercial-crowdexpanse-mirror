@@ -120,10 +120,10 @@ atomic-single-node; the seams for the rest are reserved, not built.
 **What landed (code-only, additive — no schema, no existing module touched):**
 | File | Role |
 |---|---|
-| `scripts/deploy/deploy-engine.mjs` | The deployment **state machine** (pure orchestration; all side effects injected via `ops`). States `PRECHECK → BUILD → VERIFY_BUILD → SWAP → RESTART → VERIFY_RUNTIME → SMOKE → COMPLETE`, each with entry/exit criteria + **scope-aware rollback** (skipped before SWAP; symlink-repoint + restart after). **Idempotency:** PRECHECK resolves requested vs active release identity; an identical, already-active release short-circuits to `ALREADY_ACTIVE` (no build/swap/restart, success), `--force` bypasses. **History:** every run persists one record via `persistTrace`. `--dry-run` runs only non-mutating states + swap/rollback-target + disk/retention validation, **stops before SWAP**, and is safe to re-run. |
-| `scripts/deploy/ops-real.mjs` | The **real host operations** injected into the engine: atomic `rename(2)` symlink swap, build into `releases/<stamp>` via `NEXT_DIST_DIR` (stamps a `.release-id` marker), BUILD_ID/manifest verify, disk-headroom + lock + **release-identity (git HEAD)** precheck, pm2 restart + wait-for-online, health/BUILD_ID runtime verify, smoke, retention prune, auto-rollback, and `persistTrace` → `deploy-history/<stamp>.json` (retained to last N). |
+| `scripts/deploy/deploy-engine.mjs` | The deployment **state machine** (pure orchestration; all side effects injected via `ops`). States `PRECHECK → BUILD → VERIFY_BUILD → SWAP → RESTART → VERIFY_RUNTIME → SMOKE → COMPLETE`, each with entry/exit criteria + **scope-aware rollback** (skipped before SWAP; symlink-repoint + restart after). **Idempotency:** PRECHECK resolves requested vs active release identity; an identical, already-active release short-circuits to `ALREADY_ACTIVE` (no build/swap/restart, success), `--force` bypasses. **Single-active invariant:** SWAP's entry-criterion asserts exactly one valid release is active (proper symlink, not a real dir) before repointing — a violation fails pre-swap, live untouched. **History:** every run persists one record via `persistTrace`. `--dry-run` runs only non-mutating states + swap/rollback-target + single-active + disk/retention validation, **stops before SWAP**, and is safe to re-run. |
+| `scripts/deploy/ops-real.mjs` | The **real host operations** injected into the engine: atomic `rename(2)` symlink swap, build into `releases/<stamp>` via `NEXT_DIST_DIR` (stamps a `.release-id` marker **and a rich `release.json`** — releaseId/buildId/commit/builtAt/nodeVersion/schemaVersion/artifacts), BUILD_ID/manifest verify, disk-headroom + lock + **release-identity (git HEAD)** precheck, `assertSingleActive` invariant, pm2 restart + wait-for-online, health/BUILD_ID runtime verify, smoke, retention prune, auto-rollback, and `persistTrace` → `deploy-history/<stamp>.json` (retained to last N). |
 | `scripts/deploy/deploy.mjs` | CLI wiring config + real ops into the engine; `--dry-run`, `--force`, `--json`, `--app-dir/--pm2-app/--port/--keep/--release-id/--stamp` overrides. Exit `0` ok/no-op / `1` failed+rolled-back / `2` rollback-itself-failed. |
-| `tests/unit/deploy/deploy-engine.test.mjs` | Sandbox test over **real symlinks** in a temp dir (no host). **9/9 pass**, part of the standing unit gate (`run-unit-tests.mjs` extended to discover `*.test.mjs`). |
+| `tests/unit/deploy/deploy-engine.test.mjs` | Sandbox test over **real symlinks** in a temp dir (no host). **11/11 pass**, part of the standing unit gate (`run-unit-tests.mjs` extended to discover `*.test.mjs`). |
 
 **Acceptance evidence:**
 - **MANDATORY forced-failure rollback (auto-rollback, no manual intervention) — PROVEN:** a restart
@@ -135,8 +135,14 @@ atomic-single-node; the seams for the rest are reserved, not built.
   never swaps and never short-circuits.
 - **History — PROVEN:** every run (success, failure, no-op, dry-run) persists one record with per-state
   timestamps, timings, BUILD_ID, release id, and smoke/rollback status; written on failure paths too.
-- **Gate green:** `tsc --noEmit` 0 errors; **66** unit files pass incl. the engine test (9 cases); all
-  critical branch ≥ 90%, overall branch 93.0%. Only 4 new files; no existing module or schema changed.
+- **Release manifest — PROVEN:** each build writes `release.json`
+  (releaseId/buildId/commit/builtAt/nodeVersion/schemaVersion/artifacts) alongside the minimal
+  `.release-id` idempotency marker — the richer record for diagnostics, rollbacks, history, artifact
+  verification, and future canary.
+- **Single-active invariant — PROVEN:** a swap is refused **pre-swap** when `.next` is a real directory
+  (two competing "current" releases) — the live release is left untouched and the violation is reported.
+- **Gate green:** `tsc --noEmit` 0 errors; unit suite passes incl. the engine test (**11 cases**); all
+  critical branch ≥ 90%, overall branch ≥ 93%. No existing module or schema changed.
 
 **Deliberately NOT done in this phase (each its own authorized step — see D25b below):** the one-time
 reversible host migration to the symlink+`releases/` model; any `--dry-run` or deploy on the production

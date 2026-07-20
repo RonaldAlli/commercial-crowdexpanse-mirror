@@ -8,6 +8,11 @@
 // Rollback is scope-aware: before SWAP nothing live changed (just discard the new release); after SWAP,
 // rollback repoints the `.next` symlink to the previous release and restarts — no manual intervention.
 //
+// INVARIANT (exactly one active release): SWAP's entry-criterion asserts `.next` is a proper symlink
+// resolving to exactly one valid release (never a real dir competing with releases/, never a dangling
+// target) BEFORE repointing — a violation fails pre-swap, so the live release is never touched. The same
+// assertion runs in dry-run validation.
+//
 // IDEMPOTENCY: PRECHECK resolves the REQUESTED release identity (e.g. source commit) and the ACTIVE
 // release identity (marker in the live release). If they match (and not --force), the engine short-
 // circuits to ALREADY_ACTIVE — no build, no swap, no restart — and returns success. Deploy commands get
@@ -94,13 +99,21 @@ export async function runDeploy(ctx, ops, { dryRun = false, force = false } = {}
     if (dryRun) {
       await step("VALIDATE_SWAP_TARGET", () => ops.validateSwapTarget(ctx, built));
       await step("VALIDATE_ROLLBACK_TARGET", () => ops.validateRollbackTarget(ctx));
-      rec("DRY_RUN", "complete", "validated build + swap-target + rollback-target + disk + retention; live server unchanged");
+      await step("ASSERT_SINGLE_ACTIVE", () => ops.assertSingleActive?.(ctx)); // invariant checked in dry-run too
+      rec("DRY_RUN", "complete", "validated build + swap-target + rollback-target + single-active + disk + retention; live server unchanged");
       outcome = { ok: true, dryRun: true, trace, buildId: vb.buildId, releaseId };
       return outcome;
     }
 
-    // ATOMIC swap: ln -sfn releases/<stamp> .next (rename(2)). swapped flips only on success.
-    await step("SWAP", async () => { await ops.swap(ctx, built); swapped = true; return { summary: "symlink → " + built.releaseDir }; });
+    // ATOMIC swap: ln -sfn releases/<stamp> .next (rename(2)). swapped flips only on success. The
+    // single-active INVARIANT is the swap's entry-criterion: verify exactly one release is active BEFORE
+    // repointing — a violation fails here (pre-swap), so the live release is never touched.
+    await step("SWAP", async () => {
+      await ops.assertSingleActive?.(ctx);
+      await ops.swap(ctx, built);
+      swapped = true;
+      return { summary: "symlink → " + built.releaseDir };
+    });
     await step("RESTART", () => ops.restart(ctx));                 // pm2 restart + wait-for-online
     await step("VERIFY_RUNTIME", () => ops.verifyRuntime(ctx, vb.buildId)); // online + serving NEW buildId + health
     await step("SMOKE", () => ops.smoke(ctx));                     // routes / migrations

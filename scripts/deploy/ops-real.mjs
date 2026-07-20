@@ -63,9 +63,41 @@ export function makeRealOps(config) {
       fs.mkdirSync(abs, { recursive: true });
       // Build into the versioned release dir; the LIVE release is never touched.
       await sh("npm", ["run", buildScript], { cwd: appDir, env: { ...process.env, [distDirEnv]: abs }, maxBuffer: 64 * 1024 * 1024 });
-      // Stamp the release identity so a future run at the same commit is a detectable no-op.
+      // `.release-id` = the dead-simple idempotency marker (kept intentionally minimal + robust).
       if (ctx.requestedReleaseId) fs.writeFileSync(path.join(abs, ".release-id"), ctx.requestedReleaseId);
-      return { releaseDir: releaseRel(stamp), absDir: abs, stamp };
+      // release.json = the richer, human/diagnostic manifest (rollbacks, history, artifact verification,
+      // future canary). Written from the same build, so it can never diverge from `.release-id`.
+      const artifacts = ["BUILD_ID", "build-manifest.json", "prerender-manifest.json", "routes-manifest.json"]
+        .filter((f) => fs.existsSync(path.join(abs, f)));
+      const manifest = {
+        releaseId: ctx.requestedReleaseId ?? null,
+        buildId: (() => { try { return readBuildId(abs); } catch { return null; } })(),
+        commit: await gitHead(appDir, "%H"),
+        builtAt: new Date().toISOString(),
+        nodeVersion: process.version,
+        schemaVersion: latestMigration(appDir),
+        stamp,
+        artifacts,
+      };
+      fs.writeFileSync(path.join(abs, "release.json"), JSON.stringify(manifest, null, 2));
+      return { releaseDir: releaseRel(stamp), absDir: abs, stamp, manifest };
+    },
+
+    // INVARIANT: exactly one release is ACTIVE. Active-ness is defined by the single `.next` symlink
+    // target, so the meaningful guard before every swap is: `.next` is a proper symlink (post-migration)
+    // resolving to exactly one existing, valid release — never a real dir competing with releases/, and
+    // never a dangling/invalid target. Runs as a SWAP entry-criterion (and in dry-run validation).
+    async assertSingleActive(_ctx) {
+      let st = null; try { st = fs.lstatSync(nextLink); } catch { st = null; }
+      if (st && !st.isSymbolicLink()) throw new Error("single-active invariant: .next is a real directory, not a symlink — host not migrated (would leave two competing 'current' releases)");
+      const t = linkTarget(nextLink);
+      const active = [];
+      if (t) {
+        if (!fs.existsSync(path.join(appDir, t, "BUILD_ID"))) throw new Error(`single-active invariant: active target '${t}' has no BUILD_ID`);
+        active.push(t);
+      }
+      if (active.length > 1) throw new Error(`single-active invariant: ${active.length} releases claim active`);
+      return { summary: `active=${active[0] ?? "(none)"}` };
     },
 
     async verifyBuild(_ctx, built) {
@@ -133,8 +165,23 @@ export function makeRealOps(config) {
   };
 }
 
-/** Current source commit (short) — the requested release identity for idempotency. Null if not a repo. */
-async function gitHead(cwd) { try { return (await sh("git", ["rev-parse", "--short=12", "HEAD"], { cwd })).stdout.trim(); } catch { return null; } }
+/** Current source commit — short (default, the idempotency identity) or a `git log` format like "%H". */
+async function gitHead(cwd, format) {
+  try {
+    return format
+      ? (await sh("git", ["log", "-1", `--format=${format}`], { cwd })).stdout.trim()
+      : (await sh("git", ["rev-parse", "--short=12", "HEAD"], { cwd })).stdout.trim();
+  } catch { return null; }
+}
+
+/** Latest applied migration name (lexically last dir under prisma/migrations) — a schema-version proxy. */
+function latestMigration(appDir) {
+  try {
+    const dirs = fs.readdirSync(path.join(appDir, "prisma", "migrations"), { withFileTypes: true })
+      .filter((e) => e.isDirectory()).map((e) => e.name).sort();
+    return dirs.at(-1) ?? null;
+  } catch { return null; }
+}
 
 // --- small runtime helpers (poll pm2 + health; no external deps) --------------------------------
 async function waitOnline(pm2App, tries = 20) {
