@@ -37,7 +37,7 @@ import { diligenceFocusForStage, diligenceStatusLabel, diligenceStatusTone, isPo
 import { ensureOpportunityDiligence } from "@/lib/opportunity-diligence-service";
 import { titleCase } from "@/lib/property-options";
 
-import { deleteOpportunity, moveOpportunityStage } from "../actions";
+import { deleteOpportunity, moveOpportunityStage, evaluateStageMove } from "../actions";
 import { updateDiligenceItemAction } from "../diligence-actions";
 
 export const dynamic = "force-dynamic";
@@ -530,7 +530,7 @@ export default async function OpportunityDetailPage({
                 ) : null}
               </div>
               {moveableStages.length > 1 ? (
-                <StageSelect action={moveOpportunityStage.bind(null, opportunity.id)} current={opportunity.stage} stages={moveableStages} />
+                <StageSelect action={moveOpportunityStage.bind(null, opportunity.id)} evaluate={evaluateStageMove.bind(null, opportunity.id)} current={opportunity.stage} stages={moveableStages} />
               ) : null}
             </div>
             <dl className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { authorize, authorizeStageMove, checkAuthorized, checkStageMove, GENERIC_DENIAL } from "@/lib/authorize";
 import { getClosingGateStatus } from "@/lib/closing-service";
-import { applyStageTransition } from "@/lib/stage-policy-service";
+import { applyStageTransition, evaluateStageTransition } from "@/lib/stage-policy-service";
 import { prisma } from "@/lib/prisma";
 import { stageLabel } from "@/lib/opportunity-options";
 
@@ -216,6 +216,38 @@ export async function updateOpportunity(
  * Returns an explanatory `{ error }` when the closing gate blocks a PAID move so the
  * enforcement path itself carries the reason; a bare `return` (undefined) otherwise.
  */
+/**
+ * Read-only policy evaluation for the UI (the "UI → evaluate → decide" seam): tells the stage-move
+ * control whether a target stage is ALLOW / REQUIRES_ATTESTATION / DENY and what it needs, so it can
+ * prompt for an attestation reason before committing. Enforcement still happens server-side in
+ * moveOpportunityStage; this is advisory for UX. Org-scoped.
+ */
+export type StageMoveEvaluation = {
+  outcome: "ALLOW" | "REQUIRES_ATTESTATION" | "DENY";
+  stageLabel: string;
+  missingTruth: string[];
+  missingArtifacts: string[];
+  message: string;
+  suggestedAction: string;
+  canOverride: boolean;
+};
+export async function evaluateStageMove(id: string, stage: string): Promise<StageMoveEvaluation | { error: string }> {
+  const user = await requireUser();
+  if (!VALID_STAGES.has(stage)) return { error: "Invalid pipeline stage." };
+  const existing = await prisma.opportunity.findFirst({ where: { id, organizationId: user.organizationId }, select: { id: true } });
+  if (!existing) return { error: GENERIC_DENIAL };
+  const r = await evaluateStageTransition(user.organizationId, id, stage as OpportunityStage);
+  return {
+    outcome: r.outcome,
+    stageLabel: stageLabel(stage),
+    missingTruth: r.missingTruth,
+    missingArtifacts: r.missingArtifacts,
+    message: r.message,
+    suggestedAction: r.suggestedAction,
+    canOverride: r.canOverride,
+  };
+}
+
 export async function moveOpportunityStage(id: string, formData: FormData): Promise<{ error: string } | undefined> {
   const user = await requireUser();
   const nextStage = String(formData.get("stage") ?? "").trim();

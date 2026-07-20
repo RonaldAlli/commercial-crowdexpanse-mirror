@@ -16,7 +16,7 @@ import { projectClosingBadges } from "@/lib/transaction-dashboard";
 import { ClosingBadges } from "@/components/closing-badges";
 import { titleCase } from "@/lib/property-options";
 
-import { moveOpportunityStage } from "./actions";
+import { moveOpportunityStage, evaluateStageMove } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -311,7 +311,7 @@ function Board({ opportunities, role }: { opportunities: BoardOpp[]; role: UserR
                     ) : null}
                     {moveableStages.length > 1 ? (
                       <div className="mt-2">
-                        <StageSelect action={moveOpportunityStage.bind(null, opp.id)} current={opp.stage} stages={moveableStages} className="w-full" />
+                        <StageSelect action={moveOpportunityStage.bind(null, opp.id)} evaluate={evaluateStageMove.bind(null, opp.id)} current={opp.stage} stages={moveableStages} className="w-full" />
                       </div>
                     ) : null}
                   </div>

@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { stageLabel } from "@/lib/opportunity-options";
 import {
   evaluateStageRequirements,
+  STAGE_RULES,
+  type StageRuleset,
   type StageTransitionFacts,
   type StagePolicyResult,
 } from "@/lib/stage-policy";
@@ -29,24 +31,22 @@ export async function evaluateStageTransition(
   organizationId: string,
   opportunityId: string,
   target: OpportunityStage,
+  rules: StageRuleset = STAGE_RULES,
 ): Promise<StagePolicyResult> {
   const facts = await getStageTransitionFacts(organizationId, opportunityId);
-  return evaluateStageRequirements(target, facts);
+  return evaluateStageRequirements(target, facts, rules);
 }
 
-export type ApplyStageResult = { ok: boolean; decision: StagePolicyResult["decision"]; error?: string; attested: boolean };
+export type ApplyStageResult = { ok: boolean; outcome: StagePolicyResult["outcome"]; error?: string; attested: boolean; result: StagePolicyResult };
 
 /**
- * Apply a stage transition AFTER the caller's own authorization (role gate, PAID gate, etc.). This
- * enforces the semantic-contract truth policy, records a controlled attestation when a validated
- * stage is entered without its backing truth (imported/mid-lifecycle), persists the stage, and writes
- * the ActivityLog(s) — all in one transaction. Reused by the UI action; ready for imports/Automation/API.
+ * Apply a stage transition AFTER the caller's own authorization (role gate, PAID gate, etc.). Enforces
+ * the semantic-contract truth policy, records a controlled attestation when a validated stage is entered
+ * without its backing truth, persists the stage, and writes the ActivityLog(s) — one transaction.
+ * Reused by the UI action and ready for imports/Automation/API (each passes its own `source`).
  *
- * - ALLOW → persist + `opportunity.stage_changed`.
- * - REQUIRES_ATTESTATION + reason → persist + `stage_changed` + `opportunity.stage_attested`
- *   (reason + missing truth + actor + timestamp via ActivityLog — no schema change).
- * - REQUIRES_ATTESTATION without reason → rejected with an explanatory error (nothing persisted).
- * - DENY → rejected (nothing persisted).
+ * The attestation ActivityLog stores STRUCTURED metadata (JSON `eventBody`): stage, policyId,
+ * missingTruth, missingArtifacts, reason, source — so audit/analytics need no text parsing.
  */
 export async function applyStageTransition(args: {
   organizationId: string;
@@ -54,24 +54,22 @@ export async function applyStageTransition(args: {
   opportunity: { id: string; stage: OpportunityStage; propertyId: string; sellerId: string | null };
   targetStage: OpportunityStage;
   attestationReason?: string | null;
+  source?: string; // "ui" | "import" | "automation" | "api" ...
+  rules?: StageRuleset;
 }): Promise<ApplyStageResult> {
   const { organizationId, actorId, opportunity, targetStage } = args;
+  const source = args.source ?? "ui";
   const reason = (args.attestationReason ?? "").trim();
-  const policy = await evaluateStageTransition(organizationId, opportunity.id, targetStage);
+  const policy = await evaluateStageTransition(organizationId, opportunity.id, targetStage, args.rules ?? STAGE_RULES);
 
-  if (policy.decision === "DENY") {
-    return { ok: false, decision: "DENY", attested: false, error: policy.explanation || `Cannot move to ${stageLabel(targetStage)}.` };
+  if (policy.outcome === "DENY") {
+    return { ok: false, outcome: "DENY", attested: false, result: policy, error: [policy.message, policy.suggestedAction].filter(Boolean).join(" ") || `Cannot move to ${stageLabel(targetStage)}.` };
   }
 
   let attested = false;
-  if (policy.decision === "REQUIRES_ATTESTATION") {
+  if (policy.outcome === "REQUIRES_ATTESTATION") {
     if (!reason) {
-      return {
-        ok: false,
-        decision: "REQUIRES_ATTESTATION",
-        attested: false,
-        error: `${policy.explanation} To record this as an imported/mid-lifecycle exception, provide an attestation reason (${policy.requiredArtifacts.join("; ")}).`,
-      };
+      return { ok: false, outcome: "REQUIRES_ATTESTATION", attested: false, result: policy, error: [policy.message, policy.suggestedAction].filter(Boolean).join(" ") };
     }
     attested = true;
   }
@@ -98,12 +96,19 @@ export async function applyStageTransition(args: {
           sellerId: opportunity.sellerId,
           actorId,
           eventType: "opportunity.stage_attested",
-          eventLabel: `Attested ${stageLabel(targetStage)} without ${policy.requiredArtifacts.join("; ")}`,
-          eventBody: `Reason: ${reason} | Missing: ${policy.missing.join(", ")} | Policy: ${policy.policy}`,
+          eventLabel: `Attested ${stageLabel(targetStage)} without ${policy.missingArtifacts.join("; ")}`,
+          eventBody: JSON.stringify({
+            stage: targetStage,
+            policyId: policy.policyId,
+            missingTruth: policy.missingTruth,
+            missingArtifacts: policy.missingArtifacts,
+            reason,
+            source,
+          }),
         },
       });
     }
   });
 
-  return { ok: true, decision: policy.decision, attested };
+  return { ok: true, outcome: policy.outcome, attested, result: policy };
 }

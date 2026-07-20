@@ -188,9 +188,20 @@ missing-truth/artifacts/explanation) + `lib/stage-policy-service.ts` (`evaluateS
 reusable `applyStageTransition`); `moveOpportunityStage` delegates to it (role gate + PAID gate
 unchanged). Rules: `FINANCIALS_REQUESTED`, `T12_RECEIVED`, `RENT_ROLL_RECEIVED` (+ `UNDER_CONTRACT`
 for the imported-deal test); every other stage is unruled → ALLOW (unchanged). Attestation = an
-`opportunity.stage_attested` ActivityLog (reason + missing truth + actor + timestamp); **no schema
-change**. Tests: unit `stage-policy.test.ts` (engine) + `scripts/e2e-stage-policy.mjs` (14
-assertions incl. the imported-deal UNDER_CONTRACT override path). Gate green: tsc 0, unit 64, E2E 43,
-build ok, frozen kernel unchanged, integrity clean. **REMAINING:** the minimal **UI attestation-reason
-field** (so a user can supply the reason the server now requires) — held for your UX nod. Later
-slices: UNDERWRITING → BUYER_MATCHED → OFFER_READY/LOI_SENT → PAID-policy (OWN-3). **Not merged.**
+structured-JSON `opportunity.stage_attested` ActivityLog (stage, policyId, missingTruth,
+missingArtifacts, reason, source; actor+timestamp are columns); **no schema change**.
+
+**All 5 Founder refinements applied (2026-07-19/20):** (1) the engine returns a **rich result**
+(`outcome, stage, policyId, policy, missingTruth, missingArtifacts, message, suggestedAction,
+canOverride`) so UI/API/automation/audit reuse it; (2) **structured ActivityLog** payload (above) +
+a `source` field on `applyStageTransition`; (3) **UNDER_CONTRACT is test-only** — removed from the
+production `STAGE_RULES`, exported as `UNDER_CONTRACT_RULE` and injected only by the integration test
+(production → ALLOW); (4)+(5) a **reusable `components/attestation-dialog.tsx`** + an `evaluateStageMove`
+seam wired through a rebuilt `components/stage-select.tsx` (UI → evaluate → ALLOW submits /
+REQUIRES_ATTESTATION opens the dialog / DENY+errors inline), used by both the board and detail pages.
+
+Tests: unit `stage-policy.test.ts` (7) + `scripts/e2e-stage-policy.mjs` (15, incl. structured-payload
+check, production-UNDER_CONTRACT-ALLOW proof, and the injected imported-deal override path). Gate
+green: tsc 0, isolated build ok, unit 64, E2E 43, frozen kernels unchanged, integrity clean. **PENDING
+ONE FOUNDER REVIEW** (reusable dialog · structured payload · UNDER_CONTRACT test-only) **then merge.**
+Later slices: UNDERWRITING → BUYER_MATCHED → OFFER_READY/LOI_SENT → PAID-policy (OWN-3). **Not merged.**
