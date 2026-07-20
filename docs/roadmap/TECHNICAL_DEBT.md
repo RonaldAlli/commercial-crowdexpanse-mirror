@@ -81,7 +81,8 @@
     never touches the host. **Status: implemented + self-tested (9/9, forced-failure rollback proven) ·
     PENDING FOUNDER REVIEW.** *Trigger:* review → merge.
   - **D25b — Production host migration (cutover).** One-time, reversible migration of the live `.next`
-    (173 MB real dir) to the symlink+`releases/` model; own runbook + operator authorization.
+    (173 MB real dir) to the symlink+`releases/` model; own runbook + operator authorization. Defined in
+    [D25B_HOST_MIGRATION_INITIATIVE.md](./D25B_HOST_MIGRATION_INITIATIVE.md).
     **Acceptance gate before any production migration:** a full staging-like rehearsal —
     `Dry Run → Forced Failure → Rollback → Recovery → Second Dry Run → Normal Deployment → Smoke`.
     **Status: NOT started — separate approval required.** *Trigger:* after D25a review, in a quiet window.

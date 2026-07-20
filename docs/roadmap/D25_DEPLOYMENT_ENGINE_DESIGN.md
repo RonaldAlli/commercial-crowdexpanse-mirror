@@ -158,7 +158,7 @@ Implementation and operational cutover are different risk profiles and deserve s
 | Item | Scope | Status |
 |---|---|---|
 | **D25a — Deployment Engine** | The state machine + real ops + CLI + tests (this branch). Pure code, isolated, never touches the host. | **Implemented · self-tested · PENDING FOUNDER REVIEW** |
-| **D25b — Production Host Migration** | The one-time, reversible cutover of the live `.next` (currently a 173 MB real dir) to the symlink+`releases/` model; its own runbook, operator authorization, and staging rehearsal. | **NOT started — separate approval required** |
+| **D25b — Production Host Migration** | The one-time, reversible cutover of the live `.next` (currently a 173 MB real dir) to the symlink+`releases/` model; its own runbook, operator authorization, and staging rehearsal. **→ [D25B_HOST_MIGRATION_INITIATIVE.md](./D25B_HOST_MIGRATION_INITIATIVE.md)** | **NOT started — separate approval required** |
 
 **D25b acceptance criterion — one live rehearsal on a staging-like environment before any production
 migration:**
