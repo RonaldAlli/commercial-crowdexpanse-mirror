@@ -88,6 +88,24 @@ Dry Run → Forced Failure → Rollback → Recovery → Second Dry Run → Norm
 
 Only after this rehearsal passes end-to-end is the **production** migration (§3) authorized.
 
+### 4a. Rollback timing — REQUIRED deliverable (measure, don't just verify)
+
+The Forced-Failure / Rollback / Recovery steps must **record measured timings**, not merely a pass/fail.
+These numbers become the quantitative rollback baseline for every future release. Capture (ms, from the
+persisted `deploy-history/<stamp>.json` timestamps + pm2/health probes):
+
+| Metric | Definition |
+|---|---|
+| **Time to detect failure** | failing state op start → engine records the `*:error` transition |
+| **Time to roll back** | `ROLLBACK:start` → `ROLLBACK:done` (symlink repointed + restart issued) |
+| **Total recovery time** | failure detected → previous release verified healthy again |
+| **Application-unavailable duration** | first failed health/route → first healthy again (actual user-facing outage) |
+| **PM2 recovery time** | `pm2 restart` issued → process back `online` |
+| **Health-endpoint recovery time** | rollback restart → `/api/health` returns ok |
+
+Record these in the rehearsal report; they seed the **Deployment Baseline** (§6) so future deploys are
+judged against known-good recovery numbers rather than intuition.
+
 ---
 
 ## 5. Risks (migration-specific) + mitigations
@@ -109,7 +127,22 @@ Only after this rehearsal passes end-to-end is the **production** migration (§3
   error log and `restart_time` +1.
 - The deploy runbook + [Operations Baseline](./OPERATIONS_BASELINE.md) are updated (the transient
   "Could not find a production build" note is removed).
+- **New permanent document — `DEPLOYMENT_BASELINE.md`** (distinct from the Operations Baseline; the
+  operational handbook for future deploys), capturing the **measured** figures from the rehearsal (§4a)
+  and the first real deploy:
+  - normal deployment duration + expected state-transition sequence (`PRECHECK → … → COMPLETE`),
+  - rollback duration + the §4a recovery timings (detect / rollback / total / unavailable / pm2 / health),
+  - smoke-test duration,
+  - expected deployment artifacts (`releases/<stamp>/` with `BUILD_ID` + `release.json`, the `.next`
+    symlink, `deploy-history/<stamp>.json`),
+  - retention policy (last N releases + N history records),
+  - deployment-history location,
+  - the operational deployment checklist.
+  Linked from Architecture Index §0b alongside the Product/Operations/Engineering baselines.
 - D25 is then fully closed (D25a code + D25b cutover).
+
+> These are **operational** deliverables produced during/after the rehearsal — not engine code. No further
+> engineering changes to D25a are planned; the focus is validating the process, not expanding the code.
 
 ---
 *Stop point: this initiative is defined but NOT started. It requires its own operator authorization, and
