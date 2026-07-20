@@ -1,10 +1,26 @@
 # Opportunity Pipeline — Post-Deploy Production Defects (Slice 1)
 
-> **Status: ROOT-CAUSE REPORT · PENDING FOUNDER REVIEW — no code changed yet.** Two defects surfaced
-> by the Founder's production browser re-drive of the deployed Slice 1 build (`sso5PnSYezUNfdBC1w7YQ`,
-> main `e85c44b`). **The release stays in the OBSERVATION window; it is NOT accepted/frozen.** Rollback
-> assets retained (`.next.rollback-20260720-014146Z` → prior `9_gv6zY2…`; backup `20260720-014146Z`).
-> Branch `fix/pipeline-board-stage-select`. **Do not use the board for bulk stage changes until fixed.**
+> **Status: BOTH DEFECTS FIXED + TESTED · PENDING FOUNDER REVIEW (2026-07-20).** Root-caused, then
+> fixed on branch `fix/pipeline-board-stage-select`. Release stays in the OBSERVATION window; **NOT
+> accepted/frozen, NOT merged, NOT deployed** — rollback assets retained (`.next.rollback-20260720-014146Z`
+> → prior `9_gv6zY2…`; backup `20260720-014146Z`).
+>
+> **Resolution summary:**
+> - **PB-1 (board load):** bounded board — `groupBy` per-stage **counts** + **one** bounded scan
+>   (`take 500`) grouped in memory, **≤25 cards/column**, "View all → List" for the rest. **Measured:**
+>   unbounded **582 ms / 9,641 cards / 9,641 client dropdowns** → bounded **62 ms / 2 queries / ≤325
+>   rendered cards** (`scripts/perf-board-load.mjs`). List view already paginated; unchanged.
+> - **PB-2 (stage move):** deterministic submission — `StageSelect` now builds `FormData` explicitly
+>   (`stage`, `attestationReason`) and calls the action directly; **removed** the controlled-input +
+>   `requestAnimationFrame(requestSubmit)` race that could submit a stale stage. Evaluate → attestation
+>   flow preserved.
+> - **Regression (Playwright, `tests/visual/opportunity-board-stage.spec.ts`, 2/2 in chromium):** the
+>   3-layer proof — the card moves out of the old column **and** into the new column **and** the DB
+>   `stage` persists; plus a bounded-board (≤25/column) assertion. Full gate green: tsc 0, unit 65,
+>   E2E 43, isolated build ok, frozen kernels unchanged.
+>
+> **Root-cause detail below (unchanged).** Do not use the board for bulk stage changes on the *deployed*
+> build until this fix ships.
 
 ---
 

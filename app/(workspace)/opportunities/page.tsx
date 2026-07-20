@@ -76,12 +76,22 @@ function usd(value: number | null) {
   return value == null ? null : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 1, notation: "compact" }).format(value);
 }
 
-async function loadBoardOpportunities(organizationId: string) {
-  return prisma.opportunity.findMany({
-    where: { organizationId },
-    select: BOARD_SELECT,
-    orderBy: { updatedAt: "desc" },
-  });
+// PB-1: the board must NOT load/render every opportunity (9,641 → 9,641 interactive cards). Two cheap
+// queries — accurate per-stage counts (groupBy) + ONE bounded scan of the most-recently-updated opps —
+// grouped in memory and capped per column. Records beyond the cap are reached via "View all" (the
+// existing paginated List). This keeps the board a bounded dashboard, not a full-record browser.
+const BOARD_SCAN = 500; // bounded scan (most-recently-updated) distributed across the columns
+const BOARD_PER_COLUMN = 25; // max cards rendered per stage column
+
+async function loadBoardData(organizationId: string) {
+  const [scan, grouped] = await Promise.all([
+    prisma.opportunity.findMany({ where: { organizationId }, select: BOARD_SELECT, orderBy: { updatedAt: "desc" }, take: BOARD_SCAN }),
+    prisma.opportunity.groupBy({ by: ["stage"], where: { organizationId }, _count: { _all: true } }),
+  ]);
+  const counts: Record<string, number> = {};
+  for (const g of grouped) counts[g.stage] = g._count._all;
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  return { scan, counts, total };
 }
 
 export default async function OpportunitiesPage({
@@ -141,13 +151,13 @@ export default async function OpportunitiesPage({
     </div>
   );
 
-  // Board view — unchanged full-pipeline kanban.
+  // Board view — bounded full-pipeline kanban (PB-1): accurate counts + a capped set of recent cards.
   if (view === "board") {
-    const opportunities = await loadBoardOpportunities(user.organizationId);
+    const { scan, counts, total } = await loadBoardData(user.organizationId);
     return (
       <div className="space-y-6">
         {header}
-        {opportunities.length === 0 ? emptyState : <Board opportunities={opportunities} role={user.role} />}
+        {total === 0 ? emptyState : <Board opportunities={scan} counts={counts} role={user.role} />}
       </div>
     );
   }
@@ -266,7 +276,7 @@ export default async function OpportunitiesPage({
   );
 }
 
-function Board({ opportunities, role }: { opportunities: BoardOpp[]; role: UserRole }) {
+function Board({ opportunities, counts, role }: { opportunities: BoardOpp[]; counts: Record<string, number>; role: UserRole }) {
   const byStage = new Map<string, BoardOpp[]>();
   for (const stage of STAGE_ORDER) byStage.set(stage, []);
   for (const opp of opportunities) byStage.get(opp.stage)?.push(opp);
@@ -275,15 +285,16 @@ function Board({ opportunities, role }: { opportunities: BoardOpp[]; role: UserR
     <div className="overflow-x-auto pb-2">
       <div className="flex gap-4" style={{ minWidth: "min-content" }}>
         {STAGE_ORDER.map((stage) => {
-          const items = byStage.get(stage) ?? [];
+          const stageTotal = counts[stage] ?? (byStage.get(stage) ?? []).length;
+          const items = (byStage.get(stage) ?? []).slice(0, BOARD_PER_COLUMN); // PB-1: cap rendered cards
           const moveableStages = STAGE_OPTIONS.filter(
             (s) => s.value === stage || canMoveStage(role, stage, s.value),
           );
           return (
-            <div key={stage} className="flex w-72 shrink-0 flex-col">
+            <div key={stage} data-stage={stage} className="flex w-72 shrink-0 flex-col">
               <div className="mb-2 flex items-center justify-between px-1">
                 <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{stageLabel(stage)}</p>
-                <Badge tone="neutral">{items.length}</Badge>
+                <Badge tone="neutral">{stageTotal}</Badge>
               </div>
               <div className="flex-1 space-y-2 rounded-xl bg-slate-50/70 p-2">
                 {items.map((opp) => (
@@ -317,6 +328,11 @@ function Board({ opportunities, role }: { opportunities: BoardOpp[]; role: UserR
                   </div>
                 ))}
                 {items.length === 0 ? <p className="px-1 py-4 text-center text-xs text-slate-400">—</p> : null}
+                {stageTotal > items.length ? (
+                  <Link href="/opportunities?view=list" className="block px-1 pt-1 text-center text-xs font-medium text-brand-600 hover:text-brand-700">
+                    View all {stageTotal} in List →
+                  </Link>
+                ) : null}
               </div>
             </div>
           );
