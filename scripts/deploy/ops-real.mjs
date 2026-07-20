@@ -31,9 +31,6 @@ export function makeRealOps(config) {
     historyDir = path.join(appDir, "deploy-history"), keepHistory = 200,
   } = config;
 
-  const releaseRel = (s) => path.join("releases", s);
-  const releaseAbs = (s) => path.join(releasesDir, s);
-
   return {
     log: (m) => process.stdout.write(`  ${m}\n`),
 
@@ -59,10 +56,13 @@ export function makeRealOps(config) {
     },
 
     async build(ctx) {
-      const abs = releaseAbs(stamp);
+      // DE-1: `next.config.mjs` is `distDir: process.env.NEXT_DIST_DIR || ".next"`, and Next resolves
+      // distDir as path.join(projectRoot, distDir). NEXT_DIST_DIR MUST therefore be RELATIVE to appDir —
+      // an ABSOLUTE value nests the build OUTSIDE releaseAbs (VERIFY_BUILD then can't find BUILD_ID).
+      const { relative: relDist, absolute: abs } = resolveDistDir(appDir, releasesDir, stamp);
       fs.mkdirSync(abs, { recursive: true });
-      // Build into the versioned release dir; the LIVE release is never touched.
-      await sh("npm", ["run", buildScript], { cwd: appDir, env: { ...process.env, [distDirEnv]: abs }, maxBuffer: 64 * 1024 * 1024 });
+      // Build into the versioned release dir (relative distDir); the LIVE release is never touched.
+      await sh("npm", ["run", buildScript], { cwd: appDir, env: { ...process.env, [distDirEnv]: relDist }, maxBuffer: 64 * 1024 * 1024 });
       // `.release-id` = the dead-simple idempotency marker (kept intentionally minimal + robust).
       if (ctx.requestedReleaseId) fs.writeFileSync(path.join(abs, ".release-id"), ctx.requestedReleaseId);
       // release.json = the richer, human/diagnostic manifest (rollbacks, history, artifact verification,
@@ -80,7 +80,8 @@ export function makeRealOps(config) {
         artifacts,
       };
       fs.writeFileSync(path.join(abs, "release.json"), JSON.stringify(manifest, null, 2));
-      return { releaseDir: releaseRel(stamp), absDir: abs, stamp, manifest };
+      // releaseDir (the symlink target) = the SAME relative value the build used — they can never diverge.
+      return { releaseDir: relDist, absDir: abs, stamp, manifest };
     },
 
     // INVARIANT: exactly one release is ACTIVE. Active-ness is defined by the single `.next` symlink
@@ -163,6 +164,22 @@ export function makeRealOps(config) {
       for (const old of files.slice(0, Math.max(0, files.length - keepHistory))) fs.rmSync(path.join(historyDir, old), { force: true });
     },
   };
+}
+
+/**
+ * Resolve the build's dist directory (DE-1). Next resolves `distDir` as path.join(projectRoot, distDir),
+ * so the value handed to the build via NEXT_DIST_DIR MUST be RELATIVE to appDir — an absolute value nests
+ * the output outside the release dir. Returns { relative } (pass to the build) and { absolute } (where the
+ * build actually lands, what VERIFY_BUILD checks). Throws if releasesDir is outside appDir (Next cannot
+ * build outside the project root).
+ */
+export function resolveDistDir(appDir, releasesDir, stamp) {
+  const absolute = path.join(releasesDir, stamp);
+  const relative = path.relative(appDir, absolute);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error(`releases dir must be inside appDir for NEXT_DIST_DIR to resolve (got ${absolute} outside ${appDir})`);
+  }
+  return { relative, absolute };
 }
 
 /** Current source commit — short (default, the idempotency identity) or a `git log` format like "%H". */
