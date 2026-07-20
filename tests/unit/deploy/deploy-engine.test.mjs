@@ -93,6 +93,16 @@ test("MANDATORY forced-failure: a restart failure AFTER swap auto-rolls-back to 
   clean(dir);
 });
 
+test("DE-3 ordering: a PRECHECK failure aborts BEFORE build (no side-effecting build runs)", async () => {
+  const dir = sandbox(); const { ops, _ } = makeOps(dir, { failAt: "precheck" });
+  const r = await runDeploy({}, ops);
+  assert.equal(r.ok, false); assert.equal(r.rolledBack, false, "nothing to roll back — failed before swap");
+  assert.equal(_.builds(), 0, "BUILD never ran (target validation is a PRECHECK criterion)");
+  assert.equal(_.target(), "releases/prev", "live symlink untouched");
+  assert.equal(_.history.length, 0, "no history persisted — a refused run leaves ZERO residue");
+  clean(dir);
+});
+
 test("forced-failure at SMOKE (after swap+restart) also auto-rolls-back", async () => {
   const dir = sandbox(); const { ops, _ } = makeOps(dir, { failAt: "smoke" });
   const r = await runDeploy({}, ops);

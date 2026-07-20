@@ -35,6 +35,10 @@ export function makeRealOps(config) {
     log: (m) => process.stdout.write(`  ${m}\n`),
 
     async precheck(ctx) {
+      // DE-3: validate the target FIRST — before creating ANY artifact (lock, releases dir) on it. An
+      // unmigrated real-dir / dangling `.next` (or the wrong target entirely) aborts here with zero residue,
+      // long before the expensive, side-effecting build. (Re-checked at SWAP for defense in depth.)
+      assertMigratedTarget(appDir, nextLink);
       // serialize deploys — atomic lock dir (fails if another deploy holds it)
       try { fs.mkdirSync(lockDir); } catch { throw new Error(`another deploy holds the lock (${lockDir})`); }
       ctx.lockHeld = true;
@@ -89,16 +93,8 @@ export function makeRealOps(config) {
     // resolving to exactly one existing, valid release — never a real dir competing with releases/, and
     // never a dangling/invalid target. Runs as a SWAP entry-criterion (and in dry-run validation).
     async assertSingleActive(_ctx) {
-      let st = null; try { st = fs.lstatSync(nextLink); } catch { st = null; }
-      if (st && !st.isSymbolicLink()) throw new Error("single-active invariant: .next is a real directory, not a symlink — host not migrated (would leave two competing 'current' releases)");
-      const t = linkTarget(nextLink);
-      const active = [];
-      if (t) {
-        if (!fs.existsSync(path.join(appDir, t, "BUILD_ID"))) throw new Error(`single-active invariant: active target '${t}' has no BUILD_ID`);
-        active.push(t);
-      }
-      if (active.length > 1) throw new Error(`single-active invariant: ${active.length} releases claim active`);
-      return { summary: `active=${active[0] ?? "(none)"}` };
+      const { active } = assertMigratedTarget(appDir, nextLink);
+      return { summary: `active=${active ?? "(none)"}` };
     },
 
     async verifyBuild(_ctx, built) {
@@ -180,6 +176,24 @@ export function resolveDistDir(appDir, releasesDir, stamp) {
     throw new Error(`releases dir must be inside appDir for NEXT_DIST_DIR to resolve (got ${absolute} outside ${appDir})`);
   }
   return { relative, absolute };
+}
+
+/**
+ * DE-3: target validity + single-active invariant. A valid target is `.next` = a proper symlink resolving
+ * to exactly one existing release (with BUILD_ID), OR absent (a fresh/first deploy). A real-directory
+ * `.next` (unmigrated / wrong target) is rejected. Called in PRECHECK (fail BEFORE the build) and again as
+ * the SWAP entry-criterion — defense in depth.
+ */
+export function assertMigratedTarget(appDir, nextLink) {
+  let st = null; try { st = fs.lstatSync(nextLink); } catch { st = null; }
+  if (st && !st.isSymbolicLink()) {
+    throw new Error("single-active invariant: .next is a real directory, not a symlink — host not migrated (would leave two competing 'current' releases)");
+  }
+  let t = null; try { t = fs.readlinkSync(nextLink); } catch { t = null; }
+  if (t && !fs.existsSync(path.join(appDir, t, "BUILD_ID"))) {
+    throw new Error(`single-active invariant: active target '${t}' has no BUILD_ID`);
+  }
+  return { active: t };
 }
 
 /** Current source commit — short (default, the idempotency identity) or a `git log` format like "%H". */

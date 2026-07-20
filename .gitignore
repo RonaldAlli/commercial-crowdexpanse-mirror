@@ -13,6 +13,13 @@
 /.next/
 /.next-isolated/
 /.next-visual/
+
+# D25 Deployment Engine — runtime artifacts + the per-instance production sentinel (never committed;
+# the sentinel is a LOCAL marker present only in the production checkout, read by the deploy engine).
+/releases/
+/deploy-history/
+/.deploy.lock/
+.production-instance
 /out/
 
 # playwright (test-only; never committed) — binaries, reports, auth state, screenshots

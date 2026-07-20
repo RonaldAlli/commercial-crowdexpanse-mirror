@@ -127,7 +127,11 @@ export async function runDeploy(ctx, ops, { dryRun = false, force = false } = {}
     outcome = { ok: false, trace, error: err.message, rolledBack: swapped };
     return outcome;
   } finally {
-    try { await ops.persistTrace?.(ctx, historyRecord()); } catch (e) { ops.log?.(`[PERSIST] error — ${e.message}`); }
+    // Persist history only if PRECHECK passed. A run refused at target/precheck validation did no work and
+    // must leave ZERO residue — especially on a wrong/production target (defense in depth with DE-2/DE-3).
+    if (trace.some((t) => t.state === "PRECHECK" && t.status === "ok")) {
+      try { await ops.persistTrace?.(ctx, historyRecord()); } catch (e) { ops.log?.(`[PERSIST] error — ${e.message}`); }
+    }
     try { await ops.releaseLock?.(ctx); } catch { /* lock release is best-effort */ }
   }
 }

@@ -1,53 +1,78 @@
 #!/usr/bin/env node
 // D25 Deployment Engine — CLI entry point. Wires the real host operations into the state-machine engine.
 //
-//   node scripts/deploy/deploy.mjs --dry-run     validate build + swap/rollback targets + disk +
-//                                                retention, WITHOUT changing the live server
-//   node scripts/deploy/deploy.mjs               full atomic deploy (build → swap → restart → smoke),
-//                                                auto-rollback on any post-swap failure
+//   deploy.mjs --dry-run --app-dir <path>            validate build + targets + invariants, no live change
+//   deploy.mjs --app-dir <path> --yes                full atomic deploy (mutating ⇒ requires --yes)
+//   deploy.mjs --app-dir <prod> --production --yes    deploy to a sentinel-marked production target
 //
-// Safe by construction: this does nothing until run ON the host, AND the host must first be migrated to
-// the symlink+releases/ model (separate, reversible, operator-authorized runbook). Until then `.next` is
-// a real directory and PRECHECK's previous-release read simply reports "(none)". No production execution
-// is performed as part of the D25 implementation phase — first host use is `--dry-run` under review.
+// DE-2 (fail-closed): the target is NEVER defaulted. `--app-dir <path>` (or `--app-dir=<path>`, or --cwd)
+// is REQUIRED; it must resolve exactly to an app checkout; a `.production-instance`-marked target is
+// refused without `--production`; and any non-dry-run needs `--yes`. The resolved context is printed
+// BEFORE the state machine starts. See resolve-context.mjs.
+import fs from "node:fs";
 import path from "node:path";
 import { runDeploy, STATES } from "./deploy-engine.mjs";
 import { makeRealOps } from "./ops-real.mjs";
+import { resolveDeployContext, argValue } from "./resolve-context.mjs";
 
 const argv = process.argv.slice(2);
-const dryRun = argv.includes("--dry-run");
-const force = argv.includes("--force"); // bypass the "release already active" idempotency no-op
 const jsonOut = argv.includes("--json");
 
-// A sortable, collision-free release stamp WITHOUT Date.now()/Math.random() (both unavailable/discouraged
-// in this codebase's scripting sandbox for determinism): derive from the process high-res clock + pid.
-// On the real host `date -u +%Y%m%dT%H%M%SZ` is preferable; accept an explicit --stamp override for that.
+// FAIL-CLOSED resolution first — aborts before anything else if the target is missing/ambiguous/production.
+let cliCtx;
+try {
+  cliCtx = resolveDeployContext(argv);
+} catch (e) {
+  console.error(`\n✋ refusing to run — ${e.message}\n`);
+  process.exit(2);
+}
+const { appDir, dryRun, force, isProduction, isMarkedProduction } = cliCtx;
+
+// A sortable release stamp. `date -u +%Y%m%dT%H%M%SZ` is preferable on the host; accept --stamp override.
 function releaseStamp() {
-  const explicit = argFor("--stamp");
+  const explicit = argValue(argv, "--stamp");
   if (explicit) return explicit;
   const [s, ns] = process.hrtime();
   return `r${s}${String(ns).padStart(9, "0")}-${process.pid}`;
 }
-function argFor(flag) { const i = argv.indexOf(flag); return i >= 0 ? argv[i + 1] : undefined; }
 
 const config = {
-  appDir: argFor("--app-dir") || "/opt/crowdexpanse/commercial",
-  pm2App: argFor("--pm2-app") || "crowdexpanse-commercial",
-  port: Number(argFor("--port") || 3030),
+  appDir,
+  pm2App: argValue(argv, "--pm2-app") || "crowdexpanse-commercial",
+  port: Number(argValue(argv, "--port") || 3030),
   healthPath: "/api/health",
   buildScript: "build",
   distDirEnv: "NEXT_DIST_DIR",
-  keepReleases: Number(argFor("--keep") || 5),
-  releaseId: argFor("--release-id"), // explicit identity override; else derived from git HEAD
+  keepReleases: Number(argValue(argv, "--keep") || 5),
+  releaseId: argValue(argv, "--release-id"), // explicit identity override; else derived from git HEAD
   stamp: releaseStamp(),
 };
+
+/** Best-effort DB name (redacted creds) from the target's env, for the context banner. */
+function targetDbName(dir) {
+  for (const f of [".env", ".env.local", ".env.test"]) {
+    try {
+      const m = fs.readFileSync(path.join(dir, f), "utf8").match(/DATABASE_URL="?postgres[^"\n]*\/([A-Za-z0-9_]+)/);
+      if (m) return m[1];
+    } catch { /* try next */ }
+  }
+  return "(per target .env)";
+}
 
 const ops = makeRealOps(config);
 const ctx = { config };
 
-console.log(`\nD25 Deployment Engine — ${dryRun ? "DRY RUN (no live change)" : force ? "DEPLOY (--force)" : "DEPLOY"}`);
-console.log(`  app=${config.appDir}  pm2=${config.pm2App}  release=${config.stamp}`);
-console.log(`  states: ${STATES.join(" → ")}${dryRun ? "  (stops before SWAP)" : ""}\n`);
+// DE-2: print the FULLY RESOLVED execution context before the state machine starts — mistakes are easy to
+// spot here, hard to spot mid-run.
+const mode = dryRun ? "dry-run (no live change)" : `DEPLOY${isProduction ? " · PRODUCTION" : ""}${force ? " · --force" : ""}`;
+console.log("\n── D25 Deployment Engine · resolved execution context ──");
+console.log(`  Application : ${appDir}${isMarkedProduction ? "   [PRODUCTION sentinel]" : ""}`);
+console.log(`  Mode        : ${mode}`);
+console.log(`  Release     : ${config.stamp}`);
+console.log(`  Database    : ${targetDbName(appDir)}`);
+console.log(`  PM2         : ${config.pm2App}`);
+console.log(`  Port        : ${config.port}`);
+console.log(`  States      : ${STATES.join(" → ")}${dryRun ? "   (stops before SWAP)" : ""}\n`);
 
 const result = await runDeploy(ctx, ops, { dryRun, force });
 
