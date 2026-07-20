@@ -106,6 +106,26 @@ persisted `deploy-history/<stamp>.json` timestamps + pm2/health probes):
 Record these in the rehearsal report; they seed the **Deployment Baseline** (§6) so future deploys are
 judged against known-good recovery numbers rather than intuition.
 
+### 4b. Go / No-Go checklist — immediately before production authorization
+
+The production migration decision is **objective, not subjective**: every item must be ✅. **If any item
+is incomplete → NO production migration.** Founder authorization is the final gate, granted only when all
+prior items already hold.
+
+| # | Check | Required |
+|---|---|---|
+| 1 | Staging rehearsal passed end-to-end (§4 full sequence) | ✅ |
+| 2 | Rollback rehearsal passed (forced-failure auto-rollback, no manual intervention) | ✅ |
+| 3 | Deployment + rollback timings recorded (§4a metrics captured) | ✅ |
+| 4 | Deployment Baseline drafted (§6, from measured figures) | ✅ |
+| 5 | Rollback assets verified (previous release retained + `.next.premigration` present) | ✅ |
+| 6 | Restore-verified DB backup taken | ✅ |
+| 7 | Maintenance / quiet window approved | ✅ |
+| 8 | Founder authorization (this specific migration) | ✅ |
+
+Any ✗ or unknown ⇒ **No-Go.** The go decision is the conjunction of all eight; no item is waived by
+another being strong.
+
 ---
 
 ## 5. Risks (migration-specific) + mitigations
