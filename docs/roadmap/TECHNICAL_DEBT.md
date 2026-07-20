@@ -58,6 +58,23 @@
 - In-place host build risks brief disruption — move toward staged/rolling deploys.
 - Backups/monitoring/alerting gaps tracked in [Operations](./OPERATIONS_ROADMAP.md).
 
+## Opportunity Pipeline Slice 1 (opened 2026-07-20)
+
+- **D24 — `crowdexpanse-commercial` memory growth / 512 MB pm2 recycle · investigation (pre-existing).**
+  The web process routinely grows past the `max_memory_restart` = 512 MB ceiling and pm2 **gracefully**
+  recycles it (`exceeds --max-memory-restart`, exit 0 / SIGINT, `unstable_restarts=0`) — **multiple times
+  per day since 2026-06-22**, well before any recent release. Not a Slice-1 defect (Slice 1 *reduces*
+  board memory). **Investigate:** RSS-growth profile over time, recycle frequency/cadence, whether 512 MB
+  is an appropriate threshold for this Next.js server, and whether profiling indicates a leak.
+  **Do NOT change the pm2 limit or production config as an incidental fix** — scope + review as its own
+  change. *Trigger:* recycle cadence rising, or a memory-correlated user-facing incident.
+- **D25 — In-place `.next` rebuild during deploy · deployment improvement.** Deploy runs `npm run build`
+  over the live `.next` while `next start` is serving, exposing a partially-rebuilt directory → a
+  transient "Could not find a production build" error burst + pm2 crash-retries during the deploy window
+  (self-resolves at restart; observed 2026-07-20). **Fix:** build into a fresh directory → verify →
+  **atomic swap / symlink switch** → restart (or stop→build→start) for zero-error deploys. Complements
+  the existing "staged/rolling deploys" infra note. *Trigger:* next deploy or staged-deploy adoption.
+
 ## Debt policy
 - A change may add debt **only** with an entry here and a trigger.
 - Release checklists review this list; no release ships with an open **release-blocking** item. (D4 backups are now implemented + restore-verified locally; the remaining release-blocking piece is enabling the **off-host mirror** — provision R2 creds — and scheduling.)
