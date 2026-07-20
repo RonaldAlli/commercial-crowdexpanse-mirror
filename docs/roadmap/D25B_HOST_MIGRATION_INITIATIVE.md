@@ -69,8 +69,14 @@ survives the whole procedure; revert is a symlink removal + rename.
 
 ## 4. Acceptance gate — mandatory staging rehearsal (BEFORE any production migration)
 
-The engine must be exercised **end-to-end on a staging-like host** in exactly this sequence, all passing,
-before production migration is requested:
+> **Phase 1 gate (prerequisite):** the rehearsal below runs ONLY after
+> [Phase 1 — Staging Environment Validation](./D25B_PHASE1_STAGING_VALIDATION.md) passes (a suitable,
+> isolated staging instance exists + isolation proven). **Status 2026-07-20: Phase 1 does NOT pass —
+> staging is ABSENT (the only host is production); rehearsal BLOCKED until an isolated staging instance is
+> provisioned and validated.** Do not assume a staging target exists.
+
+The engine must be exercised **end-to-end on the validated staging host** in exactly this sequence, all
+passing, before production migration is requested:
 
 ```
 Dry Run → Forced Failure → Rollback → Recovery → Second Dry Run → Normal Deployment → Smoke
