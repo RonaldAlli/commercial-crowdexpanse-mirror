@@ -200,8 +200,16 @@ production `STAGE_RULES`, exported as `UNDER_CONTRACT_RULE` and injected only by
 seam wired through a rebuilt `components/stage-select.tsx` (UI → evaluate → ALLOW submits /
 REQUIRES_ATTESTATION opens the dialog / DENY+errors inline), used by both the board and detail pages.
 
-Tests: unit `stage-policy.test.ts` (7) + `scripts/e2e-stage-policy.mjs` (15, incl. structured-payload
-check, production-UNDER_CONTRACT-ALLOW proof, and the injected imported-deal override path). Gate
-green: tsc 0, isolated build ok, unit 64, E2E 43, frozen kernels unchanged, integrity clean. **PENDING
-ONE FOUNDER REVIEW** (reusable dialog · structured payload · UNDER_CONTRACT test-only) **then merge.**
-Later slices: UNDERWRITING → BUYER_MATCHED → OFFER_READY/LOI_SENT → PAID-policy (OWN-3). **Not merged.**
+**3 final pre-merge items applied (2026-07-20):** (1) attestation payload factored into a reusable
+typed builder `lib/attestation-events.ts` (`buildAttestationEvent`/`buildStageAttestationEvent` →
+`opportunity.<kind>_attested`, ready for buyer/diligence/closing/assignment kinds) — no hand-assembled
+JSON; (2) **performance baseline** (test DB, common ALLOW path, N=100): raw stage change **4.30 ms/op**
+→ with policy evaluation **8.33 ms/op** (**+4.03 ms/op** = 2 facts reads + transaction wrapper),
+negligible for a user-initiated action (`scripts/perf-stage-transition.mjs`); (3) the attestation
+dialog now frames the override as an **audited exception** ("…normally requires… you may continue by
+recording an audited attestation… rather than bypassing the check"), not a bypass.
+
+Tests: unit `stage-policy.test.ts` (7) + `attestation-events.test.ts` (2) + `scripts/e2e-stage-policy.mjs`
+(15). Gate green: tsc 0, isolated build ok, unit 65, E2E 43, frozen kernels unchanged, integrity clean.
+**READY FOR FF-MERGE** on your go (still a separate step from deploying). Later slices: UNDERWRITING →
+BUYER_MATCHED → OFFER_READY/LOI_SENT → PAID-policy (OWN-3), same architecture. **Not merged.**

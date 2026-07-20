@@ -4,6 +4,7 @@ import type { OpportunityStage } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { stageLabel } from "@/lib/opportunity-options";
+import { buildStageAttestationEvent } from "@/lib/attestation-events";
 import {
   evaluateStageRequirements,
   STAGE_RULES,
@@ -88,6 +89,15 @@ export async function applyStageTransition(args: {
       },
     });
     if (attested) {
+      const evt = buildStageAttestationEvent({
+        stage: targetStage,
+        stageLabel: stageLabel(targetStage),
+        policyId: policy.policyId,
+        reason,
+        source,
+        missingTruth: policy.missingTruth,
+        missingArtifacts: policy.missingArtifacts,
+      });
       await tx.activityLog.create({
         data: {
           organizationId,
@@ -95,16 +105,9 @@ export async function applyStageTransition(args: {
           propertyId: opportunity.propertyId,
           sellerId: opportunity.sellerId,
           actorId,
-          eventType: "opportunity.stage_attested",
-          eventLabel: `Attested ${stageLabel(targetStage)} without ${policy.missingArtifacts.join("; ")}`,
-          eventBody: JSON.stringify({
-            stage: targetStage,
-            policyId: policy.policyId,
-            missingTruth: policy.missingTruth,
-            missingArtifacts: policy.missingArtifacts,
-            reason,
-            source,
-          }),
+          eventType: evt.eventType,
+          eventLabel: evt.eventLabel,
+          eventBody: evt.eventBody,
         },
       });
     }

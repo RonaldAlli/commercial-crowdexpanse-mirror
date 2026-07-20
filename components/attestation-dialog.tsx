@@ -53,8 +53,11 @@ export function AttestationDialog({
       <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
         <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
         <p className="mt-1 text-xs text-slate-600">
-          Moving to <span className="font-medium">{targetLabel}</span> without its usual proof.
-          {message ? ` ${message}` : ""}
+          <span className="font-medium">{targetLabel}</span> normally requires the
+          item{missingArtifacts.length === 1 ? "" : "s"} below.{message ? ` ${message}` : ""} You may
+          continue by recording an <span className="font-medium">audited attestation</span> — typically
+          for an imported or mid-lifecycle opportunity — rather than bypassing the check. Your reason is
+          saved to the activity log.
         </p>
 
         {missingArtifacts.length > 0 ? (
