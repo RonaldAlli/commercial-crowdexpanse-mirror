@@ -1,6 +1,6 @@
 // Unit-test runner + coverage gate (PQ-1).
 //
-// Runs every tests/unit/**/*.test.ts through node:test + tsx with V8 coverage,
+// Runs every tests/unit/**/*.test.{ts,mjs} through node:test + tsx with V8 coverage,
 // then enforces coverage thresholds by parsing node:test's own report. Node 20
 // has no native --test-coverage-lines / --test-coverage-include flags (those are
 // Node 22+), so this script is the temporary gate; a future Node 22 upgrade lets
@@ -112,14 +112,14 @@ function findTests(dir) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, e.name);
     if (e.isDirectory()) out.push(...findTests(p));
-    else if (/\.test\.ts$/.test(e.name)) out.push(p);
+    else if (/\.test\.(ts|mjs)$/.test(e.name)) out.push(p);
   }
   return out;
 }
 
 const files = findTests(join(ROOT, "tests", "unit")).map((f) => relative(ROOT, f)).sort();
 if (files.length === 0) {
-  console.error("No tests/unit/**/*.test.ts found.");
+  console.error("No tests/unit/**/*.test.{ts,mjs} found.");
   process.exit(1);
 }
 

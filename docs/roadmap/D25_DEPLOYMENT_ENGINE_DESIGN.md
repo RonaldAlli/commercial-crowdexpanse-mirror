@@ -110,5 +110,38 @@ atomic-single-node; the seams for the rest are reserved, not built.
 512 MB memory policy (that's D24). No automation work (D19).
 
 ---
-*Stop point: awaiting Founder review of Phases 1–4 before opening an implementation branch or writing
-any deployment code.*
+
+## Phase 4 — Implementation Status (branch `feature/d25-deployment-engine`)
+
+> **IMPLEMENTED IN ISOLATION · PENDING FOUNDER REVIEW. Never executed against the production host.**
+> Nothing here touches `/opt/crowdexpanse/commercial` at runtime until the reviewed, reversible host
+> migration + first `--dry-run` under review (Phase 4 plan steps 2 & 4).
+
+**What landed (code-only, additive — no schema, no existing module touched):**
+| File | Role |
+|---|---|
+| `scripts/deploy/deploy-engine.mjs` | The deployment **state machine** (pure orchestration; all side effects injected via `ops`). States `PRECHECK → BUILD → VERIFY_BUILD → SWAP → RESTART → VERIFY_RUNTIME → SMOKE → COMPLETE`, each with entry/exit criteria + **scope-aware rollback** (skipped before SWAP; symlink-repoint + restart after). `--dry-run` runs only non-mutating states + swap/rollback-target + disk/retention validation and **stops before SWAP**. |
+| `scripts/deploy/ops-real.mjs` | The **real host operations** injected into the engine: atomic `rename(2)` symlink swap, build into `releases/<stamp>` via `NEXT_DIST_DIR`, BUILD_ID/manifest verify, disk-headroom + lock precheck, pm2 restart + wait-for-online, health/BUILD_ID runtime verify, smoke, retention prune, and auto-rollback to the previous release. |
+| `scripts/deploy/deploy.mjs` | CLI wiring config + real ops into the engine; `--dry-run`, `--json`, `--app-dir/--pm2-app/--port/--keep/--stamp` overrides. Exit `0` ok / `1` failed+rolled-back / `2` rollback-itself-failed. |
+| `tests/unit/deploy/deploy-engine.test.mjs` | Sandbox test over **real symlinks** in a temp dir (no host). **5/5 pass**, now part of the standing unit gate (`run-unit-tests.mjs` extended to discover `*.test.mjs`). |
+
+**Acceptance evidence:**
+- **MANDATORY forced-failure rollback (Criterion: auto-rollback with no manual intervention) — PROVEN:**
+  a restart failure *after* SWAP auto-rolls-back — the `.next` symlink is restored to the previous
+  release, the previous **BUILD_ID is restored**, the process is restarted on the previous release, and
+  the trace shows `SWAP:ok → RESTART:error → ROLLBACK:done`. A SMOKE failure rolls back identically.
+- **Live-untouched-before-swap:** a `VERIFY_BUILD` failure leaves the live symlink + BUILD_ID unchanged
+  (`rolledBack:false` — nothing to undo).
+- **Dry-run safety:** validates build + swap-target + rollback-target and **never swaps** the live
+  symlink or restarts.
+- **Gate green:** `tsc --noEmit` 0 errors; **66** unit files pass incl. the new engine test; all critical
+  branch ≥ 90%, overall branch 93.0%. Only 4 new files added; no existing module or schema changed.
+
+**Deliberately NOT done in this phase (each its own authorized step):** the one-time reversible host
+migration to the symlink+`releases/` model; any `--dry-run` or deploy on the production host; runbook /
+Operations-Baseline updates (land with the migration). `ops-real.mjs` is syntax-checked but, by design,
+**first exercised on the host only via `--dry-run` under review**.
+
+---
+*Stop point: Phases 1–3 approved. Phase 4 implemented in isolation + self-tested (forced-failure
+rollback proven in sandbox). Awaiting Founder review before the host migration or any host execution.*
