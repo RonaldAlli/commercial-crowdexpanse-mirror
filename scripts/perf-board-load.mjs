@@ -6,9 +6,9 @@ import { prisma } from "../lib/prisma.ts";
 assertTestDatabase();
 const TAG = "perf-board";
 const N = 9641;
-const BOARD_SCAN = 500;
 const BOARD_PER_COLUMN = 25;
 const STAGE_ORDER = ["LEAD", "SELLER_CONTACTED", "INTERESTED_SELLER", "FINANCIALS_REQUESTED", "T12_RECEIVED", "RENT_ROLL_RECEIVED", "UNDERWRITING", "OFFER_READY", "LOI_SENT", "UNDER_CONTRACT", "BUYER_MATCHED", "CLOSING", "PAID"];
+const BOARD_SCAN = BOARD_PER_COLUMN * STAGE_ORDER.length * 2; // derived: 25 × 13 × 2 = 650
 const BOARD_SELECT = { id: true, title: true, stage: true, priority: true, contractValueUsd: true, assignmentFeeUsd: true, diligenceItems: { select: { key: true, status: true } }, property: { select: { name: true, assetType: true } } };
 const ms = (t) => (Number(process.hrtime.bigint() - t) / 1e6).toFixed(0);
 

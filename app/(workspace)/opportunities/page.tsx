@@ -80,8 +80,11 @@ function usd(value: number | null) {
 // queries — accurate per-stage counts (groupBy) + ONE bounded scan of the most-recently-updated opps —
 // grouped in memory and capped per column. Records beyond the cap are reached via "View all" (the
 // existing paginated List). This keeps the board a bounded dashboard, not a full-record browser.
-const BOARD_SCAN = 500; // bounded scan (most-recently-updated) distributed across the columns
 const BOARD_PER_COLUMN = 25; // max cards rendered per stage column
+// Scan size is DERIVED from the layout, not a magic number: enough recent opportunities to fill every
+// column up to its cap even under stage skew = columns × per-column cap × headroom buffer.
+const BOARD_SCAN_BUFFER = 2;
+const BOARD_SCAN = BOARD_PER_COLUMN * STAGE_ORDER.length * BOARD_SCAN_BUFFER; // 25 × 13 × 2 = 650
 
 async function loadBoardData(organizationId: string) {
   const [scan, grouped] = await Promise.all([
