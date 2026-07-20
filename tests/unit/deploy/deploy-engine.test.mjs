@@ -15,37 +15,56 @@ function sandbox() {
   fs.symlinkSync("releases/prev", path.join(dir, ".next")); // relative symlink, like production
   return dir;
 }
-function makeOps(dir, { failAt } = {}) {
+function makeOps(dir, { failAt, requestedId = "COMMIT_A" } = {}) {
   const link = path.join(dir, ".next");
-  let previousTarget = null;
-  const restarts = [];
+  let previousTarget = null, clock = 0, builds = 0;
+  const history = [], restarts = [];
   const target = () => { try { return fs.readlinkSync(link); } catch { return null; } };
   const servedBuildId = () => { try { return fs.readFileSync(path.join(link, "BUILD_ID"), "utf8").trim(); } catch { return null; } };
+  const markerOf = (rel) => { try { return fs.readFileSync(path.join(dir, rel, ".release-id"), "utf8").trim(); } catch { return null; } };
   const atomicSymlink = (t) => { const tmp = link + ".tmp"; try { fs.unlinkSync(tmp); } catch {} fs.symlinkSync(t, tmp); fs.renameSync(tmp, link); }; // rename(2) = atomic
   const gate = (s) => { if (failAt === s) throw new Error(`${s} failed (injected)`); };
   const ops = {
     log: () => {},
-    precheck: async () => { previousTarget = target(); gate("precheck"); return { summary: `prev=${previousTarget}` }; },
-    build: async (_c, { dryRun }) => { const rel = "releases/new"; const abs = path.join(dir, rel); fs.mkdirSync(abs, { recursive: true }); fs.writeFileSync(path.join(abs, "BUILD_ID"), "BUILD_NEW"); gate("build"); return { releaseDir: rel, absDir: abs, dryRun }; },
+    now: () => ++clock, // deterministic monotonic clock (no Date.now in tests)
+    precheck: async (ctx) => {
+      previousTarget = target();
+      ctx.previousTarget = previousTarget;
+      ctx.requestedReleaseId = requestedId;
+      ctx.activeReleaseId = previousTarget ? markerOf(previousTarget) : null;
+      ctx.activeBuildId = servedBuildId();
+      gate("precheck");
+      return { summary: `prev=${previousTarget} req=${requestedId} active=${ctx.activeReleaseId}` };
+    },
+    build: async (ctx, { dryRun }) => {
+      builds++;
+      const rel = "releases/new"; const abs = path.join(dir, rel);
+      fs.mkdirSync(abs, { recursive: true });
+      fs.writeFileSync(path.join(abs, "BUILD_ID"), "BUILD_NEW");
+      fs.writeFileSync(path.join(abs, ".release-id"), ctx.requestedReleaseId);
+      gate("build");
+      return { releaseDir: rel, absDir: abs, dryRun };
+    },
     verifyBuild: async (_c, built) => { gate("verifyBuild"); const id = fs.readFileSync(path.join(built.absDir, "BUILD_ID"), "utf8").trim(); if (!id) throw new Error("no BUILD_ID"); return { buildId: id }; },
     validateSwapTarget: async (_c, built) => { if (!fs.existsSync(built.absDir)) throw new Error("swap target missing"); },
-    validateRollbackTarget: async () => { if (!previousTarget || !fs.existsSync(path.join(dir, previousTarget))) throw new Error("no readable previous release"); },
+    validateRollbackTarget: async (ctx) => { if (!ctx.previousTarget || !fs.existsSync(path.join(dir, ctx.previousTarget))) throw new Error("no readable previous release"); },
     swap: async (_c, built) => { atomicSymlink(built.releaseDir); gate("swap"); },
     restart: async () => { restarts.push(servedBuildId()); gate("restart"); },
     verifyRuntime: async (_c, buildId) => { gate("verifyRuntime"); if (servedBuildId() !== buildId) throw new Error("serving wrong build"); },
     smoke: async () => { gate("smoke"); },
     retain: async () => {},
-    rollback: async () => { atomicSymlink(previousTarget); restarts.push(`ROLLBACK:${servedBuildId()}`); }, // repoint prev + "restart"
+    rollback: async (ctx) => { atomicSymlink(ctx.previousTarget); restarts.push(`ROLLBACK:${servedBuildId()}`); }, // repoint prev + "restart"
     releaseLock: async () => {},
+    persistTrace: async (_c, record) => { history.push(record); },
   };
-  return { ops, _: { target, servedBuildId, restarts } };
+  return { ops, _: { target, servedBuildId, restarts, history, builds: () => builds } };
 }
 const clean = (d) => fs.rmSync(d, { recursive: true, force: true });
 
 test("happy path: builds, atomically swaps, restarts, completes → serving the new release", async () => {
   const dir = sandbox(); const { ops, _ } = makeOps(dir);
-  const r = await runDeploy({}, ops);
-  assert.equal(r.ok, true); assert.equal(r.rolledBack, false);
+  const r = await runDeploy({ config: { stamp: "S1" } }, ops);
+  assert.equal(r.ok, true); assert.equal(r.rolledBack, false); assert.ok(!r.noop);
   assert.equal(_.target(), "releases/new"); assert.equal(_.servedBuildId(), "BUILD_NEW");
   assert.equal(r.buildId, "BUILD_NEW");
   clean(dir);
@@ -89,4 +108,63 @@ test("--dry-run validates build/targets but never swaps the live symlink", async
   assert.equal(_.servedBuildId(), "BUILD_PREV");
   assert.deepEqual(_.restarts, [], "no restart during dry-run");
   clean(dir);
+});
+
+test("IDEMPOTENCY: re-running deploy at the SAME release id is a no-op (no rebuild, no swap, success)", async () => {
+  const dir = sandbox(); const { ops, _ } = makeOps(dir, { requestedId: "COMMIT_A" });
+  const r1 = await runDeploy({}, ops);                 // fresh deploy of COMMIT_A
+  assert.equal(r1.ok, true); assert.ok(!r1.noop);
+  assert.equal(_.target(), "releases/new"); assert.equal(_.builds(), 1);
+  const restartsAfterFirst = _.restarts.length;
+
+  const r2 = await runDeploy({}, ops);                 // run again, still COMMIT_A → active
+  assert.equal(r2.ok, true);
+  assert.equal(r2.noop, true, "second run detects the release is already active");
+  assert.equal(_.builds(), 1, "no rebuild on the no-op run");
+  assert.equal(_.target(), "releases/new", "symlink unchanged");
+  assert.equal(_.restarts.length, restartsAfterFirst, "no restart on the no-op run");
+  assert.ok(r2.trace.some((t) => t.state === "ALREADY_ACTIVE" && t.status === "noop"), "trace records ALREADY_ACTIVE");
+  clean(dir);
+});
+
+test("IDEMPOTENCY: --force redeploys even when the release id is already active", async () => {
+  const dir = sandbox(); const { ops, _ } = makeOps(dir, { requestedId: "COMMIT_A" });
+  await runDeploy({}, ops);
+  const r2 = await runDeploy({}, ops, { force: true });
+  assert.equal(r2.ok, true); assert.ok(!r2.noop, "force bypasses the no-op");
+  assert.equal(_.builds(), 2, "force rebuilds");
+  clean(dir);
+});
+
+test("IDEMPOTENCY: deploy --dry-run can be re-run safely (never swaps, no no-op short-circuit)", async () => {
+  const dir = sandbox(); const { ops, _ } = makeOps(dir);
+  const a = await runDeploy({}, ops, { dryRun: true });
+  const b = await runDeploy({}, ops, { dryRun: true });
+  assert.equal(a.ok && b.ok, true); assert.equal(a.dryRun && b.dryRun, true);
+  assert.equal(_.target(), "releases/prev", "live symlink unchanged by repeated dry-runs");
+  assert.deepEqual(_.restarts, [], "no restart across dry-runs");
+  clean(dir);
+});
+
+test("HISTORY: every run persists one record with transitions, timings, and rollback/smoke status", async () => {
+  // success
+  const d1 = sandbox(); const s = makeOps(d1);
+  const ok = await runDeploy({ config: { stamp: "OK1" } }, s.ops);
+  assert.equal(ok.ok, true);
+  const okRec = s._.history.at(-1);
+  assert.ok(okRec, "a record was persisted on success");
+  assert.equal(okRec.stamp, "OK1"); assert.equal(okRec.buildId, "BUILD_NEW"); assert.equal(okRec.releaseId, "COMMIT_A");
+  assert.equal(okRec.smokeStatus, "ok"); assert.equal(okRec.rollbackStatus, "none"); assert.equal(okRec.ok, true);
+  assert.ok(okRec.trace.length > 0 && okRec.trace.every((t) => typeof t.t === "number"), "each transition timestamped");
+  assert.ok(okRec.endedAt >= okRec.startedAt && okRec.durationMs >= 0, "duration recorded");
+  clean(d1);
+
+  // failure + rollback
+  const d2 = sandbox(); const f = makeOps(d2, { failAt: "restart" });
+  const bad = await runDeploy({ config: { stamp: "BAD1" } }, f.ops);
+  assert.equal(bad.ok, false);
+  const badRec = f._.history.at(-1);
+  assert.ok(badRec, "a record was persisted on failure too");
+  assert.equal(badRec.ok, false); assert.equal(badRec.rolledBack, true); assert.equal(badRec.rollbackStatus, "done");
+  clean(d2);
 });

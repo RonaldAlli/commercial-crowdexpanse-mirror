@@ -27,7 +27,8 @@ export function makeRealOps(config) {
     appDir, releasesDir = path.join(appDir, "releases"), nextLink = path.join(appDir, ".next"),
     distDirEnv = "NEXT_DIST_DIR", buildScript = "build", pm2App, port = 3030,
     healthPath = "/api/health", keepReleases = 5, minFreeBytes = 3 * 1024 ** 3, // 3 GB headroom
-    lockDir = path.join(appDir, ".deploy.lock"), stamp,
+    lockDir = path.join(appDir, ".deploy.lock"), stamp, releaseId,
+    historyDir = path.join(appDir, "deploy-history"), keepHistory = 200,
   } = config;
 
   const releaseRel = (s) => path.join("releases", s);
@@ -47,7 +48,14 @@ export function makeRealOps(config) {
       if (free < minFreeBytes) throw new Error(`insufficient disk: ${(free / 1024 ** 3).toFixed(1)}GB < ${(minFreeBytes / 1024 ** 3)}GB`);
       // previous (current) release target for rollback scope
       ctx.previousTarget = linkTarget(nextLink); // e.g. "releases/<oldstamp>" or null (first migration)
-      return { summary: `free=${(free / 1024 ** 3).toFixed(1)}GB prev=${ctx.previousTarget ?? "(none)"}` };
+      // IDEMPOTENCY identities: requested = current source commit; active = marker in the live release.
+      ctx.requestedReleaseId = releaseId ?? (await gitHead(appDir));
+      if (ctx.previousTarget) {
+        const prevAbs = path.join(appDir, ctx.previousTarget);
+        try { ctx.activeReleaseId = fs.readFileSync(path.join(prevAbs, ".release-id"), "utf8").trim(); } catch { ctx.activeReleaseId = null; }
+        try { ctx.activeBuildId = readBuildId(prevAbs); } catch { ctx.activeBuildId = null; }
+      }
+      return { summary: `free=${(free / 1024 ** 3).toFixed(1)}GB prev=${ctx.previousTarget ?? "(none)"} req=${ctx.requestedReleaseId ?? "?"} active=${ctx.activeReleaseId ?? "(none)"}` };
     },
 
     async build(ctx) {
@@ -55,6 +63,8 @@ export function makeRealOps(config) {
       fs.mkdirSync(abs, { recursive: true });
       // Build into the versioned release dir; the LIVE release is never touched.
       await sh("npm", ["run", buildScript], { cwd: appDir, env: { ...process.env, [distDirEnv]: abs }, maxBuffer: 64 * 1024 * 1024 });
+      // Stamp the release identity so a future run at the same commit is a detectable no-op.
+      if (ctx.requestedReleaseId) fs.writeFileSync(path.join(abs, ".release-id"), ctx.requestedReleaseId);
       return { releaseDir: releaseRel(stamp), absDir: abs, stamp };
     },
 
@@ -111,8 +121,20 @@ export function makeRealOps(config) {
     },
 
     async releaseLock(ctx) { if (ctx.lockHeld) { try { fs.rmdirSync(lockDir); } catch { /* ignore */ } } },
+
+    // Persist ONE record per run — state transitions, timings, BUILD_ID, release id, rollback/smoke
+    // status. Written for success, failure, no-op, and dry-run alike; invaluable during incidents.
+    async persistTrace(_ctx, record) {
+      fs.mkdirSync(historyDir, { recursive: true });
+      fs.writeFileSync(path.join(historyDir, `${record.stamp ?? stamp}.json`), JSON.stringify(record, null, 2));
+      const files = fs.readdirSync(historyDir).filter((f) => f.endsWith(".json")).sort();
+      for (const old of files.slice(0, Math.max(0, files.length - keepHistory))) fs.rmSync(path.join(historyDir, old), { force: true });
+    },
   };
 }
+
+/** Current source commit (short) — the requested release identity for idempotency. Null if not a repo. */
+async function gitHead(cwd) { try { return (await sh("git", ["rev-parse", "--short=12", "HEAD"], { cwd })).stdout.trim(); } catch { return null; } }
 
 // --- small runtime helpers (poll pm2 + health; no external deps) --------------------------------
 async function waitOnline(pm2App, tries = 20) {

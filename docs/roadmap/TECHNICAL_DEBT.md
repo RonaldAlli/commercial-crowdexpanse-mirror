@@ -72,8 +72,19 @@
   over the live `.next` while `next start` is serving, exposing a partially-rebuilt directory → a
   transient "Could not find a production build" error burst + pm2 crash-retries during the deploy window
   (self-resolves at restart; observed 2026-07-20). **Fix:** build into a fresh directory → verify →
-  **atomic swap / symlink switch** → restart (or stop→build→start) for zero-error deploys. Complements
-  the existing "staged/rolling deploys" infra note. *Trigger:* next deploy or staged-deploy adoption.
+  **atomic swap / symlink switch** → restart for zero-error deploys. Framed as a durable **Deployment
+  Engine** (design + acceptance: [D25_DEPLOYMENT_ENGINE_DESIGN.md](./D25_DEPLOYMENT_ENGINE_DESIGN.md)),
+  split into two separately-reviewed initiatives:
+  - **D25a — Deployment Engine (code).** State machine (`PRECHECK→…→COMPLETE`) + real ops + CLI + sandbox
+    tests, on branch `feature/d25-deployment-engine`. Atomic symlink swap, auto-rollback, dry-run,
+    idempotent re-runs (`ALREADY_ACTIVE` no-op + `--force`), persisted `deploy-history/`. Fully isolated;
+    never touches the host. **Status: implemented + self-tested (9/9, forced-failure rollback proven) ·
+    PENDING FOUNDER REVIEW.** *Trigger:* review → merge.
+  - **D25b — Production host migration (cutover).** One-time, reversible migration of the live `.next`
+    (173 MB real dir) to the symlink+`releases/` model; own runbook + operator authorization.
+    **Acceptance gate before any production migration:** a full staging-like rehearsal —
+    `Dry Run → Forced Failure → Rollback → Recovery → Second Dry Run → Normal Deployment → Smoke`.
+    **Status: NOT started — separate approval required.** *Trigger:* after D25a review, in a quiet window.
 
 ## Debt policy
 - A change may add debt **only** with an entry here and a trigger.
