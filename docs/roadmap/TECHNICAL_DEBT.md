@@ -99,9 +99,13 @@
   mid-rollback); the rollback itself still completed correctly — this is **resilience, not correctness**, so
   it does NOT block D25/D25b. **Candidate improvements:** lock holds the owner PID + start time; precheck
   treats a lock as stale if the PID is dead or older than a threshold; a SIGTERM handler that releases the
-  lock; a `deploy --recover` command; optional auto-stale-recovery. *Trigger:* after the D25b production
-  migration, or sooner if a stale lock recurs. Documented in the [Deployment Baseline](./DEPLOYMENT_BASELINE.md)
-  anomaly guide.
+  lock; a `deploy --recover` command; optional auto-stale-recovery. Documented in the
+  [Deployment Baseline](./DEPLOYMENT_BASELINE.md) anomaly guide. **OPENED as a standalone initiative post-D25
+  (2026-07-21): DESIGN (Phases 1–5 + recovery-state design) in
+  [D26_INTERRUPTED_DEPLOY_RECOVERY_DESIGN.md](./D26_INTERRUPTED_DEPLOY_RECOVERY_DESIGN.md) — lock evolves to
+  an evidence record `lock.json` {pid,host,startedAt,release,previous,phase}; explicit `deploy --recover`
+  (auditable, not silent); phase-based recovery; successful-deploy path unchanged.** **Status: DESIGN ·
+  PENDING FOUNDER REVIEW — no code.** *Trigger:* review → implementation branch.
 
 ## Debt policy
 - A change may add debt **only** with an entry here and a trigger.
