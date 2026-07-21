@@ -23,6 +23,7 @@ operational figures link back to the current-status doc to avoid re-creating doc
 | [Product Baseline](./roadmap/PRODUCT_BASELINE.md) | **What** the application does (accepted capabilities + invariants) |
 | [Operations Baseline](./roadmap/OPERATIONS_BASELINE.md) | **How** production normally behaves (PM2/memory/health/deploy) |
 | [Engineering Baseline](./roadmap/ENGINEERING_BASELINE.md) | **How** changes ship (the release lifecycle + disciplines) |
+| [Deployment Baseline](./roadmap/DEPLOYMENT_BASELINE.md) | **How** a deployment behaves (D25 engine: durations, rollback/recovery timings, artifacts) |
 
 ## 1. Roadmap & status
 
