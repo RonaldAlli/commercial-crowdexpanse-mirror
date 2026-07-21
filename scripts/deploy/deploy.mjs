@@ -12,7 +12,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { runDeploy, STATES } from "./deploy-engine.mjs";
-import { makeRealOps } from "./ops-real.mjs";
+import { makeRealOps, recoverHost } from "./ops-real.mjs";
 import { resolveDeployContext, argValue } from "./resolve-context.mjs";
 
 const argv = process.argv.slice(2);
@@ -57,6 +57,21 @@ function targetDbName(dir) {
     } catch { /* try next */ }
   }
   return "(per target .env)";
+}
+
+// D26: `deploy --recover` — explicit, auditable recovery of an INTERRUPTED deploy (never silent). Assesses
+// the lock evidence, executes the recommended action (clean / rollback / finalize / manual), writes a
+// recover-report. Same fail-closed target + sentinel + --yes gating as a deploy (recovery can roll back prod).
+if (argv.includes("--recover")) {
+  console.log(`\n── Deployment Engine · RECOVER ──\n  Application : ${appDir}${isMarkedProduction ? "   [PRODUCTION sentinel]" : ""}\n  PM2         : ${config.pm2App}\n`);
+  const r = await recoverHost(config);
+  if (jsonOut) console.log(JSON.stringify(r.report, null, 2));
+  else {
+    console.log(`── recovery ──\n  classification : ${r.classification}\n  recommendation : ${r.recommendation}\n  reason         : ${r.reason}\n  actions        : ${r.actions.length ? r.actions.join(", ") : "(none)"}\n  result         : ${r.ok ? "✅ ok" : "❌ " + r.error}`);
+    if (r.recommendation === "MANUAL") console.log("  ⚠️  manual review required — no automatic action taken.");
+    if (r.recommendation === "REFUSE_BUSY") console.log("  ⏳ a live deployment holds the lock — not recovering.");
+  }
+  process.exit(r.ok ? 0 : 1);
 }
 
 const ops = makeRealOps(config);

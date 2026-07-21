@@ -153,5 +153,39 @@ Write a RECOVERY REPORT (what was found, decision, actions, final state) to depl
 deploy path; multi-host locking (single host today). No change to the frozen D25 happy-path semantics.
 
 ---
-*Stop point: awaiting Founder review of Phases 1–4 + the recovery-state design before opening an
-implementation branch or writing any recovery code.*
+
+## Phase 5 — Implementation status (branch `feature/d26-recovery`, PENDING REVIEW)
+
+**Implemented per the approved design + the four refinements** (append-only journal · observation⁄recommendation
+separation · determinism criterion · recovery report). The D25 happy path is **behavior-unchanged**
+(`deploy-engine.mjs` byte-untouched; journaling is additive inside the injected ops).
+
+| File | Change |
+|---|---|
+| `scripts/deploy/recover.mjs` (new) | **Pure `assessLock(meta, facts)`** — deterministic; separates OBSERVED state from RECOMMENDATION (NONE⁄REFUSE_BUSY⁄CLEAN⁄ROLLBACK⁄FINALIZE⁄MANUAL). `runRecovery(ctx, ops)` orchestrates via injected ops + writes a report. |
+| `scripts/deploy/ops-real.mjs` | Lock evolves to `.deploy.lock/lock.json` **evidence record** with an **append-only `events` journal** (phase stamped per state); `ownerAlive()` (PID + host + `/proc` cmdline, PID-reuse-guarded); precheck assesses an existing lock (ACTIVE⇒refuse-busy, else point to `--recover`); `makeRecoverOps()` (clean⁄rollback⁄finalize⁄report, lock-drop LAST for re-runnability); `recoverHost()`. |
+| `scripts/deploy/deploy.mjs` | `--recover` — explicit, auditable; prints observation + recommendation + actions; same fail-closed target + sentinel + `--yes` gating. Never silent. |
+
+**Acceptance criteria — met:**
+1. Stale detected · 2. Active never mis-flagged (owner alive+cmdline) · 3. Each phase → correct action ·
+4. **Deterministic** (pure assessor, `deepEqual` across repeated calls) · 5. Idempotent + survives its own
+interruption (lock drop last) · 6. Production integrity (recovery never leaves `.next` non-symlink⁄dangling) ·
+7. Rollback path preserved (`previous` in `lock.json`) · 8. **Successful deploys unchanged.**
+
+**Tests (unit):** `recover.test` (19 — deterministic decision table, all phases × classifications),
+`recover-orchestration.test` (10 — per-phase action, idempotency, interrupted-recovery reporting,
+ownerAlive guard). Gate: tsc 0; **72** unit files; e2e 43; build:isolated ok.
+
+**Staging kill-drill — PASSED (staging only; prod untouched):**
+- **Drill A** — real **SIGKILL at BUILD** (pre-swap): `--recover` → **CLEAN** (dropped lock + deleted partial
+  release + tsconfig; live release untouched; health 200); **idempotent** (2nd run → NONE).
+- **Drill B** — post-swap unverified (`.next`→new release), stale lock at VERIFY_RUNTIME: `--recover` →
+  **ROLLBACK** (repointed `.next` → previous + restart + dropped lock; partial deleted; health 200).
+- Owner-dead detection PID-reuse-guarded; 3 recovery reports written; production pid⁄health unchanged.
+
+**Non-goals held:** no silent/auto recovery; successful deploy path unchanged; single-host. No production
+execution — first prod use of `--recover` would be operator-run if ever an interrupted deploy occurs.
+
+---
+*Stop point: D26 implemented + unit-tested + staging-kill-drill-proven on `feature/d26-recovery`. Awaiting
+review → merge. No production execution performed.*

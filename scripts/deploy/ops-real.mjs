@@ -7,10 +7,24 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
+
+import { assessLock, runRecovery } from "./recover.mjs";
 
 const run = promisify(execFile);
 const sh = (cmd, args, opts = {}) => run(cmd, args, { encoding: "utf8", ...opts });
+
+/**
+ * D26: is the lock's owner process genuinely still running THIS deploy? PID-alive alone is unsafe (PID
+ * reuse), so also require the host to match and `/proc/<pid>/cmdline` to still name deploy.mjs.
+ */
+export function ownerAlive(meta) {
+  if (!meta || meta.__corrupt || !meta.pid || meta.host !== os.hostname()) return false;
+  let cmdline = "";
+  try { cmdline = fs.readFileSync(`/proc/${meta.pid}/cmdline`, "utf8"); } catch { return false; } // no /proc entry ⇒ dead
+  return cmdline.includes("deploy.mjs") || cmdline.includes("deploy/deploy");
+}
 
 /** Atomic symlink repoint: create a temp link then rename(2) over the target — no partial state. */
 function atomicSymlink(target, linkPath) {
@@ -29,7 +43,29 @@ export function makeRealOps(config) {
     healthPath = "/api/health", keepReleases = 5, minFreeBytes = 3 * 1024 ** 3, // 3 GB headroom
     lockDir = path.join(appDir, ".deploy.lock"), stamp, releaseId,
     historyDir = path.join(appDir, "deploy-history"), keepHistory = 200,
+    maxAgeMs = 1_800_000, argv = process.argv.slice(2).join(" "),
   } = config;
+
+  // D26: the lock dir stays the atomic mutex; `lock.json` inside it is the EVIDENCE record with an
+  // APPEND-ONLY event journal. Written on the successful path too, but additive — deploy behavior is
+  // unchanged. Read-modify-write is safe because the PRECHECK lock serializes all deploys.
+  const lockFile = path.join(lockDir, "lock.json");
+  const readLockMeta = () => {
+    try { return JSON.parse(fs.readFileSync(lockFile, "utf8")); }
+    catch (e) { return e.code === "ENOENT" ? null : { __corrupt: true }; }
+  };
+  const writeLockMeta = (meta) => {
+    const tmp = `${lockFile}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(meta, null, 2));
+    fs.renameSync(tmp, lockFile); // atomic replace
+  };
+  const journalPhase = (phase) => {
+    const meta = readLockMeta();
+    if (!meta || meta.__corrupt) return; // dry-run without a full lock, or nothing to journal
+    meta.events = Array.isArray(meta.events) ? meta.events : [];
+    meta.events.push({ phase, at: new Date().toISOString() });
+    writeLockMeta(meta);
+  };
 
   return {
     log: (m) => process.stdout.write(`  ${m}\n`),
@@ -39,16 +75,28 @@ export function makeRealOps(config) {
       // unmigrated real-dir / dangling `.next` (or the wrong target entirely) aborts here with zero residue,
       // long before the expensive, side-effecting build. (Re-checked at SWAP for defense in depth.)
       assertMigratedTarget(appDir, nextLink);
-      // serialize deploys — atomic lock dir (fails if another deploy holds it)
-      try { fs.mkdirSync(lockDir); } catch { throw new Error(`another deploy holds the lock (${lockDir})`); }
+      // serialize deploys — atomic lock dir (fails if another deploy holds it). D26: on conflict, ASSESS the
+      // existing lock's evidence — a live deploy ⇒ "in progress"; a stale/unknown lock ⇒ point at
+      // `deploy --recover` (never silently heal here).
+      try { fs.mkdirSync(lockDir); }
+      catch {
+        const meta = readLockMeta();
+        const a = assessLock(meta, { ownerAlive: ownerAlive(meta), now: Date.now(), nextTarget: linkTarget(nextLink), maxAgeMs });
+        if (a.classification === "ACTIVE") throw new Error(`a deployment is already in progress (pid ${meta?.pid}, phase ${a.phase}) — refusing`);
+        throw new Error(`a stale/unknown deploy lock is present (${a.classification}, phase ${a.phase ?? "?"}) — run \`deploy --recover\` before deploying`);
+      }
       ctx.lockHeld = true;
       fs.mkdirSync(releasesDir, { recursive: true });
+      // previous (current) release target for rollback scope
+      ctx.previousTarget = linkTarget(nextLink); // e.g. "releases/<oldstamp>" or null (first migration)
+      // D26: write the lock EVIDENCE record (append-only event journal starts at PRECHECK).
+      writeLockMeta({ pid: process.pid, host: os.hostname(), startedAt: new Date().toISOString(), stamp,
+        release: path.relative(appDir, path.join(releasesDir, stamp)), previous: ctx.previousTarget, argv,
+        events: [{ phase: "PRECHECK", at: new Date().toISOString() }] });
       // disk headroom
       const st = fs.statfsSync(appDir);
       const free = st.bavail * st.bsize;
       if (free < minFreeBytes) throw new Error(`insufficient disk: ${(free / 1024 ** 3).toFixed(1)}GB < ${(minFreeBytes / 1024 ** 3)}GB`);
-      // previous (current) release target for rollback scope
-      ctx.previousTarget = linkTarget(nextLink); // e.g. "releases/<oldstamp>" or null (first migration)
       // IDEMPOTENCY identities: requested = current source commit; active = marker in the live release.
       ctx.requestedReleaseId = releaseId ?? (await gitHead(appDir));
       if (ctx.previousTarget) {
@@ -60,6 +108,7 @@ export function makeRealOps(config) {
     },
 
     async build(ctx) {
+      journalPhase("BUILD"); // D26 evidence journal
       // DE-1: `next.config.mjs` is `distDir: process.env.NEXT_DIST_DIR || ".next"`, and Next resolves
       // distDir as path.join(projectRoot, distDir). NEXT_DIST_DIR MUST therefore be RELATIVE to appDir —
       // an ABSOLUTE value nests the build OUTSIDE releaseAbs (VERIFY_BUILD then can't find BUILD_ID).
@@ -104,6 +153,7 @@ export function makeRealOps(config) {
     },
 
     async verifyBuild(_ctx, built) {
+      journalPhase("VERIFY_BUILD");
       const idPath = path.join(built.absDir, "BUILD_ID");
       if (!fs.existsSync(idPath)) throw new Error("verify: BUILD_ID missing (build incomplete)");
       for (const m of ["build-manifest.json", "prerender-manifest.json"]) {
@@ -122,19 +172,22 @@ export function makeRealOps(config) {
     },
 
     async swap(ctx, built) {
+      journalPhase("SWAP"); // journalled BEFORE the rename → recovery reads phase=SWAP + the actual .next target
       atomicSymlink(built.releaseDir, nextLink); // .next → releases/<stamp>
       if (linkTarget(nextLink) !== built.releaseDir) throw new Error("swap: symlink did not repoint");
       ctx.newTarget = built.releaseDir;
     },
 
-    async restart() { await sh("pm2", ["restart", pm2App, "--update-env"]); await waitOnline(pm2App); },
+    async restart() { journalPhase("RESTART"); await sh("pm2", ["restart", pm2App, "--update-env"]); await waitOnline(pm2App); },
 
     async verifyRuntime(_ctx, buildId) {
+      journalPhase("VERIFY_RUNTIME");
       if (readBuildId(nextLink) !== buildId) throw new Error("runtime: .next not serving the new BUILD_ID");
       await waitHealthy(port, healthPath);
     },
 
     async smoke() {
+      journalPhase("SMOKE");
       for (const p of ["/login"]) {
         const code = await httpCode(port, p);
         if (code >= 500) throw new Error(`smoke: ${p} → ${code}`);
@@ -142,6 +195,7 @@ export function makeRealOps(config) {
     },
 
     async retain() {
+      journalPhase("COMPLETE");
       const dirs = fs.readdirSync(releasesDir).filter((d) => fs.existsSync(path.join(releasesDir, d, "BUILD_ID")))
         .sort().reverse(); // newest stamp first (stamps are sortable timestamps)
       for (const old of dirs.slice(keepReleases)) fs.rmSync(path.join(releasesDir, old), { recursive: true, force: true });
@@ -155,7 +209,7 @@ export function makeRealOps(config) {
       await waitHealthy(port, healthPath);
     },
 
-    async releaseLock(ctx) { if (ctx.lockHeld) { try { fs.rmdirSync(lockDir); } catch { /* ignore */ } } },
+    async releaseLock(ctx) { if (ctx.lockHeld) { try { fs.rmSync(lockDir, { recursive: true, force: true }); } catch { /* ignore */ } } }, // rm lock.json + dir
 
     // Persist ONE record per run — state transitions, timings, BUILD_ID, release id, rollback/smoke
     // status. Written for success, failure, no-op, and dry-run alike; invaluable during incidents.
@@ -167,6 +221,55 @@ export function makeRealOps(config) {
     },
   };
 }
+
+/**
+ * D26: real recovery ops injected into runRecovery(). Reads the lock evidence, gathers host facts
+ * (owner-alive with PID-reuse guard, actual `.next` target), and executes the recommended action —
+ * never touching a LIVE deploy's lock. Idempotent + safe to re-run (lock drop is last).
+ */
+export function makeRecoverOps(config) {
+  const {
+    appDir, releasesDir = path.join(appDir, "releases"), nextLink = path.join(appDir, ".next"),
+    lockDir = path.join(appDir, ".deploy.lock"), pm2App, port = 3030, healthPath = "/api/health",
+    keepReleases = 5, maxAgeMs = 1_800_000, historyDir = path.join(appDir, "deploy-history"),
+  } = config;
+  const lockFile = path.join(lockDir, "lock.json");
+  const dropLock = () => { try { fs.rmSync(lockDir, { recursive: true, force: true }); } catch { /* ignore */ } };
+  const rmDeployTsconfig = () => { try { fs.rmSync(path.join(appDir, "tsconfig.deploy.json"), { force: true }); } catch { /* ignore */ } };
+  const deletePartialRelease = (rel) => {
+    if (!rel) return;
+    if (linkTarget(nextLink) === rel) return; // NEVER delete the currently-active release
+    try { fs.rmSync(path.join(appDir, rel), { recursive: true, force: true }); } catch { /* ignore */ }
+  };
+  return {
+    log: (m) => process.stdout.write(`  ${m}\n`),
+    now: () => Date.now(),
+    async readLock() { try { return JSON.parse(fs.readFileSync(lockFile, "utf8")); } catch (e) { return e.code === "ENOENT" ? null : { __corrupt: true }; } },
+    async gatherFacts(meta) { return { ownerAlive: ownerAlive(meta), now: Date.now(), nextTarget: linkTarget(nextLink), maxAgeMs }; },
+    async clean(meta) { deletePartialRelease(meta?.release); rmDeployTsconfig(); dropLock(); },
+    async rollback(meta) {
+      if (!meta?.previous) throw new Error("rollback: no previous release recorded in lock evidence");
+      atomicSymlink(meta.previous, nextLink);
+      await sh("pm2", ["restart", pm2App, "--update-env"]); await waitOnline(pm2App); await waitHealthy(port, healthPath);
+      deletePartialRelease(meta.release); rmDeployTsconfig(); dropLock(); // lock drop LAST (re-runnable if interrupted)
+    },
+    async finalize(meta) {
+      try {
+        const dirs = fs.readdirSync(releasesDir).filter((d) => fs.existsSync(path.join(releasesDir, d, "BUILD_ID"))).sort().reverse();
+        for (const old of dirs.slice(keepReleases)) fs.rmSync(path.join(releasesDir, old), { recursive: true, force: true });
+      } catch { /* ignore */ }
+      rmDeployTsconfig(); dropLock();
+    },
+    async writeReport(record) {
+      fs.mkdirSync(historyDir, { recursive: true });
+      const stamp = record.originalLock?.stamp || `run-${process.pid}`;
+      fs.writeFileSync(path.join(historyDir, `recover-${stamp}.json`), JSON.stringify(record, null, 2));
+    },
+  };
+}
+
+/** Run an explicit recovery against the real host (thin wrapper wiring makeRecoverOps into runRecovery). */
+export async function recoverHost(config) { return runRecovery({ config }, makeRecoverOps(config)); }
 
 /**
  * Resolve the build's dist directory (DE-1). Next resolves `distDir` as path.join(projectRoot, distDir),
