@@ -1,8 +1,8 @@
 # D24 — Memory Investigation · Interim Findings (evidence, NOT remediation)
 
-> **PRELIMINARY. Enough evidence to (a) distinguish bounded vs unbounded and (b) identify the dominant
-> memory domain — the agreed stop point. NO remediation, tuning, or config change proposed (per the "not
-> because RSS is high" criterion). PM2 recycle stayed active; prod collection was read-only.** 2026-07-21.
+> **D24 PHASE 1 COMPLETE (see close-out below).** Enough evidence to (a) distinguish bounded vs unbounded and
+> (b) identify the dominant memory domain. **No evidence of an unbounded JS heap leak under the workloads
+> tested; no remediation recommended.** PM2 recycle stayed active; prod collection was read-only. 2026-07-21.
 
 ---
 
@@ -33,8 +33,8 @@
 | under load (peak) | **~136 MB** | ~187 MB | **~335 MB** | ~16 MB |
 | **after idle-settle** | **~40 MB** ⟵ **returns** | ~184 MB ⟵ stays | ~156 MB | ~9 MB |
 
-- **`heapUsed` is BOUNDED:** 35 → 136 (load) → **40 after idle** — GC reclaims it. **No heap leak signature**
-  (retained only ~6 MB above baseline).
+- **`heapUsed` is BOUNDED:** 35 → 136 (load) → **40 after idle** — GC reclaims it. **No evidence of an
+  unbounded JavaScript heap leak under the workloads tested** (retained only ~6 MB above baseline).
 - **`heapTotal` expands and is retained:** 37 → 187 → **184** — V8 grows its reserved heap under load and
   does **not** return it to the OS (normal V8 behavior).
 - **RSS tracks heapTotal:** peaks ~335 MB under load, settles ~156 MB (retains ~48 MB ≈ the reserved heap).
@@ -71,13 +71,30 @@
 - Only if a cycle shows `heapUsed` **not** returning (or `heapTotal` climbing every cycle) → escalate to a
   staging heap snapshot (with the handling+retention plan) to find the retained objects.
 
-## Disposition
-**No remediation proposed.** The evidence so far points to **normal V8 heap expansion + retention under
-workload, bounded `heapUsed`, no leak** — an acceptable operating point that the 512 MB recycle bounds. Per
-the acceptance criteria, **a fix must not be proposed solely because RSS is high.** Stop for review; decide
-whether the confirmation steps above are warranted before any conclusion about tuning.
+## Phase 1 — Investigation COMPLETE (2026-07-21)
+
+> **Current evidence indicates no observable idle-time memory creep and no evidence of unbounded JavaScript
+> heap growth under the workloads exercised. The dominant observed behavior is normal V8 heap expansion with
+> retained heap capacity, which contributes to RSS growth. Historical PM2 memory restarts remain an
+> operational observation rather than demonstrated evidence of a memory leak. No remediation is recommended
+> at this time.**
+
+The primary questions are answered:
+- **Time-based idle creep?** No evidence (prod RSS flat 121–122 MB over 91 samples / ~23 min; fd stable at 28).
+- **Which domain dominates?** JavaScript heap (V8 `heapTotal` expansion under workload; `heapUsed` bounded).
+- **Is RSS alone sufficient evidence?** No — RSS crossing the threshold is attributable to reserved V8 heap +
+  transient per-request allocation, not a native/external/fd leak.
+- **Is PM2 obviously hiding a catastrophic leak?** No evidence of that from this investigation.
+
+**Reopen only** if production telemetry, recycle frequency, latency, crashes, or user-visible behavior
+materially changes — or if there is a **specific** need to reproduce the historical high-memory (800 MB+)
+workload (authenticated heavy routes + representative data). Proceeding now to authenticated stress tests,
+heap snapshots, profilers, GC experiments, or PM2 tuning would be **speculative optimization** without a
+demonstrated problem.
+
+**Standing diagnostic:** the read-only sampler is retained as an **on-demand tool**
+(`scripts/diag/mem-sample.mjs`), not a permanent monitor — run it when an operational question arises.
 
 ---
-*Stop point: dominant domain identified (JS heap / V8 `heapTotal` retention), bounded `heapUsed`, no leak
-signature — PRELIMINARY. Read-only prod sampler still collecting. No remediation, no config change. Awaiting
-review.*
+*Phase 1 closed: dominant domain = JS heap / V8 `heapTotal` retention; `heapUsed` bounded; no evidence of an
+unbounded heap leak under the workloads tested. No remediation, no config change. PM2 recycle remains active.*

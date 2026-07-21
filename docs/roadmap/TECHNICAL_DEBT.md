@@ -71,9 +71,15 @@
   measurement schema + hypothesis register + acceptance criteria + safety + staging repro + Go/No-Go) in
   [D24_MEMORY_INVESTIGATION_DESIGN.md](./D24_MEMORY_INVESTIGATION_DESIGN.md).** Baseline captured read-only:
   RSS ~121 MB @ 85 min uptime; recycles all planned (`unstable_restarts=0`), intermittent, some overshoot to
-  **800 MB+** (`current_memory` in the pm2.log recycle signature). **Status: DESIGN · PENDING FOUNDER REVIEW —
-  no remediation, no config change, no prod profiling; PM2 recycle stays active.** *Trigger:* review → execute
-  measurement plan.
+  **800 MB+** (`current_memory` in the pm2.log recycle signature). **✅ PHASE 1 INVESTIGATION COMPLETE
+  2026-07-21** ([findings](./D24_MEMORY_FINDINGS_INTERIM.md)): read-only prod sampler (RSS flat 121–122 MB,
+  fd stable, no idle creep) + instrumented staging load (heapUsed 35→136→**40 returns**; heapTotal 37→187→184
+  retained; RSS tracks heapTotal). **Dominant domain = JS heap (V8 `heapTotal` expansion under workload); no
+  evidence of an unbounded heap leak under the workloads tested; RSS crossing the 512 MB recycle is
+  reserved-heap + transient alloc, not native/external/fd/time creep. No remediation recommended; PM2 recycle
+  stays active (appears protective).** Sampler kept as an on-demand tool `scripts/diag/mem-sample.mjs`.
+  *Trigger to reopen:* recycle cadence/latency/crashes/user-visible change, or a specific need to reproduce
+  the historical 800 MB+ workload (auth heavy routes + representative data).
 - **D25 — In-place `.next` rebuild during deploy · deployment improvement. ✅ CLOSED · ACCEPTED · PRODUCTION
   VERIFIED 2026-07-21** ([acceptance/close-out](./D25_ACCEPTANCE_CLOSEOUT.md)). Deployment Engine live in
   prod (symlink+`releases/` model); cutover succeeded + 25-min observation clean (146/146 health ok, no
