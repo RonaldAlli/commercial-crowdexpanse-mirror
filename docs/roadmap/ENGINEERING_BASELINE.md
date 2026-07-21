@@ -27,6 +27,8 @@ Requirements → Architecture (acceptance-first: criteria + design before code)
 7. **Reversibility.** Every deploy retains a `.next` rollback snapshot + a restore-verified backup; prefer web-code rollback over schema rollback (migrations are additive).
 8. **Decouple concerns.** Feature correctness, operational behavior, and deployment mechanics are tracked separately — a pre-existing operational trait never permanently blocks verified feature work, but is made visible as debt.
 9. **Nothing silent.** Capped/bounded/skipped behavior is logged; anomalies are surfaced, not glossed.
+10. **Fresh builds only — never migrate build artifacts.** Generated build output (`.next`/release dirs, and their `types/`) is **never moved, copied, or reused between releases**; every release is produced by a **fresh build from source**. (Moved artifacts carry stale internal paths — the D25b staging contamination: a relocated build's generated route-types kept deep `../` paths and broke the next build's type-check.)
+11. **Verify against throwaway fixtures, never the production checkout.** When a check can run against a temp dir or the isolated staging instance, it must — the deploy engine is never pointed at the production checkout for verification. (From the D25b near-miss: a mis-parsed `--app-dir` ran a build inside prod; safety layers held, but the rule removes the hazard.)
 
 ## Deliverables per release
 Acceptance record · retrospective (what went well / what escaped testing / how detected / how fixed /
