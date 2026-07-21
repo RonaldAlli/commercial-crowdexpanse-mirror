@@ -24,6 +24,7 @@ operational figures link back to the current-status doc to avoid re-creating doc
 | [Operations Baseline](./roadmap/OPERATIONS_BASELINE.md) | **How** production normally behaves (PM2/memory/health/deploy) |
 | [Engineering Baseline](./roadmap/ENGINEERING_BASELINE.md) | **How** changes ship (the release lifecycle + disciplines) |
 | [Deployment Baseline](./roadmap/DEPLOYMENT_BASELINE.md) | **How** a deployment behaves (D25 engine: durations, rollback/recovery timings, artifacts) |
+| [Memory Baseline](./roadmap/MEMORY_BASELINE.md) | **How** memory normally behaves (idle RSS/heap, recycle behavior, D24 Phase-1 conclusion, reopen triggers) |
 
 ## 1. Roadmap & status
 
