@@ -9,6 +9,12 @@ import { titleCase } from "@/lib/property-options";
 
 export const dynamic = "force-dynamic";
 
+// Bound the render like the Opportunity board (PB-1): fetch only the most-recently-updated slice + the true
+// total. Without this, an org at scale (e.g. ~9.6k opportunities, none analyzed) rendered EVERY opportunity —
+// a ~9.5 MB page that took seconds to build, so the Deal Analyzer "hung"/loaded endlessly. The full set is
+// reachable via Opportunities.
+const ANALYZER_LIMIT = 60;
+
 function pct(value: number | null) {
   return value == null ? "—" : `${value}%`;
 }
@@ -16,19 +22,24 @@ function pct(value: number | null) {
 export default async function AnalyzerPage() {
   const user = await requireUser();
 
-  const opportunities = await prisma.opportunity.findMany({
-    where: { organizationId: user.organizationId },
-    include: {
-      property: { select: { name: true, assetType: true } },
-    },
-    orderBy: { updatedAt: "desc" },
-  });
+  const [opportunities, totalOpportunities] = await Promise.all([
+    prisma.opportunity.findMany({
+      where: { organizationId: user.organizationId },
+      include: {
+        property: { select: { name: true, assetType: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: ANALYZER_LIMIT,
+    }),
+    prisma.opportunity.count({ where: { organizationId: user.organizationId } }),
+  ]);
+  const scanIds = opportunities.map((o) => o.id);
 
   // Map each opportunity → its active scenario's persisted result (the canonical
   // successor to opportunity.analysis). An opportunity is "analyzed" iff its active
-  // scenario has a ScenarioResult.
+  // scenario has a ScenarioResult. Scoped to the bounded scan (`scanIds`).
   const underwritings = await prisma.underwriting.findMany({
-    where: { organizationId: user.organizationId },
+    where: { organizationId: user.organizationId, opportunityId: { in: scanIds } },
     select: { opportunityId: true, activeScenarioId: true },
   });
   const activeScenarioIds = underwritings.map((u) => u.activeScenarioId).filter((id): id is string => id != null);
@@ -88,6 +99,16 @@ export default async function AnalyzerPage() {
   return (
     <div className="space-y-8">
       {header}
+
+      {totalOpportunities > ANALYZER_LIMIT && (
+        <p className="text-sm text-slate-500">
+          Showing the {ANALYZER_LIMIT} most recently updated of {totalOpportunities} opportunities.{" "}
+          <Link className="font-medium text-slate-900 underline underline-offset-2" href="/opportunities">
+            View all in Opportunities
+          </Link>
+          .
+        </p>
+      )}
 
       <section className="space-y-4">
         <div className="flex items-center gap-2">
