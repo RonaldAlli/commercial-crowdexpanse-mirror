@@ -128,7 +128,11 @@ default `"tsconfig.json"`) — no tracked-file mutation:
 - **End-to-end confirmed in staging:** with the `.next` symlink present (the case that failed), the build now
   **passes (exit 0)** and the committed `tsconfig.json` is untouched. Regression tests lock: deploy include
   omits the `.next*` type globs, still checks source, committed tsconfig keeps its globs, the `next.config`
-  env hook, and the `.gitignore` entry. Gate: tsc 0; unit 70 files (deploy 35/35); e2e 43; build:isolated ok.
+  env hook, and the `.gitignore` entry.
+- **Lifecycle hardening:** the generated file is written + **removed in a `finally` (success AND failure)**
+  via `withDeployTsconfig(appDir, buildFn)`; deploys are **serialized by the PRECHECK lock** so the file
+  can't collide. Tests assert cleanup on both paths, the lock's `EEXIST` serialization primitive, and
+  PRECHECK-precedes-BUILD ordering. Gate: tsc 0; unit 70 files (deploy 39/39); e2e 43; build:isolated ok.
 
 ---
 *Stop point: DE-4 root cause CORRECTED (symlink depth mismatch) and the fix CONFIRMED (build-time tsconfig

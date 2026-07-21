@@ -69,10 +69,10 @@ export function makeRealOps(config) {
       // `.next-isolated/types` (the depth-mismatched globs). The release then type-checks only its OWN
       // (correct-depth) `releases/<stamp>/types` — which Next auto-adds to THIS file, never the committed
       // tsconfig.json. `typescript.tsconfigPath` is officially supported; the committed config is untouched.
-      const deployTsconfig = "tsconfig.deploy.json";
-      fs.writeFileSync(path.join(appDir, deployTsconfig), JSON.stringify(makeDeployTsconfig(), null, 2));
-      // Build into the versioned release dir (relative distDir, deploy tsconfig); the LIVE release is never touched.
-      await sh("npm", ["run", buildScript], { cwd: appDir, env: { ...process.env, [distDirEnv]: relDist, NEXT_TSCONFIG_PATH: deployTsconfig }, maxBuffer: 64 * 1024 * 1024 });
+      // withDeployTsconfig writes the generated file and REMOVES it in a finally (success OR failure). Deploys
+      // are serialized by the PRECHECK lock (mkdir .deploy.lock), so the generated file can never collide.
+      await withDeployTsconfig(appDir, (tsconfigRel) =>
+        sh("npm", ["run", buildScript], { cwd: appDir, env: { ...process.env, [distDirEnv]: relDist, NEXT_TSCONFIG_PATH: tsconfigRel }, maxBuffer: 64 * 1024 * 1024 }));
       // `.release-id` = the dead-simple idempotency marker (kept intentionally minimal + robust).
       if (ctx.requestedReleaseId) fs.writeFileSync(path.join(abs, ".release-id"), ctx.requestedReleaseId);
       // release.json = the richer, human/diagnostic manifest (rollbacks, history, artifact verification,
@@ -194,6 +194,23 @@ export function resolveDistDir(appDir, releasesDir, stamp) {
  */
 export function makeDeployTsconfig() {
   return { extends: "./tsconfig.json", include: ["next-env.d.ts", "**/*.ts", "**/*.tsx"] };
+}
+
+/**
+ * DE-4 lifecycle: write the generated `tsconfig.deploy.json`, run `buildFn(relPath)` against it, and
+ * GUARANTEE removal in a `finally` — on success AND failure — so no generated config is ever left behind.
+ * (Concurrency is handled a layer up: the PRECHECK lock serializes deploys per appDir, so two builds never
+ * write this file at once.) Returns whatever buildFn returns.
+ */
+export async function withDeployTsconfig(appDir, buildFn) {
+  const rel = "tsconfig.deploy.json";
+  const abs = path.join(appDir, rel);
+  fs.writeFileSync(abs, JSON.stringify(makeDeployTsconfig(), null, 2));
+  try {
+    return await buildFn(rel);
+  } finally {
+    try { fs.rmSync(abs, { force: true }); } catch { /* best-effort cleanup */ }
+  }
 }
 
 /**
