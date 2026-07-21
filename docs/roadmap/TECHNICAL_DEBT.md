@@ -85,7 +85,19 @@
     [D25B_HOST_MIGRATION_INITIATIVE.md](./D25B_HOST_MIGRATION_INITIATIVE.md).
     **Acceptance gate before any production migration:** a full staging-like rehearsal —
     `Dry Run → Forced Failure → Rollback → Recovery → Second Dry Run → Normal Deployment → Smoke`.
-    **Status: NOT started — separate approval required.** *Trigger:* after D25a review, in a quiet window.
+    **Rehearsal COMPLETE + PASSED on staging 2026-07-21** ([results](./D25B_REHEARSAL_RESULTS.md)); migration
+    **package prepared** ([package](./D25B_PRODUCTION_MIGRATION_PACKAGE.md)). **Status: cutover NOT started —
+    separate founder authorization + Go/No-Go gates 6–8 required.** *Trigger:* founder approval, quiet window.
+
+- **D26 — Interrupted-deployment recovery (deploy-engine operational resilience).** A **hard-killed** deploy
+  (SIGTERM/SIGKILL/OOM) bypasses the `finally` that releases `.deploy.lock`, leaving a **stale lock** that
+  blocks the next deploy until removed manually. Surfaced in the D25b rehearsal (a command-timeout kill
+  mid-rollback); the rollback itself still completed correctly — this is **resilience, not correctness**, so
+  it does NOT block D25/D25b. **Candidate improvements:** lock holds the owner PID + start time; precheck
+  treats a lock as stale if the PID is dead or older than a threshold; a SIGTERM handler that releases the
+  lock; a `deploy --recover` command; optional auto-stale-recovery. *Trigger:* after the D25b production
+  migration, or sooner if a stale lock recurs. Documented in the [Deployment Baseline](./DEPLOYMENT_BASELINE.md)
+  anomaly guide.
 
 ## Debt policy
 - A change may add debt **only** with an entry here and a trigger.
