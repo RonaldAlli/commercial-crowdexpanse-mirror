@@ -28,14 +28,16 @@
 - **Applied migrations: 30.** A change here outside a reviewed migration is an anomaly.
 - `scripts/audit/crm-integrity.mjs` → clean (0 cross-org / 0 orphan / 0 duplicate).
 
-## Deployment artifacts (current process — until D25)
-- Deploy = in-place `npm run build` over live `.next` + `pm2 restart crowdexpanse-commercial`.
-- **Expected transient artifact:** during the build window the serving process briefly logs
-  `Error: Could not find a production build in the '.next' directory` (+ pm2 crash-retries, so
-  `restart_time` climbs a few counts), **self-resolving at restart**. This is a *deploy-mechanics*
-  artifact, **not** an application defect. **D25** (build-elsewhere + atomic swap) will eliminate it.
-- Every deploy retains: a `.next.rollback-<stamp>` snapshot (prior build) + a restore-verified DB
-  backup under `/opt/crowdexpanse/backups/commercial/adhoc/`.
+## Deployment artifacts (D25 Deployment Engine — live since 2026-07-21)
+- **`.next` is a SYMLINK** into `releases/<stamp>/` (the atomic-swap model). Deploys build off to the side
+  and repoint the symlink — see the [Deployment Baseline](./DEPLOYMENT_BASELINE.md).
+- **The transient "Could not find a production build" error class is ELIMINATED by construction** (D25
+  closed 2026-07-21). If it recurs, that is an anomaly, not expected. *(Historical: the in-place rebuild
+  produced it — e.g. the 16 lines on 2026-07-20 — before the migration.)*
+- Deploy = `deploy.mjs --app-dir /opt/crowdexpanse/commercial --production --yes` (sentinel-guarded).
+- Per deploy: a `releases/<stamp>/` dir (BUILD_ID + `release.json` + `types/`), a `deploy-history/<stamp>.json`
+  record, and a restore-verified DB backup under `/opt/crowdexpanse/backups/commercial/adhoc/`. The
+  pre-migration real `.next` is retained as `.next.premigration` (revert artifact).
 
 ## Frozen references (immutable)
 `v1.3.0` → `d341c0a` · `v1.4.0` → `ece38aa` · `opportunity-pipeline-slice1` → `a2f9fd4`.

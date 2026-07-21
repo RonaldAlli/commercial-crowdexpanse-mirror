@@ -68,7 +68,10 @@
   is an appropriate threshold for this Next.js server, and whether profiling indicates a leak.
   **Do NOT change the pm2 limit or production config as an incidental fix** — scope + review as its own
   change. *Trigger:* recycle cadence rising, or a memory-correlated user-facing incident.
-- **D25 — In-place `.next` rebuild during deploy · deployment improvement.** Deploy runs `npm run build`
+- **D25 — In-place `.next` rebuild during deploy · deployment improvement. ✅ CLOSED · ACCEPTED · PRODUCTION
+  VERIFIED 2026-07-21** ([acceptance/close-out](./D25_ACCEPTANCE_CLOSEOUT.md)). Deployment Engine live in
+  prod (symlink+`releases/` model); cutover succeeded + 25-min observation clean (146/146 health ok, no
+  restarts, zero new errors); no rollback. Frozen baseline `main cc98078`. History below. Deploy runs `npm run build`
   over the live `.next` while `next start` is serving, exposing a partially-rebuilt directory → a
   transient "Could not find a production build" error burst + pm2 crash-retries during the deploy window
   (self-resolves at restart; observed 2026-07-20). **Fix:** build into a fresh directory → verify →
@@ -78,16 +81,17 @@
   - **D25a — Deployment Engine (code).** State machine (`PRECHECK→…→COMPLETE`) + real ops + CLI + sandbox
     tests, on branch `feature/d25-deployment-engine`. Atomic symlink swap, auto-rollback, dry-run,
     idempotent re-runs (`ALREADY_ACTIVE` no-op + `--force`), persisted `deploy-history/`. Fully isolated;
-    never touches the host. **Status: implemented + self-tested (9/9, forced-failure rollback proven) ·
-    PENDING FOUNDER REVIEW.** *Trigger:* review → merge.
+    never touches the host. **✅ MERGED + LIVE (DE-1→DE-4 all merged, `main cc98078`); deploy tests 39/39;
+    validated on staging + the production migration.** *Closed with D25.*
   - **D25b — Production host migration (cutover).** One-time, reversible migration of the live `.next`
     (173 MB real dir) to the symlink+`releases/` model; own runbook + operator authorization. Defined in
     [D25B_HOST_MIGRATION_INITIATIVE.md](./D25B_HOST_MIGRATION_INITIATIVE.md).
     **Acceptance gate before any production migration:** a full staging-like rehearsal —
     `Dry Run → Forced Failure → Rollback → Recovery → Second Dry Run → Normal Deployment → Smoke`.
-    **Rehearsal COMPLETE + PASSED on staging 2026-07-21** ([results](./D25B_REHEARSAL_RESULTS.md)); migration
-    **package prepared** ([package](./D25B_PRODUCTION_MIGRATION_PACKAGE.md)). **Status: cutover NOT started —
-    separate founder authorization + Go/No-Go gates 6–8 required.** *Trigger:* founder approval, quiet window.
+    **Rehearsal PASSED on staging 2026-07-21** ([results](./D25B_REHEARSAL_RESULTS.md)); migration
+    **package prepared** ([package](./D25B_PRODUCTION_MIGRATION_PACKAGE.md)). **✅ CUTOVER EXECUTED + VERIFIED
+    2026-07-21** — prod `.next` now a symlink → `releases/20260721T110934Z`, BUILD_ID continuous, 25-min
+    observation clean, no rollback. **CLOSED** (see D25 close-out).
 
 - **D26 — Interrupted-deployment recovery (deploy-engine operational resilience).** A **hard-killed** deploy
   (SIGTERM/SIGKILL/OOM) bypasses the `finally` that releases `.deploy.lock`, leaving a **stale lock** that
