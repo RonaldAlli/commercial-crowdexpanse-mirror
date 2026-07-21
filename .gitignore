@@ -20,6 +20,7 @@
 /deploy-history/
 /.deploy.lock/
 .production-instance
+/tsconfig.deploy.json
 /out/
 
 # playwright (test-only; never committed) — binaries, reports, auth state, screenshots

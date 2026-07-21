@@ -116,6 +116,20 @@ still fully type-checked; only the depth-mismatched symlink view is excluded. **
 Do **not** change the committed tsconfig (dev + `build:isolated` need `.next/types`/`.next-isolated/types`).
 The stripping is **build-time only, inside the engine.**
 
+### Resolution — Option 1 IMPLEMENTED (branch `fix/d25a-de4-deploy-tsconfig`, PENDING REVIEW)
+Uses Next's **officially-supported** `typescript.tsconfigPath` (config-schema `z.string().min(1).optional()`,
+default `"tsconfig.json"`) — no tracked-file mutation:
+- `next.config.mjs`: `typescript.tsconfigPath = process.env.NEXT_TSCONFIG_PATH || "tsconfig.json"` (mirrors the
+  existing `NEXT_DIST_DIR` hook; defaults to the committed config for dev/normal builds).
+- Engine `build()`: generates a gitignored `tsconfig.deploy.json` (`makeDeployTsconfig()` — extends
+  `./tsconfig.json`, `include` omits `.next/types`+`.next-isolated/types`) and builds with
+  `NEXT_TSCONFIG_PATH=tsconfig.deploy.json`. Next appends only `releases/<stamp>/types` to the **generated**
+  file; committed `tsconfig.json` is never written.
+- **End-to-end confirmed in staging:** with the `.next` symlink present (the case that failed), the build now
+  **passes (exit 0)** and the committed `tsconfig.json` is untouched. Regression tests lock: deploy include
+  omits the `.next*` type globs, still checks source, committed tsconfig keeps its globs, the `next.config`
+  env hook, and the `.gitignore` entry. Gate: tsc 0; unit 70 files (deploy 35/35); e2e 43; build:isolated ok.
+
 ---
 *Stop point: DE-4 root cause CORRECTED (symlink depth mismatch) and the fix CONFIRMED (build-time tsconfig
 strip; verified in staging; type-checking preserved). This is an engine code change — awaiting your decision

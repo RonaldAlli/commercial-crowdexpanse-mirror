@@ -65,8 +65,14 @@ export function makeRealOps(config) {
       // an ABSOLUTE value nests the build OUTSIDE releaseAbs (VERIFY_BUILD then can't find BUILD_ID).
       const { relative: relDist, absolute: abs } = resolveDistDir(appDir, releasesDir, stamp);
       fs.mkdirSync(abs, { recursive: true });
-      // Build into the versioned release dir (relative distDir); the LIVE release is never touched.
-      await sh("npm", ["run", buildScript], { cwd: appDir, env: { ...process.env, [distDirEnv]: relDist }, maxBuffer: 64 * 1024 * 1024 });
+      // DE-4: build against a GENERATED deploy tsconfig whose `include` omits `.next/types` +
+      // `.next-isolated/types` (the depth-mismatched globs). The release then type-checks only its OWN
+      // (correct-depth) `releases/<stamp>/types` — which Next auto-adds to THIS file, never the committed
+      // tsconfig.json. `typescript.tsconfigPath` is officially supported; the committed config is untouched.
+      const deployTsconfig = "tsconfig.deploy.json";
+      fs.writeFileSync(path.join(appDir, deployTsconfig), JSON.stringify(makeDeployTsconfig(), null, 2));
+      // Build into the versioned release dir (relative distDir, deploy tsconfig); the LIVE release is never touched.
+      await sh("npm", ["run", buildScript], { cwd: appDir, env: { ...process.env, [distDirEnv]: relDist, NEXT_TSCONFIG_PATH: deployTsconfig }, maxBuffer: 64 * 1024 * 1024 });
       // `.release-id` = the dead-simple idempotency marker (kept intentionally minimal + robust).
       if (ctx.requestedReleaseId) fs.writeFileSync(path.join(abs, ".release-id"), ctx.requestedReleaseId);
       // release.json = the richer, human/diagnostic manifest (rollbacks, history, artifact verification,
@@ -176,6 +182,18 @@ export function resolveDistDir(appDir, releasesDir, stamp) {
     throw new Error(`releases dir must be inside appDir for NEXT_DIST_DIR to resolve (got ${absolute} outside ${appDir})`);
   }
   return { relative, absolute };
+}
+
+/**
+ * DE-4: the deploy build's tsconfig. Extends the committed base (inherits all compilerOptions/plugins) but
+ * REPLACES `include` to omit `.next/types` + `.next-isolated/types` — the globs that, via the depth-1
+ * `.next` symlink, expose the active release's depth-2 types at the wrong depth. Next then adds only the
+ * current build's own `releases/<stamp>/types` (correct depth). Type-checking stays ON; the committed
+ * `tsconfig.json` is never modified (dev + `build:isolated` keep their globs). Written to a gitignored
+ * `tsconfig.deploy.json` in the app root so `extends: "./tsconfig.json"` resolves.
+ */
+export function makeDeployTsconfig() {
+  return { extends: "./tsconfig.json", include: ["next-env.d.ts", "**/*.ts", "**/*.tsx"] };
 }
 
 /**
