@@ -68,7 +68,23 @@ Collected read-only 2026-07-21 (~12:35Z) from live pm2 + the pm2 daemon log:
 
 ---
 
-## Phase 3 — Hypothesis register (ranked; each with support / disprove / least-invasive test)
+## Phase 3 — Classify by memory DOMAIN first, THEN rank causes
+
+**Do not rank individual causes until the growing DOMAIN is identified** (this usually collapses the search
+space dramatically). Classify the growth into one of four domains, then only evaluate that domain's causes.
+
+| Domain | Diagnostic questions | Metrics | Candidate causes (hypotheses) |
+|---|---|---|---|
+| **1. JavaScript heap** | Is `heapUsed` growing? Does it plateau? Shrink after idle? Shrink after GC (staging)? | `heapUsed`, `heapTotal` | retained objects / caches / closures / timers / ORM objects — **H1, H3, H4, H5, H10, H11, H12** |
+| **2. Native / RSS** | Is RSS growing while heap is flat? Allocator fragmentation? | `rss` vs `heapTotal` | native libs / OpenSSL / image/compression / glibc allocator arenas — **H2** |
+| **3. External memory** | Buffers? Streams? Uploads? File handling? | `external`, `arrayBuffers` | upload/doc buffers / streams / SDK buffers — **H7, H13** |
+| **4. OS / process resources** | Descriptors? Sockets? Handles? Timers? Event-loop resources? | `/proc/<pid>/fd`, `activeHandles`, event-loop delay | unclosed fds/sockets / leaked handles/timers — **H6, H5** |
+
+**Rule:** identify the dominant domain from the metric split (heap vs external vs RSS-minus-heap vs
+fd/handle count), *then* rank within it. The register below is the per-cause detail used **after** the domain
+is known.
+
+### Hypothesis register (per-cause detail; each with support / disprove / least-invasive test)
 
 | # | Hypothesis | Supports it | Disproves it | Least-invasive test |
 |---|---|---|---|---|
@@ -102,8 +118,13 @@ starting point, revised by evidence.
 7. Is **remediation required**?
 8. **What evidence** supports the conclusion?
 
-**Explicit criterion:** *a remediation must NOT be proposed solely because RSS is high.* High steady-state
-usage with bounded growth + clean recycles is an acceptable operating point, not a defect.
+**Explicit criteria:**
+- *A remediation must NOT be proposed solely because RSS is high.* High steady-state usage with bounded
+  growth + clean recycles is an acceptable operating point, not a defect.
+- *The investigation must identify **which memory metric crosses the recycle threshold** — not merely that
+  PM2 restarts.* "RSS exceeded while heap stayed flat" (⇒ native/external/fragmentation) is a **different
+  conclusion** from "heap exceeded" (⇒ JS retention). The recycle line's `current_memory` is RSS; the
+  investigation must attribute that RSS to a domain (heap vs external vs native) at the moment of crossing.
 
 ---
 
@@ -117,6 +138,16 @@ Production collection is **read-only + low overhead**. During the investigation 
 **Heap snapshots can contain sensitive application data** → they require an explicit **handling + retention
 plan** (staging only, access-controlled, deleted after analysis) **before** any capture. The PM2 recycle
 **remains active** unless evidence shows it prevents meaningful measurement (then re-evaluate, with review).
+
+**Diagnostic overhead budget (must be measured + documented before it runs).** Any diagnostic added to
+production must itself have measurable, bounded overhead, or it risks influencing the system it measures. For
+each collector, document: **sampling interval**, **CPU cost**, **memory cost**, **I/O generated (bytes/day)**.
+- **Prod sampler = EXTERNAL + read-only** (design): a separate process polls pm2 `monit` RSS + `/proc/<pid>/fd`
+  count + `/api/health` on an interval (target ≥ 10 s). It runs **out-of-process** → it adds **no heap/CPU to
+  the app**; cost is one `ps`/readlink + one HTTP GET per tick (µs of app CPU for the health handler) and a
+  few hundred bytes/sample of JSONL (~a few MB/day, rotated). No in-process hooks, no GC, no snapshots on prod.
+- Any richer probe (heap breakdown, event-loop delay) is **staging-only**; its overhead is documented there
+  too. If a diagnostic's overhead cannot be bounded and shown negligible, it does not run on prod.
 
 ---
 
