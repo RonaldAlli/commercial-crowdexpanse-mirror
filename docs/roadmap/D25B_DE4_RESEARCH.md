@@ -1,9 +1,14 @@
 # D25b · DE-4 Research — custom `distDir` × Next's tsconfig type-includes
 
-> **Investigation milestone (no build-safety changes). Conclusion: NOT a Next.js incompatibility and NOT a
-> case for `ignoreBuildErrors`. Custom `distDir` is fully supported; the failure was contamination
-> (a migrated build) surfacing an `include`-accumulation interaction. The permanent fix is the
-> fresh-build invariant, not disabling type-checking.** 2026-07-21.
+> **Investigation milestone (no build-safety changes). Custom `distDir` is fully supported; NOT a case for
+> `ignoreBuildErrors`.** 2026-07-21.
+>
+> **⚠️ CORRECTION (see §6, which SUPERSEDES §3–§4). The first pass concluded "the fresh-build invariant
+> fixes DE-4" — that was WRONG: a fully clean rebuild STILL failed the build. The real root cause is a
+> `.next`-symlink DEPTH MISMATCH (release dirs are depth-2 `releases/<stamp>`, `.next` is a depth-1
+> symlink). The confirmed fix is to build each release against a tsconfig that OMITS the legacy
+> `.next/types`/`.next-isolated/types` globs — empirically verified (build passes, type-checking stays ON).
+> The fresh-build invariant (discipline #10) remains valid engineering but does NOT resolve DE-4.**
 
 ---
 
@@ -74,6 +79,46 @@ migrated (contaminated) build — NOT from `distDir` itself.**
   its type-check — to be confirmed under authorization (validation resumes only on your go).
 
 ---
-*Stop point: DE-4 understood + documented; fresh-build invariant codified; staging clean. Awaiting your
-decision on the permanent solution (A alone, or A + optional B) and authorization to resume the clean
-staging validation.*
+
+## 6. CORRECTION — real root cause is a `.next`-symlink DEPTH MISMATCH (supersedes §3–§4)
+
+The clean staging validation (build #2, against a freshly rebuilt active release) **still failed** — so
+§3–§4 were wrong. Evidence corrected the hypothesis:
+
+- **Contaminated release** (moved DE-1 build): types had `9×../` → fail.
+- **Cleanly rebuilt release**: types have **`6×../`** → **still fail** via `.next/types`.
+
+**Why:** Next generates route-type relative paths for the build's `distDir` **depth**. `releases/<stamp>`
+is **depth 2**, so the paths are `6×../` (correct *for that real location*). But `.next` is a **depth-1**
+symlink, and the committed tsconfig includes `.next/types/**`. When the active release's types are
+type-checked *through the `.next/types` glob* (depth 1), the `6×../` overshoots by exactly one level
+(release depth 2 − `.next` depth 1) → `Cannot find module …/app/.../page.js`.
+
+**Control:** `build:isolated` uses `NEXT_DIST_DIR=.next-isolated` (**depth 1**) and passes — depth-1 dirs
+work; depth-2 release dirs under the depth-1 `.next` symlink do not. So it is a **structural symlink-depth**
+issue, independent of contamination; the fresh-build invariant does **not** fix it.
+
+**Confirmed fix (empirically verified in staging):** build each release against a tsconfig whose `include`
+**omits `.next/types` and `.next-isolated/types`**, leaving only the release's own `releases/<stamp>/types`
+(which Next auto-adds at the correct depth). Result: **build passes, exit 0** — the release's own types are
+still fully type-checked; only the depth-mismatched symlink view is excluded. **No `ignoreBuildErrors`.**
+
+### Revised options (for decision — this is an ENGINE code change, its own fix milestone)
+- **(1, recommended) Engine builds against a stripped tsconfig.** Before the release build, the engine
+  writes a build tsconfig (e.g. `tsconfig.deploy.json` extending the base, or a temp copy) whose `include`
+  omits `.next/types`/`.next-isolated/types`; Next adds the release's own types; restore after. Surgical,
+  keeps the `releases/<stamp>` layout, **preserves type-checking of the release's own types**. Verified.
+- **(2, alternative) Depth-1 release dirs.** Make each release a depth-1 sibling of `.next` (like
+  `.next-isolated`) so the symlink is depth-transparent. Also works (per the control), but changes the
+  release layout/retention and scatters release dirs at the project root.
+- **(3, rejected) `typescript.ignoreBuildErrors`.** Unnecessary — option 1 keeps full type-checking.
+
+Do **not** change the committed tsconfig (dev + `build:isolated` need `.next/types`/`.next-isolated/types`).
+The stripping is **build-time only, inside the engine.**
+
+---
+*Stop point: DE-4 root cause CORRECTED (symlink depth mismatch) and the fix CONFIRMED (build-time tsconfig
+strip; verified in staging; type-checking preserved). This is an engine code change — awaiting your decision
+(option 1 vs 2) to open it as its own fix milestone (isolated branch → fix → regression test → gate →
+review → merge), then re-run the clean staging validation. Rehearsal remains blocked. Prod untouched
+(pid 299921 / restart 96 / health 200); staging clean + healthy.*
