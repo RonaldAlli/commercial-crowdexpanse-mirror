@@ -67,7 +67,13 @@
   board memory). **Investigate:** RSS-growth profile over time, recycle frequency/cadence, whether 512 MB
   is an appropriate threshold for this Next.js server, and whether profiling indicates a leak.
   **Do NOT change the pm2 limit or production config as an incidental fix** — scope + review as its own
-  change. *Trigger:* recycle cadence rising, or a memory-correlated user-facing incident.
+  change. **OPENED as a standalone acceptance-first investigation 2026-07-21: DESIGN (Phases 1–6 + baseline +
+  measurement schema + hypothesis register + acceptance criteria + safety + staging repro + Go/No-Go) in
+  [D24_MEMORY_INVESTIGATION_DESIGN.md](./D24_MEMORY_INVESTIGATION_DESIGN.md).** Baseline captured read-only:
+  RSS ~121 MB @ 85 min uptime; recycles all planned (`unstable_restarts=0`), intermittent, some overshoot to
+  **800 MB+** (`current_memory` in the pm2.log recycle signature). **Status: DESIGN · PENDING FOUNDER REVIEW —
+  no remediation, no config change, no prod profiling; PM2 recycle stays active.** *Trigger:* review → execute
+  measurement plan.
 - **D25 — In-place `.next` rebuild during deploy · deployment improvement. ✅ CLOSED · ACCEPTED · PRODUCTION
   VERIFIED 2026-07-21** ([acceptance/close-out](./D25_ACCEPTANCE_CLOSEOUT.md)). Deployment Engine live in
   prod (symlink+`releases/` model); cutover succeeded + 25-min observation clean (146/146 health ok, no
