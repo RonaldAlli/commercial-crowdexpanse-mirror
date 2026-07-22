@@ -247,15 +247,33 @@ both versions are recorded.)*
 principal**, exercisable only within these constraints. Generalizes (via OPP-3) to any fact family whose policy
 defines a mechanically-evaluable assertion. **Status: FROZEN** (Ronald, 2026-07-22).
 
-### OWN-2 · Decision 1C — Receipt projection · **DRAFT**
-**Question.** Does receiving diligence material establish its own pipeline **stage**, or affect only operational
-attention? Two valid outcomes: **(a)** receipt is authoritative but **non-projecting** (stage unchanged; next
-action = "review diligence materials"); **(b)** receipt backs a distinct stage (`DILIGENCE_RECEIVED` /
-`DILIGENCE_IN_REVIEW`). **Founder initial recommendation:** do **not** create a stage merely because one artifact
-arrives — a distinct diligence stage exists only if it marks a **stable, useful business-state boundary**, not
-an activity beginning (else it violates INV-6 by turning "the team is reviewing documents" into stage
-semantics). This is **stage enumeration**, kept separate from the receipt/completion truth. **Depends on:**
-Decision 1; interacts with OWN-4. **Status: DRAFT.**
+### OWN-2 · Decision 1C — Receipt projection (stage eligibility) · **✅ FROZEN 2026-07-22**
+
+**Question.** Does receiving diligence material establish its own pipeline stage, or affect only operational
+attention? — reframed to the more fundamental: **what kinds of facts are eligible to project a stage?**
+
+**Adopted policy (frozen).** `DILIGENCE_MATERIAL_RECEIVED` is authoritative but **non-projecting by default** —
+it feeds operational attention, never the stage. A pre-completion stage may exist **only if** it is backed by a
+**stable, objective business-state fact that is independently valuable to the business and remains meaningful
+regardless of who is currently working the opportunity.** "All required materials received" is an excellent
+**instance** of such a fact — but it is an instance of the rule, **not the rule itself** (1C must not constrain
+future fact families). Whether to enumerate any such stage is a stage-set/product choice **deferred to OWN-4**;
+1C freezes the **eligibility criterion**, not the stage list.
+
+**Invariants.**
+- **1C-INV-1 · Receipt is non-projecting by default.** Recording or receiving an artifact affects operational
+  attention, not stage projection.
+- **1C-INV-2 · Stages require stable state facts.** Every projected stage must be backed by a stable, objective
+  business-state fact rather than an activity or transient workflow condition.
+- **1C-INV-3 · Stage eligibility is fact-based.** Whether a fact receives its own stage depends on whether it
+  represents a meaningful business-state boundary — not implementation convenience or UI preference.
+
+**Downstream.** Gives **OWN-4** a principled test for which facts deserve visible stages (a fact earns a stage
+iff it is a stable, independently-valuable business-state boundary). Applies to **every** fact family, not just
+diligence. **Status: FROZEN** (Ronald, 2026-07-22).
+
+> **➡ Diligence fact family COMPLETE** — Decision 1 (receipt vs. completion) · 1A (authority) · 1B (deterministic
+> evaluator) · 1C (projection eligibility) all frozen. Next fact family: **Buyer Match (Fact 2)**.
 
 ---
 
