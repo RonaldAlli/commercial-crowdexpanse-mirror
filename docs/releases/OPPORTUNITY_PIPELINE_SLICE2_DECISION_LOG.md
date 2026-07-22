@@ -996,19 +996,57 @@ canonical spine fixes the order (buyer-match precedes contract). New facts intro
 
 ---
 
-## OPP-3 · Guarding disruptive changes · **DRAFT (reframed by OWN-1)**
+## OPP-3 · Global ratification · fact-lifecycle model · guard policy · **✅ FROZEN 2026-07-22**
 
-**Question (reframed).** OPP-1's world had unguarded ADMIN *stage moves* (audited but unwarned; backward moves
-don't reverse downstream side effects). Under OWN-1 there are **no direct stage moves** — so the policy question
-becomes: should **fact assertions/retractions** that would regress the projected stage (and leave downstream
-records — checklist/escrow/financing/assignment — in place) require a **UI confirmation / warning**, and should
-any downstream reversal be offered? Every such change remains audited regardless. **Depends on:** OWN-1.
-**Also owns:** consolidating the recurring **fact-operation authority taxonomy** (1A + 2A + 3A — `RECORD_*_EVIDENCE
-→ DECLARE_* → RETRACT_* → CORRECT_HISTORY` + policy-gated `ACCEPT_*_EXCEPTION`) into **one** platform capability
-model, and **formally ratifying the [Global fact invariants](#global-fact-invariants-candidate--to-be-formally-ratified-under-opp-3)** (GI-1 append-only, GI-2 deterministic-evaluator contract, GI-3 fact-class taxonomy — all now stated;
-OPP-3 formally ratifies) so every family references one canonical rule instead of per-family copies. **Status: DRAFT.**
+**Part A — Global invariants RATIFIED.** GI-1 (append-only), GI-2 (deterministic-evaluator contract), GI-3
+(fact-class taxonomy) are now **ratified platform global invariants** (no longer "candidate"). Every fact family
+references them; none may contradict them.
+
+**Part B — Fact-Operation Authority Model = the platform FACT LIFECYCLE MODEL.** The taxonomy recurred identically
+5× (1A/2A/3A/4A/5A); consolidated as **one** platform model that families **reference**. It is the **fact
+lifecycle** — `Artifact → Evidence → Decision → Retraction/Correction` — with capabilities governing each
+transition:
+- `DRAFT_*` — create an **artifact** fact
+- `RECORD_*_EVIDENCE` — record external **evidence** (never synthesize — GI-3)
+- `DECLARE_*` — assert a **decision** fact
+- `RETRACT_*` — supersede a decision fact
+- `CORRECT_HISTORY` — supersede an erroneous fact
+- `ACCEPT_*_EXCEPTION` *(policy-gated)* — relax a decision-layer/org-policy requirement (**never** an evidence one)
+
+Shared invariants (now platform-level): authority attaches to fact operations (never stages) · attributable +
+reason on retract/exception/correct · append-only (GI-1) · capabilities policy-mapped to roles · exception may
+strengthen but never redefine policy nor substitute for missing evidence (GI-3) · same-version evidence +
+evidence-completeness precede decision authority. The applicable capability is set by the fact's GI-3 class.
+
+**Part C — Guard policy.** Under OWN-1 there are no stage moves; the guardable actions are fact
+assertions/retractions.
+- **Warn, don't block.** A fact operation that regresses the projection is *correct* (stages may regress) and must
+  not be prevented, but **requires explicit UI confirmation/warning** surfacing the consequence.
+- **No automatic *authoritative* downstream reversal.** Retracting an authoritative fact **never** automatically
+  creates, retracts, supersedes, or corrects **another authoritative fact**. **Derived state — projections,
+  operational attention, warnings, dashboards — updates automatically.** Reversing a downstream authoritative fact
+  is a separate, individually-authorized operation.
+- **Always audited** (GI-1).
+
+**Invariants.**
+- **OPP3-INV-1 · Regression warns, never blocks or auto-reverses.** A fact operation that regresses the projection
+  or creates a downstream inconsistency requires explicit confirmation and is audited; it never blocks the
+  operation and never cascades automatic **authoritative** reversals — resulting inconsistencies surface as
+  operational attention.
+- **OPP3-INV-2 · Derived state is always recalculated.** Whenever an authoritative fact changes, all derived state
+  (pipeline stage, operational attention, inconsistencies, policy predicates) recomputes automatically. Only
+  **authoritative facts** require explicit operations; derived state is never an authoritative operation.
+
+**Status: FROZEN** (Ronald, 2026-07-22).
+
+> **➡➡➡ PHASE 1 (DECISION) COMPLETE 2026-07-22.** All governing decisions · five fact families · global invariants
+> (GI-1/2/3) · the fact-operation authority/lifecycle model · the archetype matrix (OWN-3) · the projected stage
+> spine (OWN-4) · the guard policy (OPP-3) — **frozen.** The business semantics now exist **independently of the
+> software.** **Next: Phase 2 — Workflow Freeze** → the normative **Business Semantics Specification**
+> (`BUSINESS_SEMANTICS_SPECIFICATION.md`). No new decisions; no code.
 
 ---
-*Next: open OWN-2 in a dedicated Decision-phase session — authoritative facts, per-fact evidence, and the
-deterministic total projection (furthest-fact) with separate inconsistency surfacing. No architecture or code
-until OWN-2…OWN-4 + OPP-3 are Frozen.*
+*Phase 1 (Decision) COMPLETE 2026-07-22 — every OWN/OPP item and all five fact families frozen. Phase 2
+(Workflow Freeze) output = the normative `BUSINESS_SEMANTICS_SPECIFICATION.md` (assembled from this log; no new
+decisions). Then Phase 3 (Architecture & Acceptance) → Phase 4 (Implementation). This log remains the decision
+record; the Specification is the normative contract.*
