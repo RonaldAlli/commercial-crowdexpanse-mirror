@@ -8,8 +8,11 @@
 > Depends on the frozen [E1 Public API v1.0](./E1_PUBLIC_API_CONTRACT.md). Governed by **Constitution Law 12**.
 >
 > **Status:** **RATIFIED · FROZEN 2026-07-22** (design + Law 12 + `activeFacts()` façade + first-class `FactGraph`
-> object + explicit `FactGraphRequest` + FG-INV-1..8). The **Fact Graph Builder** is E2 · Slice A — the first gated
-> slice, ahead of the Predicate Engine. Implementation proceeds as derivation of this contract.
+> object + explicit `FactGraphRequest` + FG-INV-1..8). **Amended v1.1 (post Slice-A acceptance): §4.3 formal
+> Structural vs Decision-visible active-set distinction + FG-INV-12 Fact Graph completeness.** The **Fact Graph
+> Builder** is E2 · Slice A — **implemented + accepted + merged** (`opp-slice2-e2a-complete`). Public interface
+> frozen separately in [FACT_GRAPH_PUBLIC_API.md](./FACT_GRAPH_PUBLIC_API.md). Slice B (Predicate Engine) consumes
+> it.
 >
 > **Why this seam matters (dependency linearization).** Before it, every consumer would reconstruct facts
 > independently — `Ledger → {Projection, Authorization, Automation, …}` fanning out, each re-interpreting truth.
@@ -110,6 +113,22 @@ The surface (technology-neutral):
 The object is **frozen/read-only**: no consumer can mutate its state (FG-INV-8). It exposes interpretation, never
 storage columns, SQL, or Prisma types.
 
+### 4.3 Two active sets — a formal, load-bearing distinction (do not collapse)
+
+These are **different concepts**; future engineers must never "optimize" one into the other:
+
+- **Structural Active Set** = the **unsuperseded** facts — the current tip of every chain. Exposed as
+  **`graph.activeFacts`**. A `RETRACT`/`INVALIDATE` fact is *structurally active*, because it is the current tip of
+  its chain. This set preserves E1's `activeFacts` behavior exactly.
+- **Decision-visible Active Set** = the structurally-active facts that **currently participate in business
+  reasoning** — i.e. facts still *asserting* their business claim. Exposed via **`graph.activeByType`** and
+  **`graph.collection`** (and `byChain(...).asserted`). A retraction is **structurally active but not
+  decision-visible**: it is the current tip, yet it deliberately *suppresses* the underlying assertion.
+
+The subtlety: **a retraction fact remains structurally active while suppressing the business assertion it
+withdraws.** Structural presence ≠ decision participation. The graph exposes both, on purpose; consumers reasoning
+about business state use the **decision-visible** accessors, never the raw structural set.
+
 ## 5. Invariants (FG-INV) — each maps to an `AC-FG-*` family
 
 The eight **single-interpretation** invariants (founder-ratified):
@@ -132,6 +151,14 @@ Plus three structural invariants the seam also guarantees:
   is active*, not *what happened*.
 - **FG-INV-11 · Interpretation only.** The graph exposes no predicate result, stage, authorization decision, or
   inconsistency — those are consumers' jobs (E2/E3/E4). Observational (Law 8).
+- **FG-INV-12 · Fact Graph completeness.** The graph contains every fact necessary to answer every question the
+  Specification permits about its opportunity, so **consumers never perform supplementary ledger reads.** The
+  Predicate Engine, Authorization, Projection, Automation, and Acceptance each receive an *already-complete* graph
+  and MUST NOT execute `SELECT …`, `lookupFact(…)`, or any other read against the ledger — doing so would create a
+  second interpretation and weaken the single-interpretation guarantee (Law 12). Scope: the Builder loads the
+  **complete per-opportunity history**; org policy/configuration enters only through the explicit `versionContext`,
+  never through a side read. If a consumer finds it needs a fact the graph doesn't carry, that is a gap in this
+  contract to be resolved *here* (extend the Builder), never patched by an independent query.
 
 ## 6. Boundaries — what the Fact Graph Builder must NOT do
 

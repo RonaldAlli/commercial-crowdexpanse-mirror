@@ -35,6 +35,11 @@
     single implementation, so no two consumers can disagree about what "the current facts" are. Peer to Law 6:
     Law 6 gives one interpretation of *predicates*, Law 12 one interpretation of the *ledger* they run against.
     See [Fact Graph Contract](./FACT_GRAPH_CONTRACT.md).
+13. **Consumers reason only over the immutable FactGraph.** A consumer of business truth — the Predicate Engine
+    first, then Authorization, Projection, Automation, and Acceptance — must never reconstruct, reinterpret, or
+    supplement the ledger independently: no `SELECT`, no `lookupFact`, no re-deriving active/supersession/collection
+    (FG-INV-12). It receives an already-complete graph and reasons over it. The natural counterpart to Law 12: if a
+    needed fact is missing, extend the Builder — never query around it.
 
 ---
 
@@ -66,7 +71,7 @@ Each epic cites its **Traceability entries · Acceptance scenario IDs · Spec se
 | Epic | Scope | Resolves | Acceptance |
 |---|---|---|---|
 | **E1 · Core Fact Infrastructure** ✅ | append-only store · supersession · versioning · audit | A-1/A-6/A-8 | AC-GI1-* |
-| **E2 · Slice A — Fact Graph Builder** | the single canonical ledger interpretation (reconstruction · supersession · active-set · collection aggregation · version resolution) — Law 12 | (reconciles `activeFacts`) | AC-FG-* |
+| **E2 · Slice A — Fact Graph Builder** ✅ | the single canonical ledger interpretation (reconstruction · supersession · active-set · collection aggregation · version resolution) — Law 12/13, FG-INV-1..12 | (reconciles `activeFacts`) | AC-FG-* (25/25) |
 | **E2 · Slice B — Predicate Engine** | the single side-effect-free evaluator over the Fact Graph · policy · projection · what-if | A-2/A-4/A-7 | AC-GI2-*, AC-OWN1-*, AC-5A/5B-* |
 | **E3 · Authorization** | capability eval · preconditions · commit-time validation · DENY codes | AZ-1/AZ-2/AZ-4 | AC-AUTH*-* |
 | **E4 · Projection** | stage projection · operational attention · inconsistency computation | A-3/A-9 | AC-OWN1/STM/OPP3-* |
