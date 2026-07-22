@@ -909,8 +909,40 @@ milestone ≠ `TRANSACTION_CLOSED` — the candidate state fact for the optional
 **Configured predicate = (Cash core + `FINANCING=FUNDED` + dependencies) ∧ org configuration ⇒
 `TRANSACTION_CLOSED`.** **Status: FROZEN** (Ronald, 2026-07-22).
 
-### OWN-3.3 · Assignment predicate · **DRAFT (open next)**
-*(Tier-2 archetypes: reserved, predicates deferred. Future ontology candidate noted: `TITLE_TRANSFERRED`.)*
+### OWN-3.3 · Assignment predicate · **✅ FROZEN 2026-07-22**
+
+**Structural core (invariant):**
+- `CONTRACT_EXECUTED` — the **underlying** purchase contract being assigned
+- `ASSIGNMENT_EXECUTED` — the assignment agreement (assignor → assignee)
+- **assignment fee disbursed** — `FUNDS_DISBURSED { purpose: AssignmentFee }`
+
+**Deliberately absent** (the assignor never takes title): no `FINANCING`, no seller-side `SETTLEMENT_COMPLETED` /
+`ESCROW=RELEASED` / `DEED_RECORDED` / `TITLE_TRANSFERRED`. The seller-side closing belongs to the **end buyer's**
+transaction. *(No fact invented or removed — the predicate simply requires a different subset; the OWN3-INV-2
+payoff.)*
+
+**Org-configurable layer (may *strengthen*).** The **end-buyer-settlement dependency** is configurable: fee-at-
+closing orgs require the underlying `SETTLEMENT_COMPLETED` as a dependency of the assignment-fee disbursement;
+fee-upfront orgs do not. Plus escrow, checklist, compliance, jurisdiction predicates.
+
+**Funds ontology (enrichment — applies to ALL archetypes).** `FUNDS_DISBURSED` is a single money-movement fact:
+`{ recipient, purpose, amount, source, transaction_reference, obligation }`. `purpose ∈ { SellerProceeds,
+AssignmentFee, Commission, Refund, EarnestMoneyReturn, … }`; `obligation` links the movement to the authoritative
+business obligation (e.g. `AssignmentAgreement:v3`, `PurchaseContract:v7`) for audit/accounting/reconciliation.
+Cash/Financed require `FUNDS_DISBURSED{purpose: SellerProceeds}`; Assignment requires `{purpose: AssignmentFee}`.
+
+**Invariant.** **OWN3.3-INV-1 · Shared funds ontology.** Money movement is a **shared `FUNDS_DISBURSED` fact**;
+archetypes distinguish required disbursements through **typed purposes + obligations**, never through new
+money-related semantic classes. *(Reinforces OWN3-INV-2.)*
+
+**Configured predicate = (`CONTRACT_EXECUTED` ∧ `ASSIGNMENT_EXECUTED` ∧ `FUNDS_DISBURSED{purpose:AssignmentFee}`)
+∧ org configuration ⇒ `TRANSACTION_CLOSED`.** **Status: FROZEN** (Ronald, 2026-07-22).
+
+> **➡ OWN-3 Tier-1 archetypes COMPLETE** — 3.1 Cash · 3.2 Third-Party Financed · 3.3 Assignment. **The archetype
+> framework is validated: one ontology, multiple predicates, no new semantics** (assignment fee reused
+> `FUNDS_DISBURSED` rather than inventing a fact). Tier-2 remains reserved (predicates undefined). **Next: OWN-4**
+> (stage enumeration — map stages to backing decision facts per 1C-INV-3; incl. the "clear-to-close" candidate) →
+> **OPP-3** → then **Phase 2: Workflow Freeze.**
 
 ---
 
