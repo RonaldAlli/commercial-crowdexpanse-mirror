@@ -215,6 +215,39 @@ decision.
   reconstruct facts (or a fact-equivalent) so projection replaces the stored stage without losing history —
   strategy is an architecture/migration question (Phase 3 schema + Phase 4).
 
+### 9a. Decision timing (founder classification, 2026-07-22)
+
+| When it must be resolved | Items |
+|---|---|
+| **Before schema / API architecture** (fundamental data + consistency contracts) | **A-1** persistence + supersession · **A-4** predicate representation · **A-6** collection-fact aggregation · **A-8** concurrency · **A-10** legacy fact reconstruction/migration |
+| **Before runtime architecture** (may follow the logical data model) | **A-2** materialization · **A-3** sync vs. event-driven recompute · **A-7** what-if projection · **A-5** evaluator runtime *(its reproducibility-record persistence ties to A-1)* |
+| **Deferable** (optimization/caching/presentation; does **not** alter fact authority, deterministic projection, or transactional correctness) | **A-9** inconsistency computation shape *(must remain side-effect free regardless)* + any future such question |
+
+This keeps Phase 3 a sequence of scoped slices, not one large architecture initiative.
+
+### 9b. Non-negotiable constraints on ANY realization choice
+
+Whatever is chosen for the open questions, all of the following MUST hold:
+- A cached/materialized stage **remains disposable and reconstructable** (never authoritative).
+- Event-driven recomputation **MUST NOT allow stale derived state to become authoritative**.
+- Concurrent operations **preserve append-only history and deterministic active-fact resolution** (STM-INV-2).
+- **What-if projection MUST remain side-effect free** (STM-INV-2; §6).
+- **Legacy stage values MUST NEVER be converted directly into authoritative facts** without evidence or an
+  explicitly identified migration assertion (see 9c).
+
+### 9c. Legacy backfill — three permitted outcomes (A-10)
+
+A stored historical stage (e.g. `UNDER_CONTRACT`) does **not** prove execution evidence exists. Migration MUST
+resolve each legacy opportunity to exactly one of:
+1. **Verified fact** — reconstructed from existing evidence in the domain.
+2. **Migration-origin assertion** — a fact explicitly recorded as migration-asserted (attributable, GI-1), so its
+   provenance is never mistaken for verified evidence.
+3. **Unresolved legacy state** — surfaced for human review (operational attention), no fact asserted.
+
+It **MUST NEVER silently manufacture evidentiary history** (upholds GI-3: evidence is captured, never synthesized).
+The **migration principal** (§3.2 actor type) is the only actor permitted to record migration-origin assertions,
+under an explicit, audited migration authorization.
+
 ---
 
 *Next Phase-3 artifacts, derived from this model + the Spec (after review/acceptance of 3.1): the **authorization
