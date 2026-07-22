@@ -50,10 +50,11 @@
 
 | Term | Meaning |
 |---|---|
-| **Projection / Stage** | A derived operational label computed from authoritative facts (E4) — disposable, never authoritative (OWN-1, Law 4). |
+| **Projection / Stage** | A derived operational label computed from authoritative facts (E4) — disposable, never authoritative (OWN-1, Law 4). Output is a first-class [`ProjectionResult`](./PROJECTION_RESULT_CONTRACT.md), not a bare stage string. |
 | **GI-1/2/3** | Global invariants: append-only facts · deterministic-evaluator contract · fact-class taxonomy. |
 | **FG-INV-1..12** | Fact Graph invariants (single interpretation, immutable, reproducible, complete, …). |
 | **PE-INV-1..10** | Predicate Engine invariants (isolation, referential transparency, graph-only, evaluation-only, closure, trace determinism/completeness/locality, acyclic, evaluation-path locality). |
+| **PR-INV-1..7** | Projection invariants (observational, immutable-inputs-only, never mutates/evaluates/authorizes, disposable/reconstructable, explanation preservation). |
 | **Epic Exit Gate** | The per-slice acceptance checklist; nothing merges until it is green (Constitution). |
 | Authority | [Engineering Constitution](./OPPORTUNITY_PIPELINE_ENGINEERING_CONSTITUTION.md) · [Business Semantics Spec](./BUSINESS_SEMANTICS_SPECIFICATION.md) |
 
