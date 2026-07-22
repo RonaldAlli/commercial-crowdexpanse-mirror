@@ -62,6 +62,18 @@ Proven in the rehearsal by a forced failure (release whose health returns non-`o
 - **PM2 `restart_time` increasing is NOT a deployment signal** — it's the pre-existing graceful
   memory-recycle (D24). Judge deployments by the trace + smoke, not the restart counter.
 
+## Production history — first real deployment through the engine
+- **2026-07-22 — FIRST successful production deployment via the D25 Deployment Engine.** Shipped the Deal
+  Analyzer bounded-list fix (`deploy.mjs --app-dir /opt/crowdexpanse/commercial --production --yes`). Full
+  lifecycle `PRECHECK → BUILD → VERIFY_BUILD → SWAP → RESTART → VERIFY_RUNTIME → SMOKE → COMPLETE`; build
+  `AKUhg2gFVCyjthMDVFvL3` → `iV84TbmJSWasU9XBvMmdQ`; no rollback; `unstable_restarts=0`; no new app errors;
+  clean observation.
+- **The very first attempt exposed [DE-5](../releases/DE5_DEPLOY_TSCONFIG_RELEASES.md)** (deploy tsconfig
+  type-checked sibling release #1's depth-mismatched types) and **failed at BUILD, before SWAP — production
+  was left untouched.** That is the engine's fail-before-swap safety working as designed. DE-5 was fixed
+  (deploy tsconfig excludes build-output/release dirs) + regression-tested, and the redeploy succeeded — the
+  first real end-to-end validation of the engine in production.
+
 ---
-*Baseline measured on staging during the D25b rehearsal; refine with the first production deploy figures
-after the (separately-authorized) production migration.*
+*Baseline measured on staging during the D25b rehearsal; first production deployment 2026-07-22 confirmed the
+same lifecycle live (see Production history above).*
