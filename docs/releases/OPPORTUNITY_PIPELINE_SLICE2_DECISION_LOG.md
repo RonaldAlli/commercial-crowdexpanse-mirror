@@ -84,10 +84,15 @@ surface that the fact graph is inconsistent.
   intermediate fact never suppresses a later fact — it raises a **separate** inconsistency signal instead.
 - **INV-6 · Stage carries no activity/attention.** A stage encodes neither "current activity" nor "next
   action"; those live in the separate Operational-attention model.
+- **INV-7 · Projection is side-effect free.** Computing the projected stage must **never** create, modify,
+  delete, or infer a business fact. The projector reads facts and returns a stage — `facts → projection →
+  stage`, never `facts → projection → facts changed`. (Closes INV-2 on the write side: a projector that
+  "backfills" a missing intermediate fact would silently violate the furthest-fact rule and the truth/
+  data-quality separation.)
 
 *(Ronald's four map in: "facts authoritative" → INV-1; "always a deterministic projection" → INV-2; "never
-edited directly" → INV-4; "every combination → exactly one stage" → INV-3. INV-5/INV-6 capture the furthest-fact
-hinge and the activity separation.)*
+edited directly" → INV-4; "every combination → exactly one stage" → INV-3. INV-5 = furthest-fact hinge, INV-6 =
+activity separation, INV-7 = projection purity / side-effect freedom.)*
 
 **Downstream implications.** Governs **OWN-2** (defines the facts + evidence + the total projection function),
 **OWN-3** (PAID projects from a *configured closing policy* fact-set), **OWN-4** (every currently artifact-less
