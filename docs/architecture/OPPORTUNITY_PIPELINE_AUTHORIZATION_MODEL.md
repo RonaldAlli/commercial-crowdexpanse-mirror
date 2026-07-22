@@ -195,6 +195,8 @@ acceptance suite (§3.3). Not four independent implementations. This makes "auth
 | **AUTH-INV-9** | Migration-origin assertions are authorizable only by the migration principal, under explicit migration authorization, and are marked migration-origin | STM §9c; GI-1/GI-3 |
 | **AUTH-INV-10** | **Authorization is observational.** `authorize(...)` evaluates the fact graph + policy and returns ALLOW/DENY+reasons only; it MUST NOT create/reserve facts, lock stages, mutate evidence/derived state/caches/config, or start workflows | symmetry with OWN-1 INV-7 (projector) + GI-2(e) (evaluator) |
 | **AUTH-INV-11** | **Authorization is commit-valid.** An authorization decision is valid only while its evaluated fact graph remains current; any **stale** authorization MUST be revalidated before commit (stronger than optimistic locking alone) | STM-INV-2/6; §9 |
+| **AUTH-INV-12** | **Authorization purity.** `authorize` consumes only `{ AuthorizationPolicy, EvaluationArtifact, Actor, Capability, Operation }`; it never queries the ledger, rebuilds the FactGraph, evaluates predicates independently, or projects stages (complements Laws 12/13) | E3 design §5 |
+| **AUTH-INV-13** | **Explanation preservation.** Authorization never rewrites or reinterprets the evaluator's explanation; the `EvaluationArtifact` is embedded unchanged and authz may only *append* permission-specific reasoning | E3 design §5; [AuthorizationDecision Contract](./AUTHORIZATION_DECISION_CONTRACT.md) |
 
 ---
 
