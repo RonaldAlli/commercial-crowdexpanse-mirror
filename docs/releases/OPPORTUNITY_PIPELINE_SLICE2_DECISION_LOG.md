@@ -199,15 +199,53 @@ enumerated. The **only** ordering frozen now is 1A-INV-5 (waiver ≥ completion)
 families rather than reinventing per-fact authority). The **1B** deterministic seam is a *named principal* that
 may hold `DECLARE_DILIGENCE_COMPLETE` only under 1B's constraints. **Status: FROZEN** (Ronald, 2026-07-22).
 
-### OWN-2 · Decision 1B — Deterministic completion seam · **DRAFT**
-**Question.** May a deterministic system process assert `DILIGENCE_COMPLETE`, and under exactly what constraints?
-**Founder provisional policy:** a deterministic seam may assert completion **only** when the frozen policy
-explicitly defines completion as a **mechanically-evaluable** result over authoritative recorded facts — **no
-judgment, discretion, probabilistic inference, or interpretation** (all mandatory facts exist + validation rules
-pass + policy explicitly authorizes mechanical completion → completion recorded by a **named** seam). AI/
-automation may **recommend/flag/summarize/prepare** a decision but must **not** silently exercise business
-judgment — consistent with the V2.0 automation lock (automation never owns authoritative state) — unless a
-later explicit founder decision changes that boundary. **Depends on:** Decision 1, 1A. **Status: DRAFT.**
+### OWN-2 · Decision 1B — Deterministic completion evaluator · **✅ FROZEN 2026-07-22**
+
+**Question.** May a system principal assert `DILIGENCE_COMPLETE`, and under exactly what constraints?
+
+**Adopted policy (frozen — technology-neutral).** The boundary is **judgment-based authority vs. policy-defined
+deterministic evaluation**, not "AI/automation vs. code": *if judgment is required, no deterministic evaluator
+may assert the fact; if the policy completely specifies the decision, a policy-defined deterministic evaluator
+may act as the named principal.* Concretely:
+> **Systems that perform probabilistic inference, interpretation, or discretionary judgment may prepare
+> recommendations but may NOT assert `DILIGENCE_COMPLETE`. Only a policy-defined deterministic evaluator may do
+> so, and only when every invariant of Decision 1B is satisfied.**
+
+A deterministic evaluator may assert completion only when **all** hold: (1) the applicable diligence-policy
+version **explicitly authorizes** mechanical completion and defines it as a pure function over recorded facts;
+(2) all mandatory facts present + all validation rules pass **with no waiver required**; (3) the result is
+**reproducible** from the recorded facts + versions; (4) it **fails closed** on any ambiguity, missing/malformed
+fact, or absence of explicit authorization (raising operational attention instead).
+
+**Completion evidence (for a deterministic completion) records — for unambiguous replay:**
+`Actor: DeterministicEvaluator:v<n>` · `Policy: DiligencePolicy v<n>` · `RuleSet: CompletionRules v<n>` ·
+`Timestamp` · reviewed-evidence references · outcome. *(Policy and executable rules may evolve independently, so
+both versions are recorded.)*
+
+**Invariants.**
+- **1B-INV-1 · Explicit opt-in.** An evaluator may complete only under a policy version that explicitly
+  authorizes mechanical completion; policy silence ⇒ no mechanical completion.
+- **1B-INV-2 · Reproducible & deterministic.** Completion is a pure function of recorded facts + **policy
+  version + rule-set version**; the same inputs reproduce the exact same result at any later time. The
+  completion fact records evaluator identity/version + policy version + rule-set version for replay (audits,
+  disputes, regressions, migrations, legal discovery).
+- **1B-INV-3 · No machine waiver.** An evaluator may complete only when **no** exception/waiver is required;
+  waiving a required item is judgment and requires human authority (1A-INV-5). The mechanical path is
+  deliberately narrow — the clean case only.
+- **1B-INV-4 · Fail closed.** On ambiguity, missing/malformed facts, or no explicit authorization, the evaluator
+  **abstains** and raises operational attention — never defaults to complete (extends D1-INV-5).
+- **1B-INV-5 · Judgment may not assert.** Only a policy-defined deterministic evaluator may assert completion;
+  systems performing probabilistic inference, interpretation, or discretion may only **prepare recommendations**
+  (holds the V2.0 automation-never-owns-authoritative-state line unless a later explicit founder decision moves
+  it).
+- **1B-INV-6 · Evaluation is observational.** The evaluator may **read, validate, evaluate, and emit** a
+  completion decision. It may **not** repair, normalize, infer, or fetch missing facts, create waivers, or
+  rewrite history. *(Complements OWN-1 INV-7, which governs the projector: both are observational — each mutates
+  business truth only through its single authorized operation.)*
+
+**Downstream.** The evaluator is the 1A `DECLARE_DILIGENCE_COMPLETE` capability held by a **named deterministic
+principal**, exercisable only within these constraints. Generalizes (via OPP-3) to any fact family whose policy
+defines a mechanically-evaluable assertion. **Status: FROZEN** (Ronald, 2026-07-22).
 
 ### OWN-2 · Decision 1C — Receipt projection · **DRAFT**
 **Question.** Does receiving diligence material establish its own pipeline **stage**, or affect only operational
