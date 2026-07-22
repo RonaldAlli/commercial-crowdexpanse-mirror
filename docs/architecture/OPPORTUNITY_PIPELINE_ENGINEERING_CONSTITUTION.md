@@ -72,7 +72,7 @@ Each epic cites its **Traceability entries · Acceptance scenario IDs · Spec se
 |---|---|---|---|
 | **E1 · Core Fact Infrastructure** ✅ | append-only store · supersession · versioning · audit | A-1/A-6/A-8 | AC-GI1-* |
 | **E2 · Slice A — Fact Graph Builder** ✅ | the single canonical ledger interpretation (reconstruction · supersession · active-set · collection aggregation · version resolution) — Law 12/13, FG-INV-1..12 | (reconciles `activeFacts`) | AC-FG-* (25/25) |
-| **E2 · Slice B — Predicate Engine** | the single side-effect-free evaluator over the Fact Graph · policy · projection · what-if | A-2/A-4/A-7 | AC-GI2-*, AC-OWN1-*, AC-5A/5B-* |
+| **E2 · Slice B — Predicate Engine** | the single side-effect-free evaluator over the Fact Graph · versioned pure-function predicates · what-if — **NO projection (E4)** | A-2/A-4/A-7 | AC-GI2-*, AC-5A/5B-* |
 | **E3 · Authorization** | capability eval · preconditions · commit-time validation · DENY codes | AZ-1/AZ-2/AZ-4 | AC-AUTH*-* |
 | **E4 · Projection** | stage projection · operational attention · inconsistency computation | A-3/A-9 | AC-OWN1/STM/OPP3-* |
 | **E5 · Migration Framework** | legacy reconstruction · migration principal · provenance (3-outcome rule) | A-10 | AC-*-M* |
@@ -81,6 +81,13 @@ Each epic cites its **Traceability entries · Acceptance scenario IDs · Spec se
 | **E8 · Automation** | GI-2 evaluator runtime + hooks (⚠ depends on D27; must not gate E1–E7) | A-5 | AC-GI2-* |
 
 E1 → E2 → E3 → E4 → E5, then E6/E7/E8. Each depends only on stable contracts beneath it.
+
+**Layering (the single-interpretation spine):**
+```
+Ledger (E1) → Fact Graph Builder (E2·A) → Predicate Engine (E2·B) → { Authorization (E3), Projection (E4), Automation (E8), Acceptance }
+```
+The Predicate Engine **evaluates predicates only** — it does not decide how predicate results become stages.
+Projection (E4) *consumes* predicate results; it is not part of predicate evaluation.
 
 ---
 
