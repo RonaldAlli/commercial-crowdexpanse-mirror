@@ -44,6 +44,7 @@ determination is version-independent). Never an implicit default.
 | `graph.history` | `readonly PipelineFact[]` | complete ordered history (never filtered) — FG-INV-10 |
 | `graph.activeFacts` | `readonly PipelineFact[]` | **Structural Active Set** — unsuperseded tips (incl. RETRACT/INVALIDATE) |
 | `graph.activeByType(factType)` | `PipelineFact \| undefined` | **Decision-visible** asserted singleton of a type (absent if none/withdrawn) |
+| `graph.activeAssertedByType(factType)` *(v1.1)* | `readonly PipelineFact[]` | **Decision-visible** asserted active facts of a type across any subjectKey — for multi-instance non-collection facts (e.g. `FUNDS_DISBURSED` by purpose) |
 | `graph.collection(factType)` | `{ byKey: ReadonlyMap<string,PipelineFact>, keys: ReadonlySet<string> }` | **Decision-visible** per-`subjectKey` active facts |
 | `graph.byChain(factChainId)` | `{ all, active, asserted }` | one semantic fact's lineage: full / structural tip / asserted tip |
 | `graph.byFactType(factType)` | `readonly PipelineFact[]` | all facts of a type across history |

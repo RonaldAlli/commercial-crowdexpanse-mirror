@@ -125,6 +125,16 @@ export class FactGraph {
     return candidates[candidates.length - 1]; // furthest by ledger order
   }
 
+  /**
+   * All DECISION-VISIBLE active facts of a type (unsuperseded AND asserting — withdrawals excluded), across any
+   * subjectKey. For multi-instance non-collection facts where a single `activeByType` is insufficient — e.g.
+   * `FUNDS_DISBURSED` with distinct purposes. v1.1 additive (FG-INV-12: consumers get what they need from the
+   * graph, never a side query).
+   */
+  activeAssertedByType(factType: string): readonly PipelineFact[] {
+    return this._activeFacts.filter((f) => f.factType === factType && !WITHDRAWAL_OPS.has(f.operation));
+  }
+
   /** FG-INV-4 · one collection aggregation: subjectKey → asserted active fact (withdrawn keys removed). */
   collection(factType: string): CollectionView {
     const byKey = new Map<string, PipelineFact>();
