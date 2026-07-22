@@ -166,3 +166,38 @@ Ready for next epic                ✓  E2 (Predicate Engine) can consume this s
 
 **State:** branch pushed (`origin`); **NOT merged to main; migration NOT deployed to prod** — awaiting E1
 acceptance. On acceptance: FF-merge → `migrate deploy` (26→+1) is a separate authorized step → then E2.
+
+---
+
+## 8. Acceptance + production close-out (2026-07-22)
+
+**Founder decision:** E1 **accepted** — Architecture Accepted · Acceptance Passed (AC-GI1 21/21) · Traceability
+Complete · Constitutional compliance Passed · Build validation Passed (clean worktree). Merge **approved**;
+production migration **approved conditional on the operational migration checklist**.
+
+**Merge:** FF-merge `feat/opp-pipeline-e1-fact-store` → `main` (`71e94a8..8ca5a3f`, purely additive: 6 new files
++ append-only edit to `schema.prisma`). Checkpoint tag **`opp-slice2-e1-complete`** created at `8ca5a3f` and
+pushed with `main`.
+
+**Production migration checklist (all satisfied before `migrate deploy`):**
+| # | Item | Result |
+|---|---|---|
+| 1 | DB backup confirmed | restore-verified adhoc backup `20260722-175028Z` (db_sha `065dd3b6…`, 8.46 MB, Restore-Test counts MATCH); off-site mirror SKIPPED — R2 unconfigured (pre-existing) |
+| 2 | Checksum matches reviewed migration | `sha256 793d0ec…`; file identical to committed HEAD (no drift) |
+| 3 | Additive only | 4 CREATE TYPE + 1 CREATE TABLE + 4 CREATE INDEX + self-FK |
+| 4 | No existing table altered | only `ALTER TABLE` targets the new `pipeline_facts` (self-FK) |
+| 5 | Rollback documented | targeted: DROP TABLE + DROP 4 TYPEs + delete `_prisma_migrations` row → exact captured pre-state; or full restore from `20260722-175028Z` |
+| 6 | Maintenance window | not required — additive CREATEs take no lock on existing tables; E1 code not wired into any request path (zero runtime coupling) |
+| 7 | Post-migration verification | below |
+
+**Baseline (pre) → Post:** `pipeline_facts` false→**true** (0 rows) · user tables 56→**57** · `_prisma_migrations`
+30→**31** · pipeline enum types 0→**4** · `pipeline_facts` indexes → **5** (4 explicit + PK) · migration
+`rolled_back_at` NULL (clean). Existing-data-modified: **zero** (additive SQL cannot touch existing tables; counts
+moved by exactly the additions).
+
+**App health:** pm2 `crowdexpanse-commercial` online, uptime monotonic (21→39→102s), restarts steady, out-log clean
+`✓ Ready`, `/`→`307 /login` (correct auth redirect). One protective recycle during the window; recovered clean. No
+runtime regression (the running build does not reference `pipeline_facts`).
+
+**Status: E1 COMPLETE — merged to `main` (`8ca5a3f`), tagged `opp-slice2-e1-complete`, migration deployed +
+verified in prod.** E2 (Predicate Engine) authorized to begin.
