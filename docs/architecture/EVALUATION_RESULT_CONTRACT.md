@@ -80,6 +80,8 @@ it operational rather than semantic and could break referential transparency. Go
 - **PE-INV-7 · Trace completeness** — every reason in the result appears in the trace tree; no unexplained verdicts.
 - **PE-INV-8 · Trace locality** — every node explains only its own predicate + its immediate children; no node
   summarizes, hoists, or reinterprets another subtree (grandchildren stay under their parent).
+- **PE-INV-9 · Acyclic trace** — the trace is a finite tree; recursion always terminates. A predicate already on the
+  evaluation path fails closed (`CYCLE_DETECTED`) rather than re-entering, so no cyclic rule-set can loop forever.
 - **The trace EXPLAINS the result** (explanatory); the **result is authoritative** — never the reverse.
 
 **Navigation (deferred to v1.2).** Trace nodes are **pure, serializable, immutable data** now. An ergonomic

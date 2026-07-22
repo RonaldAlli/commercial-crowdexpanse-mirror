@@ -102,6 +102,11 @@ Therefore:
   **immediate child evaluations** (the direct `context.evaluate` calls). A node never summarizes, hoists, or
   reinterprets another subtree — grandchildren live under their parent, never flattened into an ancestor. This keeps
   the trace faithful to the actual predicate graph and prevents "helpful" narrative drift.
+- **PE-INV-9 · Acyclic trace (v1.1).** The trace is a finite **tree**: every node has exactly one parent (except the
+  root), recursion always terminates, and no predicate re-enters itself through a cycle. Enforced by construction: a
+  predicate already on the current evaluation **path** fails closed (`CYCLE_DETECTED`) instead of recursing, so a
+  cyclic rule-set can never loop forever. (A diamond — the same predicate reached via two *different* branches — is
+  not a cycle and evaluates independently in each branch.)
 
 ## 7. First predicate set (ratified acceptance anchors, `ruleSetVersion = "rs-1"`)
 
