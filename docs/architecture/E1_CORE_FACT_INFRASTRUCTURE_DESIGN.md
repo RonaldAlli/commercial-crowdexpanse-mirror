@@ -137,6 +137,32 @@ history reconstruction* only.
 
 ---
 
-*Foundation check requested before the migration is written: does the fact-store shape (one append-only ledger;
-supersession-as-link; derived active-set; provenance; version columns; subjectKey for collections; conflicts
-deferred to E3) match your intent? On confirmation I proceed to migration + service + AC-GI1 tests.*
+## 7. Epic Exit Gate result (2026-07-22)
+
+Foundation approved with the four refinements (all incorporated). Implementation complete on branch
+`feat/opp-pipeline-e1-fact-store`.
+
+**Gate (evaluated in the clean worktree, not the prod checkout):**
+```
+Architecture satisfied            ✓  append-only ledger · supersession-as-link · derived active-set · provenance · version cols · subjectKey · scope held (no projection/authz/policy/UI/automation)
+Acceptance scenarios passing       ✓  AC-GI1 21/21 (Law 11)   — scripts/e2e-pipeline-facts.mjs
+Traceability complete              ✓  E1 → Spec §2/GI-1 → STM/AUTH → AC-GI1-* → Traceability Matrix (E1 row)
+No constitutional violations       ✓  facts append-only · no update/delete API · evidence never declared/synthesized (GI-3 guard) · one store · semantics unchanged
+Ready for next epic                ✓  E2 (Predicate Engine) can consume this store
+```
+**Build gate:** `tsc` 0 · unit 73 files · AC-GI1 21/21 · `build:isolated` ok.
+
+**Deviations / decisions beyond the approved design (disclosed):**
+- **Scalar `organizationId` / `opportunityId` (no FK to Organization/Opportunity).** Chosen to keep the migration
+  **fully additive** (new table only; no back-relations added to existing models). Only the self-supersession FK
+  exists. DB-level referential integrity to org/opportunity is therefore not enforced by E1 (acceptable for an
+  event ledger; FKs could be added later without semantic change).
+- **Structural GI-3 class↔operation guard added in the service** (e.g. `DECLARE` rejected on an EVIDENCE fact) —
+  defense-in-depth store integrity, distinct from the E3 authorization *decision*. Not a semantic change.
+- **Process:** E1 was initially built in the prod checkout by mistake (whose `.next` is a deploy symlink, which
+  pollutes `tsc`); corrected by moving the branch to the worktree for the clean gate; the prod checkout was
+  restored to `main`. The **prod DB and running server were never touched** — the migration was applied to the
+  `*_test` DB only.
+
+**State:** branch pushed (`origin`); **NOT merged to main; migration NOT deployed to prod** — awaiting E1
+acceptance. On acceptance: FF-merge → `migrate deploy` (26→+1) is a separate authorized step → then E2.
