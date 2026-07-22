@@ -70,6 +70,10 @@ authority-mutability ordering:
 | **Deterministic evaluator** (GI-2 named principal) | `DECLARE_*` a decision **only** under GI-2 (machine-evaluable policy · reproducible · fail-closed · evidence-complete) | exercise judgment, waive, synthesize evidence, or act where policy is not machine-evaluable |
 | **Migration principal** | record **migration-origin assertions** only (STM §9c), under explicit audited migration authorization | manufacture evidence; act outside a migration; be mistaken for verified evidence |
 
+These are **actor *classes*, not privilege levels.** Authority is determined by **`Actor + Capability + Policy`**,
+**never** by an ordering like `Migration > Human > Evaluator`. The taxonomy MUST NOT be used as an authorization
+hierarchy — a migration principal is *narrower* than a human, not "more powerful."
+
 ---
 
 ## 5. Preconditions per operation class (derived from the frozen guards)
@@ -159,6 +163,21 @@ A compliant API/UI derives its behavior from this contract without prescribing p
 references a stage.** ALLOW results carry `requirements` (e.g. `reasonRequired: true` for retract/exception) that
 the guard model (STM §6) uses for the confirmation/impact summary.
 
+### 11a. DENY reason taxonomy (FROZEN — stable contract between API · UI · audit · automation)
+
+Every DENY carries one or more of these stable codes (resolves AZ-5):
+`INSUFFICIENT_CAPABILITY` · `MISSING_REQUIRED_EVIDENCE` · `POLICY_PRECONDITION_FAILED` · `VERSION_MISMATCH` ·
+`STALE_FACT_GRAPH` · `EXCLUSIVITY_CONFLICT` · `INVALID_EXCEPTION_SCOPE` · `MIGRATION_NOT_PERMITTED` ·
+`UNKNOWN_FACT` · `UNKNOWN_OPERATION`.
+The acceptance suite asserts the **exact code**, not merely that an operation was denied.
+
+### 11b. The single predicate evaluator (architectural constraint)
+
+There MUST be **exactly one** side-effect-free predicate/precondition evaluator, used by **all** of: authorization
+(§7), stage projection (STM §3), policy evaluation (Spec §4), the hypothetical/what-if preview (STM §6), and the
+acceptance suite (§3.3). Not four independent implementations. This makes "authorized," "projected," "closed," and
+"tested" agree **by construction** (resolves AZ-3; upholds AUTH-INV-10, OWN-1 INV-7, GI-2(e)).
+
 ---
 
 ## 12. Authorization invariants (each maps to the Spec)
@@ -174,6 +193,8 @@ the guard model (STM §6) uses for the confirmation/impact summary.
 | **AUTH-INV-7** | Every authoritative operation is attributable; retract/exception/correct require a recorded reason | 1A-INV-2/3; GI-1 |
 | **AUTH-INV-8** | Authorization is over the current committed fact graph; stale-graph authorization is invalid; preconditions re-verified at commit | STM-INV-2/6; 2.1-INV-3 |
 | **AUTH-INV-9** | Migration-origin assertions are authorizable only by the migration principal, under explicit migration authorization, and are marked migration-origin | STM §9c; GI-1/GI-3 |
+| **AUTH-INV-10** | **Authorization is observational.** `authorize(...)` evaluates the fact graph + policy and returns ALLOW/DENY+reasons only; it MUST NOT create/reserve facts, lock stages, mutate evidence/derived state/caches/config, or start workflows | symmetry with OWN-1 INV-7 (projector) + GI-2(e) (evaluator) |
+| **AUTH-INV-11** | **Authorization is commit-valid.** An authorization decision is valid only while its evaluated fact graph remains current; any **stale** authorization MUST be revalidated before commit (stronger than optimistic locking alone) | STM-INV-2/6; §9 |
 
 ---
 
@@ -184,13 +205,12 @@ the guard model (STM §6) uses for the confirmation/impact summary.
 - **AZ-2 · Authorization invocation point.** One authorization entry point invoked before **every** fact operation;
   where does it sit relative to the fact-write transaction (must be same boundary as the commit-time precondition
   re-check — §9, A-3/A-8)?
-- **AZ-3 · Precondition evaluation reuse.** Preconditions (evidence completeness, same-version, policy predicate)
-  overlap the projection/predicate evaluation — one reusable side-effect-free evaluator serving authorization,
-  projection, and the what-if summary (ties A-7/A-9).
+- **AZ-3 · Precondition evaluation reuse.** ✅ **Resolved as a constraint** (§11b): exactly one side-effect-free
+  evaluator serves authorization, projection, policy, what-if, and tests. (*How* it's factored is A-7/A-9.)
 - **AZ-4 · Evaluator + migration principal identity.** How are non-human principals (deterministic evaluator,
   migration principal) identified, versioned, and their authorizations scoped/audited (ties A-5)?
-- **AZ-5 · Deny reason taxonomy.** A stable, testable set of DENY reason codes (so the acceptance suite can assert
-  *why* an operation was denied, not just that it was).
+- **AZ-5 · Deny reason taxonomy.** ✅ **Resolved — frozen** (§11a). (*How* codes are surfaced through API/UI is
+  presentation, deferable.)
 
 ---
 
