@@ -33,6 +33,33 @@ export type EvaluationResult = {
   missing: string[];
 };
 
+/**
+ * A single node in the reasoning tree — LOGICAL data only (no timestamps/durations/host/process/random ids).
+ * `children` are the sub-predicates invoked via `context.evaluate`, in evaluation order.
+ */
+export type TraceNode = {
+  predicateId: string;
+  satisfied: boolean;
+  reasons: Reason[];
+  factsRelied: string[];
+  missing: string[];
+  children: TraceNode[];
+};
+
+/** The deterministic reasoning trace — it EXPLAINS the result (never the other way around). */
+export type EvaluationTrace = {
+  root: TraceNode;
+};
+
+/**
+ * The evaluator's single output object: the authoritative `result` plus the explanatory `trace`. Consumers may
+ * ignore `trace` if they don't need it. (Unrelated to the GI-3 ARTIFACT fact class — this is evaluator output.)
+ */
+export type EvaluationArtifact = {
+  result: EvaluationResult;
+  trace: EvaluationTrace;
+};
+
 /** A predicate evaluates ONLY against its supplied context (PE-INV-1). */
 export type Predicate = (context: EvaluationContext) => PredicateOutcome;
 

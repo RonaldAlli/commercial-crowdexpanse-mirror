@@ -1,4 +1,4 @@
-# EvaluationResult — Public Contract **v1.0** (FROZEN)
+# EvaluationResult / EvaluationArtifact — Public Contract (FROZEN · **result v1.0 + artifact v1.1**)
 
 > **What this freezes:** the *output* of the single Predicate Engine (E2 · Slice B). Authorization (E3),
 > Projection (E4), Automation (E8), what-if, and the acceptance suite all consume `EvaluationResult`, so its shape
@@ -52,34 +52,39 @@ plugins, dynamic imports, reflection, or external services — PE-INV-5), an `Ev
 fully-enumerable, statically-analyzable reasoning closure. A consumer can trust that no hidden dependency or side
 channel influenced `satisfied`.
 
-## 4. `EvaluationTrace` — proposed companion concept (v1.1, awaiting your ratification)
+## 4. `EvaluationArtifact` — the single output object (v1.1, RATIFIED + implemented)
 
-You recommended an immutable **`EvaluationTrace`** alongside the result, capturing *logical reasoning* (not timing,
-not performance). Proposed shape:
+The evaluator's canonical output is **one object**: `evaluateArtifact(predicateId, input) → EvaluationArtifact`.
+`EvaluationResult` v1.0 is unchanged — it is exactly `artifact.result`; consumers that don't need the trace ignore
+it. (`EvaluationArtifact` is unrelated to the GI-3 ARTIFACT fact class — it is evaluator output.)
 
 ```
-EvaluationTrace = {
-  root: TraceNode,          // the predicate call tree, in evaluation order
-}
+EvaluationArtifact = { result: EvaluationResult, trace: EvaluationTrace }
+EvaluationTrace    = { root: TraceNode }
 TraceNode = {
   predicateId: string,
   satisfied:   boolean,
-  factsExamined: string[],  // fact ids the predicate consulted
+  reasons:     { code, detail? }[],
+  factsRelied: string[],   // facts examined (logical)
   missing:     string[],
-  children:    TraceNode[], // sub-predicates invoked via ctx.evaluate, in order
+  children:    TraceNode[], // sub-predicates invoked via ctx.evaluate, in evaluation order
 }
 ```
 
-It records: the **predicate call tree**, **evaluation order**, **facts examined**, and **intermediate predicate
-results** — invaluable for debugging composed predicates (e.g. why `TRANSACTION_CLOSED.THIRD_PARTY_FINANCED` failed
-through its `CASH` core). It stays **deterministic** (a pure function of the same inputs, so PE-INV-2 extends to the
-trace) and **logical only** (no clocks/durations). It would ship as evaluator **v1.1**: the evaluator threads a
-trace accumulator through `context.evaluate`, and returns `{ result, trace }` (or `result.trace?`), additively.
+The trace records **only logical reasoning** — predicate call tree, evaluation order, facts examined, intermediate
+results. It contains **no** timestamps, durations, host/process data, random ids, or query details; those would make
+it operational rather than semantic and could break referential transparency. Governing invariants:
 
-**Decision for you:** implement `EvaluationTrace` now as evaluator v1.1 **before E3**, or **freeze v1.0 as-is and
-proceed to E3**, adding the trace when a consumer first needs it. I recommend implementing it now — it is cheap
-while the evaluator is small, and E3/E4 debugging benefits immediately — but it is genuinely optional and I'll hold
-until you rule.
+- **PE-INV-6 · Trace determinism** — `evaluateArtifact(X)` yields an identical `{ result, trace }` every time for
+  identical inputs; the trace is part of the deterministic contract.
+- **PE-INV-7 · Trace completeness** — every reason in the result appears in the trace tree; no unexplained verdicts.
+- **The trace EXPLAINS the result** (explanatory); the **result is authoritative** — never the reverse.
+
+**Traces are derived, disposable, and never persisted as business truth.** They are a pure function of
+`Ledger → FactGraph → Predicate Engine` and can always be regenerated (Constitution Law 4). Persisting a trace as
+an authoritative record would violate the architecture. Future consumers attach a trace to their own output for
+explainability — Authorization: `ALLOW/DENY + trace`; Projection: `Stage + trace`; Automation: `decision + trace` —
+all sharing this one deterministic reasoning chain, none inventing their own.
 
 ## 5. Out of scope
 

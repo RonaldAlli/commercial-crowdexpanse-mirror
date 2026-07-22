@@ -93,6 +93,11 @@ Therefore:
   dynamic imports, reflection, or external services. This keeps the evaluator statically analyzable and the
   reasoning fully enumerable. Enforced by construction: sub-evaluation resolves solely through the registry
   (`registry.get(predicateId, ruleSetVersion)`), and an unregistered dependency fails closed (`UNKNOWN_PREDICATE`).
+- **PE-INV-6 · Trace determinism (v1.1).** `evaluateArtifact(X)` returns an identical `{ result, trace }` every
+  time for identical inputs — the *trace itself* is part of the deterministic contract, not just the result.
+- **PE-INV-7 · Trace completeness (v1.1).** Every reason in the `EvaluationResult` is traceable to at least one
+  node in the trace tree — no unexplained verdicts. The trace **explains** the result (explanatory); the result is
+  **authoritative** — never the other way around.
 
 ## 7. First predicate set (ratified acceptance anchors, `ruleSetVersion = "rs-1"`)
 
