@@ -1,4 +1,8 @@
-# ProjectionResult — Public Contract **v1.0** (FROZEN, pre-E4)
+# ProjectionResult — Public Contract **v1.1** (FROZEN, pre-E4)
+
+> **v1.1 (founder refinements):** first-class versioned `StageSpine`; `frontier` + `decidingArtifact` +
+> `completeness`; indicators originate from the authoritative `EvaluationResult` (not the trace); PR-INV-8 (stage
+> independence) + PR-INV-9 (frontier completeness).
 
 > **What this freezes:** the *output* of E4 Projection — the derived, user-facing **operational state** computed
 > from authoritative data. Frozen before implementation, like the E1 ledger API, Fact Graph API, EvaluationResult/
@@ -25,25 +29,38 @@ structured, disposable `ProjectionResult`.
 ## 2. `ProjectionResult` (v1.0)
 
 ```
-ProjectionResult = {
+ProjectionResult = {                 // v1.1
   projectionId:      string,   // deterministic identity of this projection (H of its inputs) — like evaluationId/decisionId
   projectionVersion: string,   // the projection policy/config version applied
+  spineVersion:      string,   // the StageSpine version projected against
 
   // AUTHORITATIVE-of-the-derived-layer (still derived + disposable overall — Law 4):
-  stage:      string,          // OWN-1 furthest-fact projected stage (OWN-4 spine: LEAD … PAID)
-  labels:     { code: string, detail?: string }[],   // operational display labels
-  indicators: { code: string, detail?: string }[],   // operational-attention indicators (blocked/needs-review/…)
+  stage:        string,        // OWN-1 furthest-fact projected stage (OWN-4 spine: LEAD … PAID)
+  completeness: "COMPLETE" | "PARTIAL",   // whether every spine predicate had an artifact (PR-INV-9)
+  labels:       { code: string, detail?: string }[],   // operational display labels
+  indicators:   { code: string, detail?: string }[],   // operational-attention indicators, derived from EvaluationRESULTs (§2a)
 
   // DERIVED explanation (preserves, never reinterprets, the evaluator output — PR-INV-7):
-  evaluationArtifacts: EvaluationArtifact[],  // the artifact(s) consumed to project (the deciding one flagged in explanation)
-  derivedFacts: { code: string, detail?: string }[], // computed/disposable derived values that fed the projection
-  explanation:  { reasoning: string[], decidingPredicateId?: string },  // how the stage was reached (frontier + furthest-satisfied)
+  frontier:         FrontierEntry[],           // EVERY spine predicate + its artifact + satisfied (an architectural artifact)
+  decidingArtifact: EvaluationArtifact | null, // = frontier.lastSatisfied() (LEAD/base ⇒ null)
+  evaluationArtifacts: EvaluationArtifact[],    // all consumed artifacts, embedded byte-identical (PR-INV-7)
+  derivedFacts: { code: string, detail?: string }[], // computed/disposable derived values
+  explanation:  { reasoning: string[], decidingPredicateId?: string | null, inconsistencies: Inconsistency[] },
 }
+
+FrontierEntry = { stage: string, predicateId: string | null, satisfied: boolean, artifact: EvaluationArtifact | null }
+Inconsistency  = { code: string, detail?: string }   // core taxonomy (design §): missing-predecessor / conflicting-successor / mutually-exclusive-active / retracted-predecessor-surviving-successor
 ```
 
 Everything here is **derived and disposable** — the whole `ProjectionResult` can be discarded and recomputed from
 `Ledger → FactGraph → Evaluator` at any time (Law 4). It is authoritative for nothing; it *presents* authoritative
 facts. `projectionId` is a deterministic **identity** (content address), not an execution id.
+
+### 2a. Indicators originate from the authoritative EvaluationResult (not the trace)
+
+`indicators` (and `derivedFacts`) are derived from each frontier artifact's **`result`** (`satisfied` / `missing` /
+`reasons` — the authoritative outcome), **never** from the `trace` structure. The trace is explanatory; the result
+is authoritative; an indicator must always originate from the authoritative result.
 
 ## 3. Projection invariants (PR-INV)
 
@@ -59,6 +76,12 @@ facts. `projectionId` is a deterministic **identity** (content address), not an 
 - **PR-INV-7 · Explanation preservation.** The consumed `EvaluationArtifact`(s) are embedded unchanged; projection
   may only *append* projection-specific reasoning, never rewrite or reinterpret the evaluator's explanation (mirrors
   AUTH-INV-13).
+- **PR-INV-8 · Stage independence.** `stage` is derived **only** from `StageSpine` + `EvaluationArtifacts`; it is
+  **never** influenced by `indicators`, `labels`, `derivedFacts`, or `inconsistencies` (and they are never derived
+  from `stage`). Stage and operational attention are different models and must not cross-contaminate.
+- **PR-INV-9 · Frontier completeness.** For a spine of N decision predicates, projection must either receive all N
+  corresponding `EvaluationArtifact`s or explicitly report `completeness: "PARTIAL"`. It never silently evaluates a
+  missing predicate itself (it consumes the one evaluator's artifacts — PR-INV-4).
 
 ## 4. Symmetry with the rest of the stack
 
