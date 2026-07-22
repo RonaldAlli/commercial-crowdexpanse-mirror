@@ -50,11 +50,16 @@ Individual families **reference** these rather than restating them (which stops 
   derives from GI-2.** *(Origin instance: 1B (diligence completion); referenced by 2B (buyer match). OPP-3 to
   ratify.)*
 
-**Watched pattern (NOT yet an invariant).** A third structure is recurring but not yet proven universal — hold
-as candidate, do **not** freeze:
-- **(candidate) GI-3 · External evidence is distinct from an authoritative business fact.** Seen so far as
-  `external event → evidence record → authoritative fact → projection` in diligence and buyer acceptance;
-  watch for it in **LOI, contract, escrow, payment** before promoting. Two families isn't proof.
+**Watched patterns (NOT yet invariants).** Recurring structures not yet promoted — hold as candidates, do **not**
+freeze:
+- **(candidate) GI-3 · External evidence is distinct from an authoritative business fact.** `external event →
+  evidence record → authoritative fact → projection` — now **three instances** (diligence, buyer acceptance, LOI).
+  Promote after the **contract** family (the fourth test). Three is compelling; four is undeniable.
+- **(candidate) Fact-operation authority taxonomy.** The capability shape `RECORD_*_EVIDENCE → DECLARE_* →
+  RETRACT_* → CORRECT_HISTORY` (+ policy-gated `ACCEPT_*_EXCEPTION`), with its standard invariants (authority-to-
+  fact-ops · attributable+reason · append-only/GI-1 · policy-mapped · exception-≠-policy · same-version/evidence-
+  precedes-authority), now recurs across 1A / 2A / 3A. This is an **authority model**, not a single invariant —
+  **OPP-3** should consolidate it into one platform capability taxonomy rather than per-family copies.
 
 ---
 
@@ -487,6 +492,41 @@ Opens **3A** (authority), **3B** (deterministic-eval applicability); **3C** (pro
 3.1-INV-5 (a separate 3C is needed only if OWN-4 introduces a pre-acceptance LOI stage). **Status: FROZEN**
 (Ronald, 2026-07-22).
 
+### OWN-2 · Decision 3A — LOI fact authority · **✅ FROZEN 2026-07-22**
+
+**Adopted policy (frozen).** Authority attaches to fact operations; freeze capabilities + semantics; role-map is
+org policy. Capabilities:
+- **`DRAFT_LOI`** — assert `LOI_DRAFTED` (a new version).
+- **`RECORD_LOI_SENT`** — assert `LOI_SENT`.
+- **`RECORD_DELIVERY_EVIDENCE`** — assert `LOI_DELIVERED` (model-neutral).
+- **`RECORD_ACCEPTANCE_EVIDENCE`** — record counterparty acceptance evidence (**same cross-family capability as
+  2A**).
+- **`DECLARE_LOI_ACCEPTED`** — assert `LOI_ACCEPTED` (only when same-version acceptance evidence + our-side assent
+  exist — 3A-INV-1).
+- **`RETRACT_LOI_ACCEPTANCE`** — supersede a `LOI_ACCEPTED` fact.
+- **`ACCEPT_LOI_TERMS_EXCEPTION`** *(policy-gated)* — authorize proceeding with an accepted LOI whose terms fall
+  **outside the organization's defined LOI policy guardrail** for this opportunity. Independently recorded,
+  attributable, with reason; authority ≥ `DECLARE_LOI_ACCEPTED`. It does **not** redefine standard terms, make the
+  LOI "standard," or alter policy (3A-INV-2). Exists **only** when the org has adopted LOI policy guardrails.
+- **`CORRECT_HISTORY`** — supersede an erroneous LOI fact.
+
+**Template deviation vs. policy exception (frozen distinction).** **Deviation from a template** (counterparty
+negotiation, counsel revisions, market conditions) is **ordinary negotiation — not an exception.** An exception
+exists **only** when accepted terms violate an **explicitly adopted organizational policy guardrail.**
+
+**Invariants.**
+- **3A-INV-1 · Same-version evidence precedes authority.** `DECLARE_LOI_ACCEPTED` may assert `LOI_ACCEPTED` only
+  when acceptance evidence exists for that **exact LOI version**.
+- **3A-INV-2 · Policy exception does not redefine policy.** `ACCEPT_LOI_TERMS_EXCEPTION` authorizes a specific LOI
+  despite policy; it does not modify the underlying LOI policy or transform the accepted terms into the new
+  organizational standard.
+- **(Inherited)** the standard fact-operation authority invariants — authority attaches to fact operations;
+  attributable + reason on retract/exception/correct; **append-only via GI-1**; capabilities policy-mapped. These
+  now recur across 1A / 2A / 3A and are a **candidate for consolidation into a platform capability taxonomy under
+  OPP-3** (watched — see below).
+
+**Downstream.** Feeds OPP-3 (the fact-operation authority taxonomy). **Status: FROZEN** (Ronald, 2026-07-22).
+
 ---
 
 ## OWN-3 · What must be true for PAID? · **DRAFT**
@@ -516,9 +556,10 @@ don't reverse downstream side effects). Under OWN-1 there are **no direct stage 
 becomes: should **fact assertions/retractions** that would regress the projected stage (and leave downstream
 records — checklist/escrow/financing/assignment — in place) require a **UI confirmation / warning**, and should
 any downstream reversal be offered? Every such change remains audited regardless. **Depends on:** OWN-1.
-**Also owns:** generalizing the fact-operation **authority model** (1A + 2A) across all fact families, and
-**formally ratifying the [Global fact invariants](#global-fact-invariants-candidate--to-be-formally-ratified-under-opp-3)** (starting with GI-1, append-only) so every family references one canonical rule.
-**Status: DRAFT.**
+**Also owns:** consolidating the recurring **fact-operation authority taxonomy** (1A + 2A + 3A — `RECORD_*_EVIDENCE
+→ DECLARE_* → RETRACT_* → CORRECT_HISTORY` + policy-gated `ACCEPT_*_EXCEPTION`) into **one** platform capability
+model, and **formally ratifying the [Global fact invariants](#global-fact-invariants-candidate--to-be-formally-ratified-under-opp-3)** (GI-1 append-only, GI-2 deterministic-evaluator contract; GI-3 when the contract family
+confirms it) so every family references one canonical rule instead of per-family copies. **Status: DRAFT.**
 
 ---
 *Next: open OWN-2 in a dedicated Decision-phase session — authoritative facts, per-fact evidence, and the
