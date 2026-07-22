@@ -418,10 +418,27 @@ answers only *which* buyer-match facts are eligible and *under what conditions*:
 **Downstream.** Confirms GI-2 as a reusable contract; 2B-INV-5 is the first frozen instance of the
 external-evidence-vs-fact distinction watched as GI-3. **Status: FROZEN** (Ronald, 2026-07-22).
 
-### OWN-2 · Decision 2C — Buyer-match projection eligibility · **DRAFT**
-**Question.** Which buyer-match facts earn a stage (per 1C-INV-3)? Provisionally only `BUYER_MATCHED` projects;
-`BUYER_CANDIDATE_IDENTIFIED` and `BUYER_QUALIFIED` feed operational attention unless they meet the stable-state
-criterion. **Depends on:** 2.1; interacts with OWN-4. **Status: DRAFT.**
+### OWN-2 · Decision 2C — Buyer-match projection eligibility · **✅ FROZEN 2026-07-22**
+
+**Adopted policy (frozen).** Applying 1C-INV-3 to this family: **only `BUYER_MATCHED` projects a stage.** All
+other buyer-match facts are non-projecting and feed operational attention. Projection maps *"≥ 1 authoritative
+`BUYER_MATCHED` fact"* → the `BUYER_MATCHED` stage. `BUYER_QUALIFIED` is non-projecting because it answers "*can*
+this buyer pursue this deal under policy" (a permission question), **not** "has the opportunity crossed a new
+business-state boundary." Whether a pre-match stage ("in-market / buyers engaged") should exist is a fact-based
+product choice **deferred to OWN-4**.
+
+**Invariants.**
+- **2C-INV-1 · Only `BUYER_MATCHED` projects, by default.** `BUYER_CANDIDATE_IDENTIFIED`, `BUYER_QUALIFIED`,
+  qualification waivers, and acceptance-evidence facts remain operational-attention facts unless a future
+  decision establishes a stable business-state boundary satisfying the OWN-1 / 1C criteria.
+- **2C-INV-2 · Any additional buyer stage requires a new state fact.** If the business later introduces an
+  intermediate buyer stage, it must be backed by a **new** stable, independently-valuable business-state fact —
+  not by candidate count, qualification count, or user activity.
+
+**Status: FROZEN** (Ronald, 2026-07-22).
+
+> **➡ Buyer-Match fact family COMPLETE** — Decision 2.1 (decomposition/semantics) · 2A (authority) · 2B
+> (deterministic-eval applicability) · 2C (projection eligibility) all frozen. Next fact family: **LOI (Fact 3)**.
 
 ---
 
