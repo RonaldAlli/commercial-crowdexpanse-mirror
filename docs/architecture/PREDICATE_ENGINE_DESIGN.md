@@ -88,6 +88,11 @@ Therefore:
 - **PE-INV-3 · Graph-only inputs (Law 13).** A predicate reads business truth solely from `context.graph`; it never
   reconstructs, reinterprets, or supplements the ledger (no `SELECT`, no `lookupFact`).
 - **PE-INV-4 · Evaluation-only.** A predicate returns a verdict; it never projects a stage, authorizes, or mutates.
+- **PE-INV-5 · Predicate closure.** Every predicate dependency exists inside the registered rule-set. A predicate
+  may invoke **only registered predicates** (via `context.evaluate`) — never arbitrary code, runtime plugins,
+  dynamic imports, reflection, or external services. This keeps the evaluator statically analyzable and the
+  reasoning fully enumerable. Enforced by construction: sub-evaluation resolves solely through the registry
+  (`registry.get(predicateId, ruleSetVersion)`), and an unregistered dependency fails closed (`UNKNOWN_PREDICATE`).
 
 ## 7. First predicate set (ratified acceptance anchors, `ruleSetVersion = "rs-1"`)
 
