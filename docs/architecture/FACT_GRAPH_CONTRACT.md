@@ -7,8 +7,15 @@
 > calculation, one collection aggregation, one version-resolution strategy. Requested by the founder before E2.
 > Depends on the frozen [E1 Public API v1.0](./E1_PUBLIC_API_CONTRACT.md). Governed by **Constitution Law 12**.
 >
-> **Status:** proposed for approval (design artifact — no implementation yet). On approval this contract freezes and
-> the **Fact Graph Builder** is the first gated slice of E2, ahead of the Predicate Engine.
+> **Status:** **RATIFIED · FROZEN 2026-07-22** (design + Law 12 + `activeFacts()` façade + first-class `FactGraph`
+> object + explicit `FactGraphRequest` + FG-INV-1..8). The **Fact Graph Builder** is E2 · Slice A — the first gated
+> slice, ahead of the Predicate Engine. Implementation proceeds as derivation of this contract.
+>
+> **Why this seam matters (dependency linearization).** Before it, every consumer would reconstruct facts
+> independently — `Ledger → {Projection, Authorization, Automation, …}` fanning out, each re-interpreting truth.
+> After it, the platform dependency graph *linearizes*: `Ledger → Fact Graph Builder → Predicate Engine →
+> {Authorization, Projection, Automation, What-if, Acceptance}`. Business-truth interpretation is centralized once;
+> policy evaluation and decision-making remain independent above it. One authoritative interpretation, no drift.
 
 ---
 
@@ -59,37 +66,72 @@ directly; it consumes the Fact Graph. The Builder is the *only* code that reads 
 6. **Expose a canonical, immutable graph** — a read-only value with stable, indexed access (below). It never mutates
    and never writes.
 
-## 4. The Fact Graph — exposed shape (technology-neutral)
+## 4. The interface — `FactGraphRequest` in, first-class `FactGraph` out
 
-The graph is an **immutable value** keyed to `(organizationId, opportunityId, versionContext)`, exposing:
+### 4.1 `FactGraphRequest` (required, explicit — nothing implicit)
 
-- **`history`** — the complete ordered fact list (reference to the immutable record; never filtered).
-- **`activeByType(factType)`** — the active singleton fact for a singleton type (e.g. `DECISION` facts
-  `BUYER_MATCHED`, `CONTRACT_EXECUTED`, `TRANSACTION_CLOSED`), or absent.
-- **`collection(factType)`** — for collection types, the map `subjectKey → active fact`, plus the set of present
-  keys, for "all required present" checks.
-- **`chain(factChainId)`** — the full lineage of one semantic fact (all versions, with the active one flagged).
-- **`versionContext`** — the policy/rule-set version the graph was built under (stamped for reproducibility/replay).
-- **`provenanceOf(fact)`** — `VERIFIED` vs `MIGRATION_ORIGIN`, so consumers can honor the migration rules without
+The Builder's sole entry point is `buildFactGraph(request: FactGraphRequest): FactGraph`. The request makes every
+graph **explicitly reproducible**:
+
+```
+FactGraphRequest = {
+  organizationId,
+  opportunityId,
+  versionContext: {              // explicit — a graph is never built against an implicit "current" policy
+    policyVersion,
+    ruleSetVersion,
+    artifactVersion?,            // optional; resolves versioned facts (LOI/contract) when supplied
+  },
+}
+```
+
+Structural interpretation (supersession, active-fact, collection membership) is **version-independent** and always
+computed; `versionContext` governs version-resolution and policy-anchored reads and is **stamped onto the graph**
+so the same request always yields the same graph (GI-2 / FG-INV-7).
+
+### 4.2 `FactGraph` — a first-class immutable domain object
+
+Consumers never manipulate reconstruction results directly; they hold a stable `FactGraph` and ask it questions.
+The surface (technology-neutral):
+
+- **`graph.activeFacts`** — the full canonical active set (unsuperseded), the one active calculation (FG-INV-3).
+- **`graph.activeByType(factType)`** — the active singleton fact for a singleton type (e.g. `BUYER_MATCHED`,
+  `CONTRACT_EXECUTED`, `TRANSACTION_CLOSED`), or absent.
+- **`graph.byFactType(factType)`** — all facts of a type across history (active flagged).
+- **`graph.byChain(factChainId)`** — the full lineage of one semantic fact (all versions; active one flagged).
+- **`graph.collection(factType)`** — for the six collection types, `subjectKey → active fact` + the present-key
+  set, for "all required present/satisfied" checks (FG-INV-4).
+- **`graph.provenance(fact)`** — `VERIFIED` vs `MIGRATION_ORIGIN`, so consumers honor migration rules without
   re-reading the ledger.
+- **`graph.versionContext`** — the context the graph was built under (reproducibility/replay).
+- **`graph.assertInvariant()`** — self-check that the graph satisfies FG-INV-* (used by consumers/tests as a guard).
+- **`graph.history`** — the complete ordered fact list (immutable reference; never filtered).
 
-Access is **derived and pure**: the graph exposes interpretation, never storage columns, SQL, or Prisma types.
+The object is **frozen/read-only**: no consumer can mutate its state (FG-INV-8). It exposes interpretation, never
+storage columns, SQL, or Prisma types.
 
-## 5. Invariants (FG-INV)
+## 5. Invariants (FG-INV) — each maps to an `AC-FG-*` family
 
-- **FG-INV-1 · Single builder.** Exactly one implementation constructs the graph (Law 12).
-- **FG-INV-2 · Ledger-only input.** The Builder reads the ledger solely through the frozen E1 API; it issues no raw
-  queries and touches no other source.
-- **FG-INV-3 · Pure & observational.** Building performs no writes and has no side effects (Law 8). Given identical
-  `(history, versionContext)` it is deterministic and reproducible.
-- **FG-INV-4 · History-preserving.** The graph never deletes or rewrites history; supersession resolves *which fact
+The eight **single-interpretation** invariants (founder-ratified):
+
+- **FG-INV-1 · One reconstruction.** A single algorithm reconstructs history for an opportunity.
+- **FG-INV-2 · One supersession resolution.** A single algorithm resolves which member of a `factChainId` is active.
+- **FG-INV-3 · One active-fact calculation.** A single computation yields the active (unsuperseded) set.
+- **FG-INV-4 · One collection aggregation.** A single algorithm groups collection facts by `subjectKey`.
+- **FG-INV-5 · One version resolution.** A single strategy resolves the `versionContext` / active `artifactVersion`.
+- **FG-INV-6 · Immutable graph.** The `FactGraph` is a read-only value; construction performs no writes.
+- **FG-INV-7 · Graph reproducible.** The same `FactGraphRequest` over the same history yields an identical graph
+  (GI-2 determinism).
+- **FG-INV-8 · Consumers cannot mutate graph state.** No accessor exposes a mutable handle; consumers observe only.
+
+Plus three structural invariants the seam also guarantees:
+
+- **FG-INV-9 · Ledger-only input.** The Builder reads the ledger solely through the frozen E1 v1.0 API; it issues no
+  raw queries and touches no other source (Law 12's single reader).
+- **FG-INV-10 · History-preserving.** The graph never deletes or rewrites history; supersession resolves *which fact
   is active*, not *what happened*.
-- **FG-INV-5 · One of each interpretation.** Active-fact, supersession, collection, and version resolution each have
-  exactly one implementation, all inside the Builder.
-- **FG-INV-6 · Version-anchored.** Every graph is stamped with the `versionContext` it was built under; two
-  consumers using the same context see the same graph (GI-2).
-- **FG-INV-7 · Interpretation only.** The graph exposes no predicate result, stage, authorization decision, or
-  inconsistency — those are consumers' jobs (E2/E3/E4).
+- **FG-INV-11 · Interpretation only.** The graph exposes no predicate result, stage, authorization decision, or
+  inconsistency — those are consumers' jobs (E2/E3/E4). Observational (Law 8).
 
 ## 6. Boundaries — what the Fact Graph Builder must NOT do
 
@@ -97,19 +139,20 @@ No predicate evaluation (E2) · no stage projection (E4) · no authorization dec
 supersession (that is a ledger write via E1) · no automation/scheduling (E8). It assembles the canonical graph and
 stops. It is an **observer with one job**.
 
-## 7. Reconciliation with the frozen ledger `activeFacts()` (the one open decision)
+## 7. Reconciliation with the frozen ledger `activeFacts()` — **RATIFIED 2026-07-22**
 
-E1's frozen API already exposes `activeFacts(org, opp)`, which computes an active set. To honor Law 12 (one
-active-fact calculation) we must not have a *second* implementation inside the Builder. Recommendation:
+E1's frozen API exposes `activeFacts(org, opp)`, which computes an active set. To honor Law 12 (one active-fact
+calculation) there must not be a *second* implementation inside the Builder. **Ratified decision:**
 
-> **`activeFacts()` becomes a thin façade that delegates to the Fact Graph Builder** — same signature, same
-> behavior, so the frozen v1.0 contract is unchanged (a v1.1 *internal* refactor, non-breaking), while the Builder
-> holds the single implementation. Interpreting consumers (E2–E4, E8, tests) depend on the **graph**, not on
-> `activeFacts()`; the façade remains only as a public convenience.
+> **`activeFacts()` becomes a thin compatibility façade that delegates to the Fact Graph Builder** — literally
+> `return buildFactGraph(request).activeFacts` — so the frozen v1.0 signature and behavior are preserved (a v1.1
+> *internal, non-breaking* refactor) while the Builder holds the single implementation. Active-fact determination is
+> structural (version-independent), so the façade delegates cleanly; interpreting consumers (E2–E4, E8, tests)
+> depend on the **graph**, not on `activeFacts()`. The API is kept — downstream code may rely on it — but there is
+> now exactly one active-fact calculation.
 
-This is the one point I'd ask you to ratify before the Builder is implemented. (Alternative: mark `activeFacts()`
-"raw/low-level, superseded by the graph for interpretation" and leave it untouched — but delegation is cleaner and
-literally enforces Law 12.)
+This is the only architecture consistent with Law 12: any surviving second interpretation of the ledger would
+eventually drift, which is precisely what the single-source discipline exists to prevent.
 
 ## 8. Acceptance (AC-FG-*, gated before the Predicate Engine)
 

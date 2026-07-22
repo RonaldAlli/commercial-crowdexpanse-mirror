@@ -69,7 +69,12 @@ Complete, immutable history in authoritative order (`globalSequence` asc). The b
 
 ### `activeFacts(organizationId, opportunityId): Promise<PipelineFact[]>`
 **Derived** — a fact is active iff no row supersedes it. Disposable derived state (Law 4); the ledger stores no
-active/superseded flag. This is the set predicates/projection consume.
+active/superseded flag.
+> **v1.1 (ratified 2026-07-22):** this becomes a **thin compatibility façade delegating to the Fact Graph Builder**
+> (`buildFactGraph(request).activeFacts`) so there is exactly one active-fact calculation (Constitution Law 12).
+> Signature and behavior are unchanged — a non-breaking internal refactor landing with E2 · Slice A. Interpreting
+> consumers (E2–E4, E8, tests) depend on the **`FactGraph`**, not on this convenience. See
+> [Fact Graph Contract](./FACT_GRAPH_CONTRACT.md).
 
 ## 4. Input types (frozen field sets)
 
