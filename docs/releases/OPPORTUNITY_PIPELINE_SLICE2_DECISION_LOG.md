@@ -28,6 +28,18 @@ Collapsing any two of these is the failure mode that produced the original stage
 
 ---
 
+## Global fact invariants (candidate — to be formally ratified under OPP-3)
+
+Rules that recurred across fact families and therefore belong at the platform level, not inside any one family.
+Individual families **reference** these rather than restating them (which stops families from drifting apart).
+
+- **GI-1 · Historical business facts are append-only.** Retractions, reopenings, corrections, invalidations, and
+  supersessions create **linked successor facts** rather than mutating or deleting prior authoritative facts.
+  *(Instances already frozen: 1A-INV-3 (diligence), 2.1-INV-6 (buyer match), 2A-INV-3. OPP-3 will lift this to a
+  ratified global invariant that every family references.)*
+
+---
+
 ## OWN-1 · What business truth should a pipeline stage represent? · **✅ FROZEN 2026-07-22**
 
 **Question.** Does a stage mean *activity* (what the team is working on), a *business fact* (an artifact exists),
@@ -320,12 +332,48 @@ possession → (policy-relative) qualification → authoritative decision.
 2C). Boundary held: the LOI is **Fact 3**, not part of the match. Opens **2A** (authority), **2B** (deterministic
 evaluation applicability), **2C** (projection eligibility). **Status: FROZEN** (Ronald, 2026-07-22).
 
-### OWN-2 · Decision 2A — Buyer-match fact authority · **DRAFT (open next)**
-**Question.** Capabilities + semantics for asserting/retracting/superseding buyer-match facts (identify candidate,
-assert qualification, declare match, retract/decline match, correct history) — plus two family-specific questions:
-does a **qualification waiver** exist (match a buyer who fails the selection policy, by exception)? and what
-authority records the **buyer's affirmative acceptance** (mutual-assent evidence)? Inherits 1A's append-only
-supersession. **Depends on:** Decision 2.1. **Status: DRAFT.**
+### OWN-2 · Decision 2A — Buyer-match fact authority · **✅ FROZEN 2026-07-22**
+
+**Adopted policy (frozen).** Authority attaches to **fact operations** (never stages). Freezes capabilities +
+semantics; capability→role mapping is organization policy. Capabilities:
+- **`IDENTIFY_CANDIDATE`** — assert `BUYER_CANDIDATE_IDENTIFIED`.
+- **`ASSERT_QUALIFICATION`** — assert `BUYER_QUALIFIED` (buyer–opportunity pair vs. the current policy version).
+- **`RECORD_ACCEPTANCE_EVIDENCE`** — record an **attributable acceptance-evidence fact**. Authorizes recording
+  *evidence*, **not** asserting that the buyer accepted. Evidence may originate from a buyer portal, signed
+  email, recorded call, CRM integration, external marketplace, or API; the authoritative acceptance fact is
+  established according to the organization's **evidence policy**.
+- **`DECLARE_MATCH`** — assert `BUYER_MATCHED` (may fire **only** when an attributable acceptance-evidence fact
+  exists — 2A-INV-5).
+- **`RETRACT_MATCH`** — supersede/decline a `BUYER_MATCHED` fact.
+- **`ACCEPT_QUALIFICATION_WAIVER`** — **accept an exception to the qualification policy** for this
+  buyer–opportunity pair. An **independently recorded fact** authorizing proceeding *despite* the qualification
+  result. It **never alters or establishes** `BUYER_QUALIFIED` (2A-INV-7). Authority ≥ `DECLARE_MATCH`; recorded
+  with reason.
+- **`CORRECT_HISTORY`** — supersede an erroneous buyer-match fact.
+
+**Acceptance-evidence rule (frozen, model-neutral).** `BUYER_MATCHED` requires **an attributable acceptance
+record whose source satisfies organizational evidence policy** — *not* specifically a portal, email, or call.
+This keeps the domain independent of product evolution.
+
+**Invariants.**
+- **2A-INV-1 · Authority attaches to fact operations** (not stage moves).
+- **2A-INV-2 · Attributable + reason.** Every operation records actor/seam + timestamp + affected fact;
+  retract/decline, waiver, and correction additionally require a recorded reason.
+- **2A-INV-3 · Append-only** — per **GI-1** (historical supersession; linked successor facts, never mutate/delete).
+- **2A-INV-4 · Capabilities are policy-mapped** (domain defines capabilities; orgs assign to roles).
+- **2A-INV-5 · Match requires recorded acceptance.** `DECLARE_MATCH` may not assert `BUYER_MATCHED` unless an
+  attributable acceptance-evidence fact exists whose source satisfies the org's evidence policy (enforces
+  2.1-INV-4 at the authority boundary).
+- **2A-INV-6 · Evidence precedes authority.** No authoritative buyer-match operation may depend on evidence that
+  has not itself been recorded as an authoritative business fact. *(Evidence → acceptance-evidence fact →
+  `BUYER_MATCHED`; never "match now, document later.")*
+- **2A-INV-7 · Qualification exception ≠ qualification.** `ACCEPT_QUALIFICATION_WAIVER` never alters or
+  establishes `BUYER_QUALIFIED`; it is a distinct fact authorizing progress despite the qualification result —
+  preserving "qualified normally" vs. "proceeded on exception" analytics.
+
+**Deferred (NOT frozen).** Full capability-order lattice (per the 1A deferral) — only "waiver ≥ match" is fixed
+now (mirrors 1A-INV-5). **Downstream.** Feeds OPP-3 (generalizes fact-operation authority across families; ratifies
+GI-1). **Status: FROZEN** (Ronald, 2026-07-22).
 
 ### OWN-2 · Decision 2B — Deterministic evaluation applicability (buyer-match) · **DRAFT**
 **Question.** May a policy-defined deterministic evaluator assert any buyer-match fact (per 1B)? `BUYER_QUALIFIED`
@@ -366,6 +414,8 @@ don't reverse downstream side effects). Under OWN-1 there are **no direct stage 
 becomes: should **fact assertions/retractions** that would regress the projected stage (and leave downstream
 records — checklist/escrow/financing/assignment — in place) require a **UI confirmation / warning**, and should
 any downstream reversal be offered? Every such change remains audited regardless. **Depends on:** OWN-1.
+**Also owns:** generalizing the fact-operation **authority model** (1A + 2A) across all fact families, and
+**formally ratifying the [Global fact invariants](#global-fact-invariants-candidate--to-be-formally-ratified-under-opp-3)** (starting with GI-1, append-only) so every family references one canonical rule.
 **Status: DRAFT.**
 
 ---
