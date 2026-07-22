@@ -7,7 +7,24 @@
 > each item exists) and [Slice 1 acceptance](./OPPORTUNITY_PIPELINE_SLICE1_ACCEPTANCE.md).
 >
 > Each entry records: **Decision ID · Question · Adopted policy · Rationale · Explicit consequences ·
-> Downstream implications · Status** (Draft → Frozen).
+> Invariant(s) · Downstream implications · Status** (Draft → Frozen). **Invariants** are the checkable
+> assertions a decision imposes: every implementation, migration, automation rule, report, and UI must satisfy
+> them — a violation means the *implementation* is wrong, not the decision.
+
+---
+
+## Governing separation — three independent models (do NOT collapse)
+
+OWN-1 splits this domain into three models that answer **different questions** and must stay independent. Every
+later decision, and every future implementation, is expected to preserve this separation:
+
+| Model | Question it answers | Examples |
+|---|---|---|
+| **1. Business truth** | *What objectively exists?* | signed contract; buyer matched; diligence complete |
+| **2. Operational projection** (the stage) | *What should the pipeline display?* | `BUYER_MATCHED` |
+| **3. Operational attention** | *What should the team do next?* | finish underwriting; request missing LOI; resolve inconsistent facts |
+
+Collapsing any two of these is the failure mode that produced the original stage-semantics defects. Resist it.
 
 ---
 
@@ -53,6 +70,24 @@ surface that the fact graph is inconsistent.
   only as an explicitly **non-authoritative annotation**.
 - Determinism requires the projection be **total** — defined for out-of-order / "impossible" fact combinations
   (e.g. contract present while diligence incomplete): project the furthest fact **and** flag the inconsistency.
+
+**Invariants (checkable — any violation indicts the implementation, not this decision).**
+- **INV-1 · Facts are the only authority.** Business facts are the sole source of truth; a stage is never
+  authoritative and is never persisted as source-of-truth data.
+- **INV-2 · Stage is a pure function of current facts.** Same fact set → same stage. The projection carries no
+  history and no momentum, so it recalculates (including **backward**) whenever a fact changes.
+- **INV-3 · The projection is total.** Every fact combination — valid *or* invalid — resolves to **exactly one**
+  stage.
+- **INV-4 · Stage is never written directly.** A stage changes only as a *consequence* of a fact changing;
+  there is no authoritative "set stage" operation.
+- **INV-5 · Furthest-fact.** The projection selects the furthest authoritative fact reached; a missing
+  intermediate fact never suppresses a later fact — it raises a **separate** inconsistency signal instead.
+- **INV-6 · Stage carries no activity/attention.** A stage encodes neither "current activity" nor "next
+  action"; those live in the separate Operational-attention model.
+
+*(Ronald's four map in: "facts authoritative" → INV-1; "always a deterministic projection" → INV-2; "never
+edited directly" → INV-4; "every combination → exactly one stage" → INV-3. INV-5/INV-6 capture the furthest-fact
+hinge and the activity separation.)*
 
 **Downstream implications.** Governs **OWN-2** (defines the facts + evidence + the total projection function),
 **OWN-3** (PAID projects from a *configured closing policy* fact-set), **OWN-4** (every currently artifact-less
