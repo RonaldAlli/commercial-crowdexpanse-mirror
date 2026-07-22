@@ -49,17 +49,23 @@ Individual families **reference** these rather than restating them (which stops 
   given fact eligible for deterministic assertion, and under what policy-defined conditions? Everything else
   derives from GI-2.** *(Origin instance: 1B (diligence completion); referenced by 2B (buyer match). OPP-3 to
   ratify.)*
+- **GI-3 · Authoritative business facts belong to distinct semantic classes with different assertion rules.**
+  Promoted after **four** independent domains showed the same structure (diligence, buyer match, LOI, executed
+  contract). The classes:
+  - **Artifact facts** — organization-generated artifacts; usually mechanically assertable (e.g. `LOI_DRAFTED`,
+    `CONTRACT_SENT`).
+  - **Evidence facts** — faithful recordings of externally-originated events; **captured, never synthesized**
+    (e.g. delivery/acceptance/signature evidence).
+  - **Decision facts** — authoritative business conclusions; asserted **only** by an authorized principal
+    (human, or a GI-2-compliant deterministic evaluator) (e.g. `DILIGENCE_COMPLETE`, `BUYER_MATCHED`,
+    `LOI_ACCEPTED`, `CONTRACT_EXECUTED`).
 
-**Watched patterns (NOT yet invariants).** Recurring structures not yet promoted — hold as candidates, do **not**
+  Structure: *artifact / evidence → decision → projection*; **projection operates exclusively over authoritative
+  facts.** This explains *why* the assertion rules differ per class. *(OPP-3 to formally ratify, alongside
+  GI-1/GI-2.)*
+
+**Watched pattern (NOT yet an invariant).** Recurring structure not yet promoted — hold as candidate, do **not**
 freeze:
-- **(candidate) GI-3 · Authoritative facts fall into distinct classes with different assertion rules.** The LOI
-  family sharpened the earlier "external evidence vs. fact" formulation into a **three-class taxonomy**:
-  **(1) Artifact facts** (org-generated — e.g. `LOI_DRAFTED`, `LOI_SENT`; mechanically assertable);
-  **(2) Evidence facts** (observed from external events — e.g. delivery/acceptance evidence; captured, never
-  synthesized); **(3) Decision facts** (authoritative business conclusions — e.g. `DILIGENCE_COMPLETE`,
-  `BUYER_MATCHED`, `LOI_ACCEPTED`; judgment unless a deterministic policy applies). Structure: *artifact/evidence →
-  decision → projection.* Three families now fit; **promote after the contract family** confirms the fourth. Three
-  is compelling; four is undeniable.
 - **(candidate) Fact-operation authority taxonomy.** The capability shape `RECORD_*_EVIDENCE → DECLARE_* →
   RETRACT_* → CORRECT_HISTORY` (+ policy-gated `ACCEPT_*_EXCEPTION`), with its standard invariants (authority-to-
   fact-ops · attributable+reason · append-only/GI-1 · policy-mapped · exception-≠-policy · same-version/evidence-
@@ -567,6 +573,49 @@ with no special-casing (opt-in + reproducible + fail-closed do the work). **Stat
 
 ---
 
+## OWN-2 · Fact 4 — Executed Contract
+
+**Umbrella question.** What authoritative business truth does an executed contract establish? This family is the
+**first crossing into binding commitment**, and cleanly exhibits the three-class structure (now **GI-3**).
+
+### OWN-2 · Decision 4.1 — Executed-contract fact decomposition & semantics · **✅ FROZEN 2026-07-22**
+
+**Adopted policy (frozen).** Four facts (by GI-3 class):
+- **`CONTRACT_DRAFTED`** *(artifact)* — a draft purchase contract **version** exists. **Non-projecting.**
+- **`CONTRACT_SENT`** *(artifact/action)* — a specific version was transmitted for signature. **Non-projecting.**
+- **`CONTRACT_EXECUTION_EVIDENCE`** *(evidence)* — per-party signature/approval evidence (buyer-signed,
+  seller-signed, …); captured, never synthesized. **Non-projecting** (partial signatures live here).
+- **`CONTRACT_EXECUTED`** *(decision)* — **every signature or approval required by the governing execution policy
+  for that specific contract version has been validly obtained.** **Projects `UNDER_CONTRACT`.**
+
+`CONTRACT_EXECUTED` establishes a **binding agreement to transact a specific version.** It does **not** imply that
+contingencies are satisfied, escrow/funding is complete, closing has occurred, or payment has been made — each of
+those is its **own** downstream authoritative fact. **Executed ≠ contingencies ≠ escrow ≠ funding ≠ closed ≠
+paid.** Redlines create a **new version** (never modify a prior execution).
+
+**Invariants.**
+- **4.1-INV-1 · Execution is version-specific.** Every `CONTRACT_EXECUTED` fact references exactly one contract
+  version.
+- **4.1-INV-2 · Execution never propagates.** Execution of version N says nothing about any other version.
+- **4.1-INV-3 · Execution is policy-relative.** *Which* signatures/approvals constitute execution is determined by
+  the governing execution policy for that version (buyer/seller/broker/attorney/witness/notary vary by org).
+- **4.1-INV-4 · Partial execution is evidence, not execution.** Partial signatures are
+  `CONTRACT_EXECUTION_EVIDENCE`; they never establish `CONTRACT_EXECUTED`.
+- **4.1-INV-5 · Executed ≠ downstream.** `CONTRACT_EXECUTED` implies no contingency satisfaction, escrow, funding,
+  closing, or payment; each is its own fact/family. *(Protects OWN-3 + the closing family from being absorbed.)*
+- **4.1-INV-6 · Only `CONTRACT_EXECUTED` projects** (`UNDER_CONTRACT`). *(Formalized in 4C.)*
+
+**Deterministic path (defer detail to 4B).** Judgment by default; deterministic **only** when the governing
+execution policy completely specifies execution requirements, all required execution evidence for the identified
+version exists, and all GI-2 conditions are satisfied (implementation-independent — per 3B-INV-3).
+
+**Downstream.** The binding-but-not-closed boundary (4.1-INV-5) is what keeps **Fact 5 (closing family)** and
+**OWN-3 (PAID = configured closing policy)** semantically independent. Opens **4A** (authority), **4B**
+(deterministic-eval), **4C** (projection). **Fourth GI-3 instance — GI-3 now promoted to a global invariant.**
+**Status: FROZEN** (Ronald, 2026-07-22).
+
+---
+
 ## OWN-3 · What must be true for PAID? · **DRAFT**
 
 **Question.** Should PAID require Financing/Escrow/Assignment artifacts, or only the due-diligence checklist?
@@ -596,8 +645,8 @@ records — checklist/escrow/financing/assignment — in place) require a **UI c
 any downstream reversal be offered? Every such change remains audited regardless. **Depends on:** OWN-1.
 **Also owns:** consolidating the recurring **fact-operation authority taxonomy** (1A + 2A + 3A — `RECORD_*_EVIDENCE
 → DECLARE_* → RETRACT_* → CORRECT_HISTORY` + policy-gated `ACCEPT_*_EXCEPTION`) into **one** platform capability
-model, and **formally ratifying the [Global fact invariants](#global-fact-invariants-candidate--to-be-formally-ratified-under-opp-3)** (GI-1 append-only, GI-2 deterministic-evaluator contract; GI-3 when the contract family
-confirms it) so every family references one canonical rule instead of per-family copies. **Status: DRAFT.**
+model, and **formally ratifying the [Global fact invariants](#global-fact-invariants-candidate--to-be-formally-ratified-under-opp-3)** (GI-1 append-only, GI-2 deterministic-evaluator contract, GI-3 fact-class taxonomy — all now stated;
+OPP-3 formally ratifies) so every family references one canonical rule instead of per-family copies. **Status: DRAFT.**
 
 ---
 *Next: open OWN-2 in a dedicated Decision-phase session — authoritative facts, per-fact evidence, and the
