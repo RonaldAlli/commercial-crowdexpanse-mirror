@@ -37,14 +37,14 @@
 | **EvaluationArtifact** | The evaluator's single output object: `{ result, trace }`. (Unrelated to the GI-3 ARTIFACT fact class.) |
 | Contracts | [Predicate Engine Design](./PREDICATE_ENGINE_DESIGN.md) · [EvaluationResult/Artifact Contract](./EVALUATION_RESULT_CONTRACT.md) |
 
-## Permission layer (E3 — Authorization, forthcoming)
+## Permission layer (E3 — Authorization, contract frozen; implementation forthcoming)
 
 | Term | Meaning |
 |---|---|
-| **AuthorizationDecision** | The permission outcome for a fact operation: `allow` + `denyCodes` + the consumed `EvaluationArtifact` + actor/capability/operation. |
-| **decisionId** | Deterministic identity over the authorization inputs (mirrors `evaluationId`). |
-| **authorizationEventId** | *(if ever needed)* an execution/audit id — belongs outside the decision, never inside it. |
-| Contracts | `AUTHORIZATION_DECISION_CONTRACT.md` (to be frozen before E3) |
+| **AuthorizationDecision** | The permission outcome for a fact operation: `{ decision, explanation }` — `decision` authoritative (`allow` + `denyCodes` + actor/capability/operation/policyVersion + `decisionId`), `explanation` derived (the consumed `EvaluationArtifact` + policy reasons). Mirrors `EvaluationArtifact { result, trace }`. |
+| **decisionId** | Deterministic identity `H(actor, capability, operation, evaluation inputs, policyVersion)` (mirrors `evaluationId`). |
+| **authorizationEventId** | An execution/audit id, created only when an authorization is executed — lives *outside* the decision, never inside it. |
+| Contracts | [Authorization Decision Contract](./AUTHORIZATION_DECISION_CONTRACT.md) (frozen) · [Authorization Model](./OPPORTUNITY_PIPELINE_AUTHORIZATION_MODEL.md) |
 
 ## Cross-cutting
 
@@ -53,7 +53,7 @@
 | **Projection / Stage** | A derived operational label computed from authoritative facts (E4) — disposable, never authoritative (OWN-1, Law 4). |
 | **GI-1/2/3** | Global invariants: append-only facts · deterministic-evaluator contract · fact-class taxonomy. |
 | **FG-INV-1..12** | Fact Graph invariants (single interpretation, immutable, reproducible, complete, …). |
-| **PE-INV-1..9** | Predicate Engine invariants (isolation, referential transparency, graph-only, closure, trace determinism/completeness/locality/acyclic). |
+| **PE-INV-1..10** | Predicate Engine invariants (isolation, referential transparency, graph-only, evaluation-only, closure, trace determinism/completeness/locality, acyclic, evaluation-path locality). |
 | **Epic Exit Gate** | The per-slice acceptance checklist; nothing merges until it is green (Constitution). |
 | Authority | [Engineering Constitution](./OPPORTUNITY_PIPELINE_ENGINEERING_CONSTITUTION.md) · [Business Semantics Spec](./BUSINESS_SEMANTICS_SPECIFICATION.md) |
 

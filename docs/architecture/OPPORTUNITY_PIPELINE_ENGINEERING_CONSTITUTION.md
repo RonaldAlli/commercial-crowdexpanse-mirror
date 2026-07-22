@@ -61,6 +61,12 @@ Specification → Architecture → Acceptance → Implementation → Acceptance 
 ```
 A slice is "done" only when its acceptance scenarios (by ID) pass against real code.
 
+**Branch discipline (workflow safeguard, not a semantic law).** While an implementation branch is awaiting
+fast-forward merge, any *related* documentation change that touches the same architectural area should land **on
+that branch**, not directly on `main` — unless it is completely independent. A direct-to-main commit that overlaps
+the outstanding branch's area diverges the branch and forces an avoidable rebase. (Learned from the B.3/glossary
+divergence, 2026-07-22.)
+
 ---
 
 ## Work breakdown — epics (mirror the architecture, not UI screens)
