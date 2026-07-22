@@ -158,13 +158,46 @@ versioning; OPP-3 fact-boundary authorization via 1A.
 
 **Status: FROZEN** (Ronald, 2026-07-22).
 
-### OWN-2 · Decision 1A — Diligence fact authority · **DRAFT (open next)**
-**Question.** Who may **assert, retract, reopen, supersede, or waive** diligence facts — distinguishing at least:
-(i) upload/record an artifact, (ii) invalidate an artifact, (iii) declare `DILIGENCE_COMPLETE`, (iv) reopen
-diligence, (v) accept exceptions/waivers, (vi) correct erroneous historical entries? Authority is **part of
-defining the fact** (OWN-1's fact-boundary authorization). Aligns with — and **precedes** — OPP-3, which then
-generalizes one authorization model across all fact categories rather than inventing diligence authority
-afterward. **Depends on:** Decision 1. **Status: DRAFT.**
+### OWN-2 · Decision 1A — Diligence fact authority · **✅ FROZEN 2026-07-22**
+
+**Question.** Who may assert, retract, reopen, supersede, or waive diligence facts?
+
+**Adopted policy (frozen).** Authority attaches to **fact operations**, never to stages. 1A freezes the
+**capabilities and their semantics**; the **mapping of capabilities to roles is organization policy, not a
+domain invariant.** Capabilities (the domain set):
+- **`RECORD_ARTIFACT`** — assert a per-item `DILIGENCE_MATERIAL_RECEIVED` (possession) fact.
+- **`INVALIDATE_ARTIFACT`** — supersede/retract a receipt fact.
+- **`DECLARE_DILIGENCE_COMPLETE`** — assert the `DILIGENCE_COMPLETE` decision.
+- **`REOPEN_DILIGENCE`** — supersede/retract a `DILIGENCE_COMPLETE` decision.
+- **`ACCEPT_WAIVER`** — waive a required item *within* a completion decision.
+- **`CORRECT_HISTORY`** — supersede an erroneous historical fact.
+
+**Domain rule — historical supersession (append-only).** Historical business facts are **never silently
+rewritten**. A correction, invalidation, reopening, or waiver-withdrawal creates a **superseding fact linked to
+the original**, preserving the original assertion, the correcting actor, timestamp, and reason.
+
+**Invariants.**
+- **1A-INV-1 · Authority attaches to fact operations.** Authorization is evaluated for asserting, retracting,
+  superseding, or waiving facts — **not** for moving stages.
+- **1A-INV-2 · Every authoritative fact operation is attributable.** Every operation records actor (or approved
+  deterministic seam), timestamp, and affected fact. Retractions, reopenings, waivers, and corrections
+  **additionally require a recorded reason**.
+- **1A-INV-3 · Historical facts are append-only.** Corrections, reopenings, invalidations, and supersessions
+  never destroy prior facts; they create **linked successor records**.
+- **1A-INV-4 · Capabilities are policy-mapped.** The domain defines capabilities; organizations assign them to
+  roles through policy.
+- **1A-INV-5 · Waivers are stronger than completion.** Accepting a waiver is a distinct business decision
+  requiring authority **at least equal to** declaring completion, and policy **may require higher**.
+
+**Deferred (NOT frozen).** The complete capability-order **authorization lattice** (e.g. `RECORD < INVALIDATE <
+DECLARE < REOPEN ≤ WAIVE < CORRECT`) is a sensible default but is **not** a universal invariant — it may differ
+per fact family (some families have no waiver; correction may be delegated; reopening may be less sensitive than
+correction). Freeze the capabilities + semantics now; let the full lattice emerge once **all** fact families are
+enumerated. The **only** ordering frozen now is 1A-INV-5 (waiver ≥ completion).
+
+**Downstream.** Feeds **OPP-3** (which generalizes this fact-operation authority model across *all* fact
+families rather than reinventing per-fact authority). The **1B** deterministic seam is a *named principal* that
+may hold `DECLARE_DILIGENCE_COMPLETE` only under 1B's constraints. **Status: FROZEN** (Ronald, 2026-07-22).
 
 ### OWN-2 · Decision 1B — Deterministic completion seam · **DRAFT**
 **Question.** May a deterministic system process assert `DILIGENCE_COMPLETE`, and under exactly what constraints?
