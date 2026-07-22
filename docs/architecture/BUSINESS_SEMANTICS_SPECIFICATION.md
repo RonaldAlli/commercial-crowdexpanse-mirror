@@ -11,6 +11,26 @@
 
 ---
 
+## Hierarchy of authority
+
+The layers of the platform, in descending authority:
+```
+Business Semantics Specification   (this document — WHAT is true)
+        ↓
+Architecture                       (HOW it is realized)
+        ↓
+Implementation                     (code · schema · API · UI)
+        ↓
+Runtime configuration              (per-organization policy)
+```
+**Rule: a lower layer MAY refine (strengthen, specialize, configure) a higher layer, but MUST NEVER redefine it.**
+Architecture may not change semantics; implementation may not change architecture's contracts; runtime
+configuration may only strengthen policy *within* the ontology — never invent facts or alter invariants (the
+`OWN3-INV-3` structure-precedes-configuration rule, generalized to the whole stack). If a lower layer cannot be
+built without contradicting a higher one, the **higher layer is amended first, deliberately** — never bypassed.
+
+---
+
 ## 0. Foundational model
 
 A pipeline **stage** is a **deterministic, total projection of authoritative business state**, computed from
@@ -183,6 +203,12 @@ LEAD → UNDERWRITTEN → BUYER_MATCHED → LOI_ACCEPTED → UNDER_CONTRACT → 
 | `UNDER_CONTRACT` | `CONTRACT_EXECUTED` |
 | `CLEAR_TO_CLOSE` | `CLEAR_TO_CLOSE` (pre-closing policy satisfied) |
 | `PAID` | `TRANSACTION_CLOSED` |
+
+`LEAD` is the **entry/base projection** — the value of the total projection when **no** decision fact yet holds
+(`OWN-1 INV-3`, the empty-fact-set base case). `OWN4-INV-1` (exactly one decision fact per stage) governs the
+**decision-backed** stages `UNDERWRITTEN … PAID`. `CLEAR_TO_CLOSE` and `UNDERWRITTEN` use the shared authority /
+deterministic-eval machinery by reference (fact-lifecycle model + GI-2); `UNDERWRITING_APPROVED` is the existing
+V1.3 decision, reused.
 
 Projection is furthest-fact (`OWN-1 INV-5`): the stage reflects the furthest decision reached; missing
 intermediate facts surface as **separate inconsistencies**, never suppress a later stage. Non-projecting
