@@ -39,7 +39,8 @@ Individual families **reference** these rather than restating them (which stops 
   ratified global invariant that every family references.)*
 - **GI-2 · Deterministic evaluators follow one universal contract.** A policy-defined deterministic evaluator
   may assert a business fact only under: **(a) explicit per-policy-version opt-in** (policy defines the fact as a
-  pure function over authoritative recorded facts); **(b) reproducible** (pure function of recorded facts +
+  pure function over authoritative recorded facts — **machine-evaluable**: a *capability*, not merely a
+  fully-documented policy; a written policy that still requires judgment does not qualify); **(b) reproducible** (pure function of recorded facts +
   policy version + rule-set version; evaluator identity/version + both versions + timestamp recorded for exact
   replay); **(c) no machine waiver** (exceptions to policy are judgment, human-only); **(d) fail closed** (abstain
   on ambiguity / missing / malformed / unauthorized, raising operational attention — never default to assert);
@@ -653,6 +654,42 @@ made possible by GI-3's authority-mutability ordering.
 **Downstream.** Feeds OPP-3 (fact-operation authority taxonomy). Sharpest illustration of GI-3 as *policy*: the
 evidence class is what makes required external execution non-waivable; the decision class is where discretion
 legitimately lives. **Status: FROZEN** (Ronald, 2026-07-22).
+
+### OWN-2 · Decision 4B — Deterministic-eval applicability (executed contract) · **✅ FROZEN 2026-07-22**
+
+**Adopted policy (frozen).** References **GI-2**. GI-3 (*what class of fact*) and GI-2 (*may an evaluator assert
+it*) are orthogonal — this family shows the separation cleanly. Per-fact:
+
+| Fact | Deterministic assertion? |
+|---|---|
+| `CONTRACT_DRAFTED` | **Yes** — artifact generation. |
+| `CONTRACT_SENT` | **Yes** — recording an observable transmission. |
+| `CONTRACT_EXECUTION_EVIDENCE` | **Yes** — evidence capture (GI-3 evidence class: captured, never synthesized). |
+| `CONTRACT_EXECUTED` | **Judgment by default;** deterministic only when execution is machine-evaluable **and** evidence is complete (4B-INV-3). |
+| `ACCEPT_EXECUTION_EXCEPTION` | **Never** — an exception is judgment. |
+
+`CONTRACT_EXECUTED` is the **cleanest mechanical decision-fact case** in the pipeline (execution is
+evidence-driven), yet still fully bound by 4A-INV-4 and GI-3.
+
+**Invariants.**
+- **4B-INV-1 · Deterministic assertion follows GI-2.**
+- **4B-INV-2 · Draft / send / evidence-capture are mechanical** (artifact + evidence classes).
+- **4B-INV-3 · Execution is deterministic only under a machine-evaluable policy + evidence completeness.** A
+  deterministic evaluator may assert `CONTRACT_EXECUTED` only when the governing execution policy is **explicitly
+  defined as machine-evaluable** for that contract version (*machine-evaluable = capability, not merely fully
+  documented*), **every** required external execution-evidence fact exists, and all GI-2 conditions are satisfied.
+  Implementation-independent (per 3B-INV-3).
+- **4B-INV-4 · Execution exceptions are never deterministic.**
+- **4B-INV-5 · Deterministic execution never upgrades evidence.** An evaluator may go *evidence-complete →
+  executed*; it may **never** treat *evidence-incomplete as complete*. (Complements 4A-INV-4.)
+
+**Downstream.** **4C** (projection) is ruled by **4.1-INV-6** (only `CONTRACT_EXECUTED` projects `UNDER_CONTRACT`).
+**Status: FROZEN** (Ronald, 2026-07-22).
+
+> **➡ Executed-Contract fact family COMPLETE** — 4.1 (decomposition/semantics + binding boundary) · 4A (authority)
+> · 4B (deterministic-eval); 4C ruled by 4.1-INV-6. **Four fact families now complete** (diligence · buyer match ·
+> LOI · executed contract), each with semantics/authority/deterministic-applicability/projection. Next: **Closing /
+> PAID (Fact 5)** — the first **policy-configured** family; OWN-3 joins here.
 
 ---
 
