@@ -56,6 +56,20 @@ enum PipelineFactProvenance { VERIFIED  MIGRATION_ORIGIN }
 *No `@updatedAt`. The persistence service exposes only `record(...)` (insert). There is no method that mutates or
 deletes a row.*
 
+### 1a. Approved refinements (Ronald, 2026-07-22)
+
+1. **Two identities.** `id` = **Fact Record Identity** (the immutable ledger row). `factChainId` = **Fact Semantic
+   Identity** — constant across a supersession chain, so consumers answer "which *logical* fact is this?" by
+   grouping on `factChainId` instead of recursively walking `supersedesFactId`. A first assertion sets
+   `factChainId = its own id`; a superseding fact **inherits** the prior's `factChainId`.
+2. **Typed payload.** `payload` is **Fact Header + typed payload**: the header columns are universal; `payload`
+   MUST validate against a schema **registered by `factType`** (the ontology registry) — no `factType + blob`
+   drift.
+3. **Distinct version columns.** `policyVersion` / `ruleSetVersion` / `artifactVersion` remain **separate** (never a
+   single `version`) — they mean different things.
+4. **Deterministic order.** **`globalSequence` (BIGSERIAL) is authoritative** for ordering + replay; timestamps
+   (`occurredAt`/`recordedAt`) are **informational** (clock skew never affects reconstruction).
+
 ---
 
 ## 2. Realization decisions

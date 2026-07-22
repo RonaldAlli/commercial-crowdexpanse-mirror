@@ -2096,3 +2096,75 @@ model AutomationExecution {
   @@index([automationJobId])
   @@map("automation_executions")
 }
+
+// ── Opportunity Pipeline · Slice 2 · E1 Core Fact Infrastructure ─────────────────────────────
+// An APPEND-ONLY authoritative fact ledger. A row is IMMUTABLE after creation — there is no update
+// or delete path (Law 5 / GI-1). State changes are new rows linked via `supersedesFactId`
+// (supersession = a LINK, never a mutation). This table stores business truth only; projection,
+// authorization, policy evaluation, and inconsistency computation (E2–E4) CONSUME it and never
+// modify it. See docs/architecture/E1_CORE_FACT_INFRASTRUCTURE_DESIGN.md.
+model PipelineFact {
+  id             String @id @default(cuid()) // Fact Record Identity (immutable ledger row)
+  factChainId    String // Fact Semantic Identity — constant across a supersession chain
+  globalSequence BigInt @default(autoincrement()) // AUTHORITATIVE total order (timestamps are informational)
+
+  organizationId String
+  opportunityId  String
+
+  factType   String            // Spec-defined ontology; validated by the code-side registry
+  factClass  PipelineFactClass // ARTIFACT | EVIDENCE | DECISION (GI-3)
+  subjectKey String?           // collection-fact scope (per item/contingency/checklist); null = singleton
+  state      String?           // e.g. OPENED/RELEASED/FUNDED (facts have states — 5A-INV-2)
+  payload    Json?             // typed per factType (registry-validated): funds{recipient,purpose,amount,obligation}, evidence refs, exception scope
+
+  policyVersion   String? // version-anchoring (STM-INV-7)
+  ruleSetVersion  String? //   GI-2 reproducibility
+  artifactVersion String? //   LOI/contract version (3.1/4.1-INV-1)
+
+  operation        PipelineFactOperation // DRAFT|RECORD_EVIDENCE|DECLARE|RETRACT|CORRECT|INVALIDATE|ACCEPT_EXCEPTION
+  supersedesFactId String? // append-only supersession LINK (never a mutation) — GI-1
+  supersedesFact   PipelineFact?  @relation("PipelineFactSupersession", fields: [supersedesFactId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  supersededBy     PipelineFact[] @relation("PipelineFactSupersession")
+
+  actorType  PipelineActorType      // HUMAN|EXTERNAL_PRINCIPAL|DETERMINISTIC_EVALUATOR|MIGRATION_PRINCIPAL
+  actorId    String? // user/seam/evaluator/migration identity
+  provenance PipelineFactProvenance @default(VERIFIED) // VERIFIED | MIGRATION_ORIGIN (STM §9c, AUTH-INV-9)
+  reason     String? // required for RETRACT/REOPEN/CORRECT/ACCEPT_EXCEPTION (code-enforced)
+
+  occurredAt DateTime? // business event time (informational)
+  recordedAt DateTime  @default(now()) // when recorded (immutable; no @updatedAt)
+
+  @@index([organizationId, opportunityId, factType, subjectKey], map: "pipeline_facts_org_opp_type_subject_idx")
+  @@index([factChainId], map: "pipeline_facts_chain_idx")
+  @@index([supersedesFactId], map: "pipeline_facts_supersedes_idx")
+  @@index([organizationId, opportunityId, globalSequence], map: "pipeline_facts_org_opp_seq_idx")
+  @@map("pipeline_facts")
+}
+
+enum PipelineFactClass {
+  ARTIFACT
+  EVIDENCE
+  DECISION
+}
+
+enum PipelineFactOperation {
+  DRAFT
+  RECORD_EVIDENCE
+  DECLARE
+  RETRACT
+  CORRECT
+  INVALIDATE
+  ACCEPT_EXCEPTION
+}
+
+enum PipelineActorType {
+  HUMAN
+  EXTERNAL_PRINCIPAL
+  DETERMINISTIC_EVALUATOR
+  MIGRATION_PRINCIPAL
+}
+
+enum PipelineFactProvenance {
+  VERIFIED
+  MIGRATION_ORIGIN
+}
