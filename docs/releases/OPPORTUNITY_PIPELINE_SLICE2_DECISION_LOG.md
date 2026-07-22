@@ -879,8 +879,37 @@ may strengthen the structural predicate but never redefine the Cash archetype.
 **Configured predicate = structural core ∧ org configuration ⇒ `TRANSACTION_CLOSED`.** **Status: FROZEN**
 (Ronald, 2026-07-22).
 
-### OWN-3.2 · Standard Purchase — Third-Party Financed predicate · **DRAFT (open next)**
-### OWN-3.3 · Assignment predicate · **DRAFT**
+### OWN-3.2 · Standard Purchase — Third-Party Financed predicate · **✅ FROZEN 2026-07-22**
+
+**Structural core (invariant) = Cash core + financing:**
+- `CONTRACT_EXECUTED`
+- all required `CONTINGENCY_REMOVED` *(now including the financing/appraisal contingency)*
+- **`FINANCING = FUNDED`**
+- `SETTLEMENT_COMPLETED`
+- `FUNDS_DISBURSED` (seller proceeds)
+- *(future candidate: `TITLE_TRANSFERRED`)*
+
+**Relationships — expressed as DEPENDENCIES, not timestamps.** `FUNDS_DISBURSED` **depends on** `FINANCING =
+FUNDED` (funds may not depend on financing until the financing obligation is *funded*); the financing contingency
+relates to an earlier financing state (`COMMITTED`/`CLEARED`, i.e. loan approved). The causal chain is
+`FINANCING=COMMITTED → financing-contingency removed → FINANCING=FUNDED → SETTLEMENT_COMPLETED → FUNDS_DISBURSED`,
+but the predicate encodes **logical dependency**, not a universal wall-clock ordering (jurisdictions/settlement
+systems record events differently; the dependency holds regardless). *(Clarifies what "relationships" means in
+5B-INV-3.)*
+
+**Org-configurable layer:** identical to Cash (escrow, deed recorded, checklist, compliance, jurisdiction).
+`OWN3.1-INV-1` applies. **Not structural:** `ESCROW`, `DEED_RECORDED` (configurable); `FINANCING=DENIED`/`WITHDRAWN`
+are terminal failure states, **never** in the closed predicate.
+
+**Invariant.** **OWN3.2-INV-1 · Funding satisfies the financing obligation.** `FINANCING = FUNDED` is the
+**structural completion** of the financing subgraph; earlier states (`COMMITTED`/`CLEARED`) are operationally
+valuable but do **not** satisfy the archetype's structural requirement. *(`CLEARED` = the "clear-to-close"
+milestone ≠ `TRANSACTION_CLOSED` — the candidate state fact for the optional OWN-4 intermediate stage.)*
+
+**Configured predicate = (Cash core + `FINANCING=FUNDED` + dependencies) ∧ org configuration ⇒
+`TRANSACTION_CLOSED`.** **Status: FROZEN** (Ronald, 2026-07-22).
+
+### OWN-3.3 · Assignment predicate · **DRAFT (open next)**
 *(Tier-2 archetypes: reserved, predicates deferred. Future ontology candidate noted: `TITLE_TRANSFERRED`.)*
 
 ---
