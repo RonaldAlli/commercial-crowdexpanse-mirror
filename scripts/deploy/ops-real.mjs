@@ -296,7 +296,17 @@ export function resolveDistDir(appDir, releasesDir, stamp) {
  * `tsconfig.deploy.json` in the app root so `extends: "./tsconfig.json"` resolves.
  */
 export function makeDeployTsconfig() {
-  return { extends: "./tsconfig.json", include: ["next-env.d.ts", "**/*.ts", "**/*.tsx"] };
+  // DE-5: `**/*.ts` recurses into build-output/release dirs — it matches BOTH `releases/<other>/types` and
+  // `.next/types` (the symlink → the ACTIVE release). A release copied from an in-place build (the D25b
+  // migration's release #1) carries generated route-types with a DIFFERENT relative-path depth; type-checking
+  // those sibling types breaks the build (they can't resolve at their new depth). Scope the deploy build's
+  // type-check to the SOURCE tree by EXCLUDING all build-output + release dirs (source is still checked;
+  // Next's own build compiles the routes regardless). Verified against a production-like migrated-release layout.
+  return {
+    extends: "./tsconfig.json",
+    include: ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
+    exclude: ["node_modules", ".next", ".next-isolated", ".next-visual", "releases", "deploy-history"],
+  };
 }
 
 /**

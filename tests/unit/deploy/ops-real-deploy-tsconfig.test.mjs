@@ -22,6 +22,17 @@ test("deploy tsconfig OMITS the depth-mismatched .next/types + .next-isolated/ty
   assert.ok(!cfg.include.some((g) => g.startsWith(".next")), "no .next* type globs at all");
 });
 
+test("DE-5: deploy tsconfig EXCLUDES build-output + sibling-release dirs (so `**/*.ts` can't type-check them)", () => {
+  const cfg = makeDeployTsconfig();
+  // The `**/*.ts` include recurses into releases/ and .next/ (symlink → active release). A migrated release
+  // (release #1) carries depth-mismatched generated types; excluding these dirs scopes the check to source.
+  for (const dir of ["releases", ".next", "deploy-history"]) {
+    assert.ok(Array.isArray(cfg.exclude) && cfg.exclude.includes(dir), `deploy tsconfig must exclude "${dir}"`);
+  }
+  // Source is still type-checked.
+  assert.ok(cfg.include.includes("**/*.ts") && cfg.include.includes("**/*.tsx"));
+});
+
 test("deploy tsconfig still type-checks source (so the build's own types ARE validated)", () => {
   const cfg = makeDeployTsconfig();
   // Source globs present → the release's own types (which Next appends here at build time) get checked.

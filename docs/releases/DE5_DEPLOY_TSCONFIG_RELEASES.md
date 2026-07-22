@@ -49,5 +49,32 @@ nod because A modifies a live release's contents and B changes the frozen engine
 - **Awaiting decision:** proceed with A (unblock + re-deploy) now, and/or schedule B (DE-5 engine fix).
 
 ---
-*Stop point: first prod engine deploy blocked by DE-5 (deploy tsconfig type-checks sibling release #1's
-depth-mismatched types). Prod safe. Awaiting direction before modifying the live release or the frozen engine.*
+
+## Resolution — Option B implemented (branch `fix/d25-de5-deploy-tsconfig-exclude`, PENDING REVIEW)
+Founder chose **B** (engine fix, NOT the manual release deletion). Production release **unchanged**.
+
+- **Fix (`makeDeployTsconfig`):** the deploy tsconfig now **excludes build-output + release dirs** so `**/*.ts`
+  can't type-check them:
+  ```js
+  exclude: ["node_modules", ".next", ".next-isolated", ".next-visual", "releases", "deploy-history"]
+  ```
+  This scopes the deploy build's type-check to the **source tree**; the current build's routes are still
+  compiled by Next. (`.next` is excluded too — it's the symlink to the active release, another path to the
+  same sibling types.) No application behavior change; committed `tsconfig.json` untouched.
+- **Reproduced in staging** (production-like migrated-release layout — a sibling release with a
+  depth-mismatched generated type): the **OLD** deploy tsconfig fails with the exact prod error
+  (`TS2307: Cannot find module '../../../../../app/(workspace)/activity/page.js'`); the **NEW** one passes.
+- **Regression test** `tests/unit/deploy/de5-migrated-release.test.mjs` (self-contained: reproduces the OLD
+  failure + asserts the fix passes + source still checked) + config assertions in `ops-real-deploy-tsconfig.test`.
+- **Engine end-to-end (staging, migrated-sibling present):** `PRECHECK → BUILD → VERIFY_BUILD → SWAP →
+  RESTART → VERIFY_RUNTIME → SMOKE → COMPLETE`, DEPLOYED, health 200 — the sibling no longer breaks the build.
+- **Gate:** tsc 0; unit **601**; e2e 43; build:isolated ok.
+
+**Acceptance criteria — all met:** repro in staging ✅ · fix eliminates it w/o app change ✅ · analyzer fix
+still passes all gates ✅ · migrated-release dir no longer causes TS failures ✅ · engine still runs
+PRECHECK→…→SMOKE ✅ · migrated-release regression test added ✅.
+
+---
+*Stop point: DE-5 fixed + verified in staging (reproduction + regression + full engine sequence). Awaiting
+review → merge → then redeploy the already-approved Deal Analyzer fix through the corrected engine. Prod
+untouched (AKUhg2…, health 200).*
