@@ -188,9 +188,14 @@ export async function reconstructHistory(organizationId: string, opportunityId: 
 /**
  * The ACTIVE fact set — DERIVED (a fact is active iff no row supersedes it). This is disposable
  * derived state (Constitution Law 4); the ledger stores no active/superseded flag.
+ *
+ * v1.1 (Law 12): a thin COMPATIBILITY FAÇADE delegating to the single Fact Graph Builder — active-fact
+ * determination is structural (version-independent), so it delegates under the explicit STRUCTURAL_CONTEXT.
+ * The signature/behavior are unchanged; there is now exactly one active-fact calculation (in the Builder).
+ * Interpreting consumers should depend on the FactGraph, not on this convenience.
  */
 export async function activeFacts(organizationId: string, opportunityId: string): Promise<PipelineFact[]> {
-  const all = await reconstructHistory(organizationId, opportunityId);
-  const superseded = new Set(all.map((f) => f.supersedesFactId).filter(Boolean) as string[]);
-  return all.filter((f) => !superseded.has(f.id));
+  const { buildFactGraph, STRUCTURAL_CONTEXT } = await import("./fact-graph");
+  const graph = await buildFactGraph({ organizationId, opportunityId, versionContext: STRUCTURAL_CONTEXT });
+  return [...graph.activeFacts];
 }

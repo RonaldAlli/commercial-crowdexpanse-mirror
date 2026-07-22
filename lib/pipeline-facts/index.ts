@@ -1,4 +1,7 @@
-// E1 Core Fact Infrastructure — public surface. Record + reconstruct facts; the ontology registry.
-// No projection / authorization / policy / inconsistency logic lives here (those are E2–E4).
+// Pipeline facts — public surface.
+// E1 Core Fact Infrastructure: record + reconstruct facts; the ontology registry.
+// E2 Slice A Fact Graph Builder: the single authoritative ledger interpretation (Law 12).
+// No predicate evaluation / stage projection / authorization / inconsistency logic here (E2 Slice B / E3 / E4).
 export * from "./registry";
 export * from "./service";
+export * from "./fact-graph";
