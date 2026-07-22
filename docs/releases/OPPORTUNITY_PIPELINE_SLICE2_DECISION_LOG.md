@@ -52,9 +52,14 @@ Individual families **reference** these rather than restating them (which stops 
 
 **Watched patterns (NOT yet invariants).** Recurring structures not yet promoted — hold as candidates, do **not**
 freeze:
-- **(candidate) GI-3 · External evidence is distinct from an authoritative business fact.** `external event →
-  evidence record → authoritative fact → projection` — now **three instances** (diligence, buyer acceptance, LOI).
-  Promote after the **contract** family (the fourth test). Three is compelling; four is undeniable.
+- **(candidate) GI-3 · Authoritative facts fall into distinct classes with different assertion rules.** The LOI
+  family sharpened the earlier "external evidence vs. fact" formulation into a **three-class taxonomy**:
+  **(1) Artifact facts** (org-generated — e.g. `LOI_DRAFTED`, `LOI_SENT`; mechanically assertable);
+  **(2) Evidence facts** (observed from external events — e.g. delivery/acceptance evidence; captured, never
+  synthesized); **(3) Decision facts** (authoritative business conclusions — e.g. `DILIGENCE_COMPLETE`,
+  `BUYER_MATCHED`, `LOI_ACCEPTED`; judgment unless a deterministic policy applies). Structure: *artifact/evidence →
+  decision → projection.* Three families now fit; **promote after the contract family** confirms the fourth. Three
+  is compelling; four is undeniable.
 - **(candidate) Fact-operation authority taxonomy.** The capability shape `RECORD_*_EVIDENCE → DECLARE_* →
   RETRACT_* → CORRECT_HISTORY` (+ policy-gated `ACCEPT_*_EXCEPTION`), with its standard invariants (authority-to-
   fact-ops · attributable+reason · append-only/GI-1 · policy-mapped · exception-≠-policy · same-version/evidence-
@@ -526,6 +531,39 @@ exists **only** when accepted terms violate an **explicitly adopted organization
   OPP-3** (watched — see below).
 
 **Downstream.** Feeds OPP-3 (the fact-operation authority taxonomy). **Status: FROZEN** (Ronald, 2026-07-22).
+
+### OWN-2 · Decision 3B — Deterministic-eval applicability (LOI) · **✅ FROZEN 2026-07-22**
+
+**Adopted policy (frozen).** References **GI-2**; answers only which LOI facts are eligible and under what
+conditions:
+
+| Fact | Deterministic assertion? |
+|---|---|
+| `LOI_DRAFTED` | **Yes** — artifact generation, no business judgment. |
+| `LOI_SENT` | **Yes** — recording an observable transmission event. |
+| `LOI_DELIVERED` | **Yes** — delivery-evidence capture; observational (2B-INV-5). |
+| `LOI_ACCEPTED` | **Judgment by default;** deterministic **only** under an explicitly authorized deterministic-acceptance policy (3B-INV-3). |
+| `ACCEPT_LOI_TERMS_EXCEPTION` | **Never** — an exception to policy is outside the deterministic policy. |
+
+**Invariants.**
+- **3B-INV-1 · Deterministic assertion follows GI-2** for every mechanically-asserted LOI fact.
+- **3B-INV-2 · Draft / send / deliver are mechanical** — artifact generation + evidence capture, never business
+  judgment; `LOI_DELIVERED` capture never asserts `LOI_ACCEPTED` (2B-INV-5).
+- **3B-INV-3 · Acceptance is deterministic only for policy-defined deterministic LOIs.** A deterministic
+  evaluator may assert `LOI_ACCEPTED` only when the accepted version **satisfies an explicitly authorized
+  deterministic-acceptance policy**, same-version acceptance evidence exists, and all GI-2 conditions are met.
+  Any negotiated, discretionary, or policy-nonconforming acceptance requires human authority. *(Implementation-
+  independent: byte-identical / canonicalized / structured-model / clause-by-clause validation are all valid
+  ways to prove conformance — the business rule is deterministic **policy conformance**, not a particular method.)*
+- **3B-INV-4 · Terms exceptions are never deterministic.**
+
+**Downstream.** First family where a **decision** fact has a legitimate (narrow) mechanical path — GI-2 absorbs it
+with no special-casing (opt-in + reproducible + fail-closed do the work). **Status: FROZEN** (Ronald, 2026-07-22).
+
+> **➡ LOI fact family COMPLETE** — Decision 3.1 (versioned decomposition/semantics) · 3A (authority) · 3B
+> (deterministic-eval applicability) all frozen; 3C (projection) ruled by 3.1-INV-5 (only `LOI_ACCEPTED` projects).
+> Next fact family: **Executed Contract (Fact 4)** — the decisive GI-3 test, and the first crossing into binding
+> commitment.
 
 ---
 
