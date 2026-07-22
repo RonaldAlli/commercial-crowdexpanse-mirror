@@ -109,11 +109,24 @@ production enablement (which stays gated by the `AUTOMATION_SCHEDULER_ENABLED` k
 ## Implementation (Option A) + Phase 4 acceptance
 Founder approved **Option A**. Implemented on branch `fix/d19-automation-runtime-tsx-dep` (from `main 00f429f`).
 
-### The change (two edits, no app-logic change)
+### The change (config only, no app-logic change)
 1. **`package.json`** — moved `"tsx": "^4.19.2"` from `devDependencies` → `dependencies` (lockfile
    regenerated: `node_modules/tsx` now `dev=false`; `npm ls tsx --omit=dev` → `tsx@4.19.2`, previously empty).
-2. **`ecosystem.config.js`** — the `crowdexpanse-automation` app gets `node_args: "--import tsx"` (tsx requires
-   `--import`, not `--loader`). The web app (`crowdexpanse-commercial`) is **untouched**.
+2. **`ecosystem.config.js`** — the `crowdexpanse-automation` app gets
+   `node_args: "--env-file-if-exists=.env --import tsx"`. The web app (`crowdexpanse-commercial`) is **untouched**
+   (no `node_args`, still `next start -p 3030`). No secrets are added to the config.
+
+### Second startup-contract gap, found during deployment prep (folded into D19)
+The `--import tsx` fix removes the TypeScript-loading crash but is **not sufficient** to boot under the real
+pm2 command. The automation runtime is a **plain `node`** process, so — unlike `next start` — it does **not**
+auto-load `.env`. In prod, `DATABASE_URL` reaches the web app only through Next's dotenv loading; it is **not**
+injected into pm2 processes, nor present in the pm2 daemon / login-shell env. So `pm2 start … --only
+crowdexpanse-automation` (per the runbook) would exit 1 at the runtime's own `DATABASE_URL` fail-closed guard —
+a *second* "can't start under the real pm2 command" failure of the same class. Closing it is part of D19's
+acceptance objective ("the executor starts cleanly using the intended production command"), so
+`--env-file-if-exists=.env` is included (founder-approved). The `-if-exists` variant is tolerant: a missing
+`.env` does not crash node — the runtime's guard still fails closed with a clear message rather than silently
+connecting elsewhere.
 
 ### Decisive clean-install verification (the founder's gate — dependency graph, not source tree)
 Fresh `git clone` → `npm ci --omit=dev` in a throwaway checkout (`/opt/crowdexpanse/d19-clean-verify`):
@@ -123,15 +136,21 @@ Fresh `git clone` → `npm ci --omit=dev` in a throwaway checkout (`/opt/crowdex
 | Baseline `node scripts/automation-runtime.mjs` (unfixed cmd, same clean tree) | still **rc=1 · `ERR_UNKNOWN_FILE_EXTENSION`** (repro holds) |
 | Fixed `node --import tsx scripts/automation-runtime.mjs` | **STARTED** · `runtime starting · scheduler=off · handlers=1` · drains cleanly on SIGTERM |
 
-### Phase 4 runtime acceptance — `scripts/d19-runtime-acceptance.mjs` (19/19)
-A durable harness that spawns the **real PM2 entrypoint** (`node --import tsx …`, scheduler OFF) against the
-`*_test` DB with a throwaway org + synthetic tagged jobs (distinct from `e2e-automation.mjs`, which tests the
-lib functions). Proves: (1) boots under the production command — no D19 crash; (2) in-process executor drains
-the queue; (3) success **persisted** (SUCCEEDED / ALLOW / `producedDomainEffect=false` / AUTOMATION principal);
-(4) a failed job (unknown type) **dead-letters without crashing** the worker; (5) missing/malformed input →
-clean **NOOP**, process stays up; (6) **graceful SIGTERM** → exit 0, "stopped cleanly"; (7) **restart** claims
-new work but records **no new executions for terminal jobs** (idempotent); (8) same-identity re-enqueue → one
-job. Maps to acceptance criteria 1–7,9 (8 = the clean-install check above; 10 = prod untouched).
+### Phase 4 runtime acceptance — `scripts/d19-runtime-acceptance.mjs` (31/31)
+A durable harness that spawns the **real runtime entrypoint** (scheduler OFF) against the `*_test` DB with a
+throwaway org + synthetic tagged jobs (distinct from `e2e-automation.mjs`, which tests the lib functions).
+Sections [1]–[8] — the runtime lifecycle: boots under the production command (no D19 crash); in-process
+executor drains the queue; success **persisted** (SUCCEEDED / ALLOW / `producedDomainEffect=false` / AUTOMATION
+principal); a failed job (unknown type) **dead-letters without crashing**; missing/malformed input → clean
+**NOOP**, process stays up; **graceful SIGTERM** → exit 0; **restart** claims new work but records **no new
+executions for terminal jobs** (idempotent); same-identity re-enqueue → one job. Sections [9]–[11] — the **real
+pm2 launch contract**, bound to the *committed* `node_args` (loaded from `ecosystem.config.js`, not hardcoded):
+the config is well-formed + **secret-free** and the web entry is unchanged; with `DATABASE_URL` **deleted from
+the child env**, a cwd `.env` is the **only** source → the runtime boots to `scheduler=off · handlers=1` and
+drains a real job (proving `.env` is loaded relative to cwd and is a working connection); with **no `.env`** it
+**fails closed** on the `DATABASE_URL` guard (exit 1, explicit message) rather than silently connecting.
+Maps to acceptance criteria 1–7,9 + the env-loading checks (8 = the clean-install check above; 10 = prod
+untouched).
 
 ### Out-of-scope finding (recorded, NOT fixed in D19)
 **Shutdown latency:** `shutdown()` awaits `reaper.stop()`, whose interval-loop sleeps on a
@@ -148,7 +167,8 @@ interval sleeps interruptible on stop (or shorten the interval + raise PM2 `kill
 devDep gap; the remaining devDep usage is the build step, which is by design).
 
 ---
-*Stop point: **Option A implemented + clean-`--omit=dev`-verified + Phase 4 accepted (19/19), gate green.**
+*Stop point: **Option A (tsx→dependency + `--env-file-if-exists=.env --import tsx`) implemented +
+clean-`--omit=dev`-verified + Phase 4 accepted (31/31, incl. the real pm2 env-loading contract), gate green.**
 Branch `fix/d19-automation-runtime-tsx-dep`, NOT merged, NOT deployed. `AUTOMATION_SCHEDULER_ENABLED` stays
 `0`; the executor is not started in production. **Awaiting review before merge/deploy and, separately, before
 any scheduler enablement.***

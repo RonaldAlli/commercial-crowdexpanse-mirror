@@ -24,10 +24,16 @@ module.exports = {
       // gated operational step (see the v2.0.1 runbook), never a side effect of a deploy.
       name: "crowdexpanse-automation",
       script: "scripts/automation-runtime.mjs",
-      // D19: the .mjs entrypoint imports .ts source — Node needs the tsx loader (`tsx` is now a runtime
-      // DEPENDENCY, so it survives a production `npm ci --omit=dev`). Without this, node exits at startup
-      // with ERR_UNKNOWN_FILE_EXTENSION. (`--loader tsx` is rejected by tsx; `--import` is required.)
-      node_args: "--import tsx",
+      // D19: make the runtime start under the REAL pm2 command. Two coupled startup-contract needs:
+      //   1. `--env-file-if-exists=.env` — this is a plain `node` process (NOT `next start`), so it does
+      //      NOT auto-load `.env`. Without this it exits 1 on the runtime's `DATABASE_URL` fail-closed
+      //      guard. `.env` resolves relative to `cwd` (this app's cwd, below). The `-if-exists` variant is
+      //      tolerant: a missing `.env` does NOT crash node — the runtime's own guard then fails closed
+      //      with a clear message rather than silently connecting elsewhere. No secrets live in this file.
+      //   2. `--import tsx` — the .mjs entrypoint imports .ts source; tsx (now a runtime DEPENDENCY, so it
+      //      survives `npm ci --omit=dev`) registers the loader. Without it: ERR_UNKNOWN_FILE_EXTENSION.
+      //      (`--loader tsx` is rejected by tsx; `--import` is required.)
+      node_args: "--env-file-if-exists=.env --import tsx",
       cwd: "/opt/crowdexpanse/commercial",
       instances: 1,
       exec_mode: "fork",

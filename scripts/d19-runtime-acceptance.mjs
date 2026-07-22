@@ -12,6 +12,8 @@
 // cascade-cleaned in finally. Prod DB / prod PM2 are never touched.
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+import fs from "node:fs";
 import path from "node:path";
 
 import { assertTestDatabase } from "./e2e-guard.mjs";
@@ -22,7 +24,16 @@ import { CLOSING_READINESS_AUTOMATION_TYPE } from "../lib/automation/proof-obser
 
 const TAG = "d19-runtime";
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const RUNTIME_ENTRY = path.join(REPO_ROOT, "scripts/automation-runtime.mjs");
 assertTestDatabase();
+
+// Bind the verification to the COMMITTED launch contract: load the real ecosystem.config.js and
+// use the automation app's actual node_args (so this test tracks the config, not a hardcoded copy).
+const ECOSYSTEM = createRequire(import.meta.url)(path.join(REPO_ROOT, "ecosystem.config.js"));
+const AUTOMATION_APP = ECOSYSTEM.apps.find((a) => a.name === "crowdexpanse-automation");
+const WEB_APP = ECOSYSTEM.apps.find((a) => a.name === "crowdexpanse-commercial");
+const COMMITTED_NODE_ARGS = (AUTOMATION_APP.node_args || "").split(/\s+/).filter(Boolean);
+const ECOSYSTEM_TEXT = fs.readFileSync(path.join(REPO_ROOT, "ecosystem.config.js"), "utf8");
 
 let ok = 0;
 const fail = [];
@@ -48,17 +59,23 @@ const statusOf = async (orgId, id) => (await getJob(orgId, id))?.status;
 // Spawn the REAL runtime entrypoint exactly as PM2 would (node_args "--import tsx"), scheduler OFF,
 // short executor idle so the queue drains quickly. Returns a handle with the captured output + a
 // graceful SIGTERM stop that asserts a clean exit.
-function startRuntime(label) {
+function startRuntime(label, opts = {}) {
   let out = "";
-  const child = spawn(process.execPath, ["--import", "tsx", "scripts/automation-runtime.mjs"], {
-    cwd: REPO_ROOT,
-    // Short executor idle + reaper interval so the queue drains and the graceful-stop loops wake
-    // quickly. (The reaper's sleep is not interruptible; the default 30s interval is fine in prod but
-    // would make this harness wait — see the shutdown-latency note in the D19 doc.)
-    env: {
-      ...process.env, NODE_ENV: "production", AUTOMATION_SCHEDULER_ENABLED: "0",
-      AUTOMATION_EXECUTOR_IDLE_MS: "400", AUTOMATION_REAPER_INTERVAL_MS: "400",
-    },
+  // Short executor idle + reaper interval so the queue drains and the graceful-stop loops wake
+  // quickly. (The reaper's sleep is not interruptible; the default 30s interval is fine in prod but
+  // would make this harness wait — see the shutdown-latency note in the D19 doc.)
+  const baseEnv = {
+    ...process.env, NODE_ENV: "production", AUTOMATION_SCHEDULER_ENABLED: "0",
+    AUTOMATION_EXECUTOR_IDLE_MS: "400", AUTOMATION_REAPER_INTERVAL_MS: "400",
+  };
+  // opts.nodeArgs: override the interpreter args (default = just the tsx loader, for the functional
+  //   sections). opts.cwd: the process working directory (governs where `--env-file …=.env` resolves).
+  //   opts.env: a transform over baseEnv (e.g. to DELETE DATABASE_URL, forcing env to come only from .env).
+  const nodeArgs = opts.nodeArgs ?? ["--import", "tsx"];
+  const env = opts.env ? opts.env(baseEnv) : baseEnv;
+  const child = spawn(process.execPath, [...nodeArgs, RUNTIME_ENTRY], {
+    cwd: opts.cwd ?? REPO_ROOT,
+    env,
     stdio: ["ignore", "pipe", "pipe"],
   });
   child.stdout.on("data", (d) => { out += d.toString(); });
@@ -163,6 +180,54 @@ try {
   console.log("\n[8] Same-identity re-enqueue converges to one job (idempotency key holds):");
   const reSuccess = await enqueueJob(mkInput(org.id, inFlight.id, { occurrenceKey: "d19-success" }));
   assert(reSuccess.id === jSuccess.id, "re-enqueuing the same occurrence returns the original job (no duplicate)");
+
+  // ── The REAL pm2 launch contract: env comes from .env (NOT injected), no secrets in config ──────
+  console.log("\n[9] The committed ecosystem launch contract is well-formed + secret-free:");
+  assert(COMMITTED_NODE_ARGS.includes("--env-file-if-exists=.env"), "automation node_args loads .env (--env-file-if-exists=.env)");
+  assert(COMMITTED_NODE_ARGS.includes("--import") && COMMITTED_NODE_ARGS.includes("tsx"), "automation node_args registers the tsx loader (--import tsx)");
+  assert(!/postgres(?:ql)?:\/\//.test(ECOSYSTEM_TEXT), "no database connection string is hard-coded in ecosystem.config.js");
+  assert(!/(DATABASE_URL|SESSION_SECRET|PASSWORD)\s*:/.test(ECOSYSTEM_TEXT), "no secret values are inlined in ecosystem.config.js");
+  assert(/next/.test(WEB_APP.script) && WEB_APP.args === "start -p 3030" && WEB_APP.node_args === undefined,
+    "the web app entry (crowdexpanse-commercial) is unchanged — no node_args, still `next start -p 3030`");
+
+  // Spawn using the EXACT committed node_args, in a cwd whose .env is the ONLY source of DATABASE_URL
+  // (we DELETE it from the child's inherited env). This reproduces the real pm2 path: pm2 runs
+  // `node <node_args> scripts/automation-runtime.mjs` with the app's cwd + env — the env-file loading
+  // semantics are node's, not pm2's, so this exercises the contract faithfully.
+  const scrubDbUrl = (base) => { const e = { ...base }; delete e.DATABASE_URL; return e; };
+  const testDbUrl = process.env.DATABASE_URL;
+  // Faithful reproduction of the real pm2 launch: cwd = the app dir (REPO_ROOT) — the only place with
+  // tsconfig (tsx's `@/` path alias), lib/, node_modules AND the .env that `--env-file-if-exists=.env`
+  // reads, exactly like /opt/crowdexpanse/commercial. We toggle REPO_ROOT/.env (backing up any real one)
+  // so the SOLE variable between the two cases is whether .env exists. DATABASE_URL is DELETED from the
+  // child's inherited env, so .env is the only possible source (proves "no external injection").
+  const REPO_ENV = path.join(REPO_ROOT, ".env");
+  const priorEnv = fs.existsSync(REPO_ENV) ? fs.readFileSync(REPO_ENV) : null;
+  try {
+    console.log("\n[10] Under the real node_args, .env supplies DATABASE_URL (no external injection) → starts + works:");
+    fs.writeFileSync(REPO_ENV, `DATABASE_URL="${testDbUrl}"\n`, { mode: 0o600 });
+    rt = startRuntime("env-from-dotenv", { nodeArgs: COMMITTED_NODE_ARGS, cwd: REPO_ROOT, env: scrubDbUrl });
+    assert(await rt.waitForStartup(), "the runtime boots with DATABASE_URL sourced ONLY from cwd/.env (proves .env is loaded, relative to cwd)");
+    assert(/scheduler=off · handlers=1/.test(rt.output), "reaches the expected banner: `scheduler=off · handlers=1`");
+    const jEnv = await enqueueQueued(mkInput(org.id, inFlight.id, { occurrenceKey: "d19-envfile" }));
+    assert(await waitFor(async () => (await statusOf(org.id, jEnv.id)) === "SUCCEEDED"),
+      "the .env-provided DATABASE_URL is a REAL working connection (it drained a job) — not a silent wrong DB");
+    const exitPos = await rt.stopGraceful();
+    assert(exitPos && exitPos.code === 0, "graceful clean exit");
+    rt = null;
+
+    console.log("\n[11] A missing/mislocated .env fails CLOSED on the DATABASE_URL guard (no silent connect):");
+    fs.rmSync(REPO_ENV, { force: true }); // remove .env; DATABASE_URL still scrubbed from the child env
+    rt = startRuntime("env-missing", { nodeArgs: COMMITTED_NODE_ARGS, cwd: REPO_ROOT, env: scrubDbUrl });
+    assert(!(await rt.waitForStartup(5000)), "the runtime does NOT reach startup when no .env supplies DATABASE_URL");
+    assert(rt.exited && rt.exited.code === 1, "it exits 1 (fail closed) — never silently connects elsewhere");
+    assert(/DATABASE_URL is not set — refusing to start/.test(rt.output), "the failure is the runtime's explicit DATABASE_URL guard");
+    rt = null;
+  } finally {
+    // Restore REPO_ROOT/.env to exactly its prior state (content or absence).
+    if (priorEnv !== null) fs.writeFileSync(REPO_ENV, priorEnv, { mode: 0o600 });
+    else fs.rmSync(REPO_ENV, { force: true });
+  }
 } finally {
   if (rt && !rt.exited) await rt.stopGraceful();
   console.log("\nCleaning up throwaway org (cascade)…");
