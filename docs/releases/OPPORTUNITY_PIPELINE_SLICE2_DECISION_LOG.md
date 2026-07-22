@@ -693,6 +693,55 @@ evidence-driven), yet still fully bound by 4A-INV-4 and GI-3.
 
 ---
 
+## OWN-2 · Fact 5 — Closing / PAID (the first policy-configured family)
+
+**Umbrella question.** Given everything that happened, *has the organization's policy declared the transaction
+complete?* This is a **higher-order decision** — a policy evaluation over a graph of facts — which is why **OWN-3
+belongs here**, not earlier. It marks the platform's shift from **fact modeling → policy composition.**
+
+### OWN-2 · Decision 5.1 — Closing fact ontology + `TRANSACTION_CLOSED` semantics · **✅ FROZEN 2026-07-22**
+
+**Adopted policy (frozen).** Closing facts are objective, authoritative business facts describing the **full
+closing lifecycle** — a **core ontology** that is *not* limited by today's V1.4 modules. Each org / deal type
+references a **subset** via policy (OWN-3). Enumeration (by GI-3 class; grounded in V1.4 where it exists):
+
+| Closing fact(s) | GI-3 class | V1.4 domain |
+|---|---|---|
+| `ESCROW_OPENED` · `EARNEST_DEPOSITED` · `ESCROW_RELEASED`/`REFUNDED`/`FORFEITED` | evidence/decision | `EscrowStatus` |
+| `FINANCING_COMMITTED` · `FINANCING_CLEARED` · `FINANCING_FUNDED` (·`DENIED`/`WITHDRAWN`) | decision (+funding evidence) | `FinancingStatus` |
+| `ASSIGNMENT_DRAFTED` · `ASSIGNMENT_EXECUTED` (·`CANCELLED`) | artifact / decision | `AssignmentStatus` |
+| `CONTINGENCY_REMOVED` (per contingency) | decision | escrow contingency deadlines |
+| `CHECKLIST_ITEM_SATISFIED` (per required item) | evidence/decision | `ClosingChecklist` |
+| **`SETTLEMENT_COMPLETED`** · **`DEED_RECORDED`** · **`FUNDS_DISBURSED`** | decision / evidence | **new — first-class now** (universally available, optionally referenced by policy, exactly like financing) |
+
+**`TRANSACTION_CLOSED`** is an **authoritative, policy-relative decision fact** declaring that *the organization's
+configured closing policy for this transaction type has been satisfied.* The **decision is authoritative; the
+policy is configurable** — different things. It is structurally identical to `DILIGENCE_COMPLETE`, one layer up. It
+**projects the `PAID` stage** — but the **business fact is `TRANSACTION_CLOSED`; `PAID` is only the stage's display
+name** (many businesses distinguish closed → funds-disbursed → paid). The architecture:
+
+```
+closing facts → configured closing policy → TRANSACTION_CLOSED → PAID stage
+   (mirrors: diligence facts → diligence policy → DILIGENCE_COMPLETE → stage)
+```
+
+**Invariants.**
+- **5.1-INV-1 · Policy evaluates facts, not stages.** The closing policy evaluates closing **facts** (escrow /
+  financing / contingency / assignment / checklist / settlement / recording / funding) — **never** the current
+  stage. (Keeps policy anchored to business truth, not to an operational projection.)
+- **5.1-INV-2 · The fact is not the label.** `TRANSACTION_CLOSED` is the authoritative fact; `PAID` is the
+  projected stage's name. The display label is never baked into the ontology.
+- **5.1-INV-3 · Closing facts are a universal ontology; the required subset is policy.** Which facts are required
+  is the **configured closing policy per transaction type** (OWN-3) — not a property of the facts themselves.
+
+**Downstream.** First move from individual fact modeling into **policy composition** — where a configurable policy
+engine belongs. **OWN-3** defines the policy *content* (which subset per deal type: cash / assignment /
+seller-finance / subject-to / double-close differ). Opens **5A** (authority — closing facts reuse the frozen
+fact-operation taxonomy), **5B** (deterministic-eval — a machine-evaluable closing policy is plausible, per 4B),
+**5C** (projection — only `TRANSACTION_CLOSED` projects `PAID`). **Status: FROZEN** (Ronald, 2026-07-22).
+
+---
+
 ## OWN-3 · What must be true for PAID? · **DRAFT**
 
 **Question.** Should PAID require Financing/Escrow/Assignment artifacts, or only the due-diligence checklist?
