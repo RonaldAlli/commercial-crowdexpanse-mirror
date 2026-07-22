@@ -69,6 +69,14 @@ try {
   assert(!b.result.satisfied, "unsatisfied when diligence incomplete");
   const dilNode = b.trace.root.children.find((c) => c.predicateId === "DILIGENCE_COMPLETE");
   assert(dilNode && dilNode.missing.includes("diligence:psa"), "the child DILIGENCE_COMPLETE node records the missing material (explainable)");
+
+  console.log("\n[7] PE-INV-8 · trace locality — nodes hold only their own predicate + IMMEDIATE children:");
+  // CLEAR_TO_CLOSE calls exactly one sub-predicate (DILIGENCE_COMPLETE); contingency/financing checks are not predicates.
+  assert(JSON.stringify(a.trace.root.children.map((c) => c.predicateId)) === JSON.stringify(["DILIGENCE_COMPLETE"]), "CLEAR_TO_CLOSE node's children are exactly its immediate sub-evaluations");
+  assert(a.trace.root.children[0].children.length === 0, "the DILIGENCE_COMPLETE child is a leaf — its (absent) grandchildren are not present");
+  // THIRD_PARTY_FINANCED nests CASH as its ONLY immediate child; CASH's internals are not hoisted into the parent.
+  assert(JSON.stringify(fin.trace.root.children.map((c) => c.predicateId)) === JSON.stringify(["TRANSACTION_CLOSED.CASH"]), "THIRD_PARTY_FINANCED node's children are exactly [CASH] — no subtree flattening");
+  assert(!fin.trace.root.children.some((c) => c.predicateId === "DILIGENCE_COMPLETE"), "no descendant is hoisted above its actual call depth (locality preserved)");
 } finally {
   console.log("\nCleaning up test facts (raw prisma test-infra)...");
   await prisma.pipelineFact.deleteMany({ where: { organizationId: ORG } }).catch((e) => console.log(`  cleanup warn: ${e.message}`));

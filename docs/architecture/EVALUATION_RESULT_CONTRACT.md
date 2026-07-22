@@ -78,7 +78,17 @@ it operational rather than semantic and could break referential transparency. Go
 - **PE-INV-6 · Trace determinism** — `evaluateArtifact(X)` yields an identical `{ result, trace }` every time for
   identical inputs; the trace is part of the deterministic contract.
 - **PE-INV-7 · Trace completeness** — every reason in the result appears in the trace tree; no unexplained verdicts.
+- **PE-INV-8 · Trace locality** — every node explains only its own predicate + its immediate children; no node
+  summarizes, hoists, or reinterprets another subtree (grandchildren stay under their parent).
 - **The trace EXPLAINS the result** (explanatory); the **result is authoritative** — never the reverse.
+
+**Navigation (deferred to v1.2).** Trace nodes are **pure, serializable, immutable data** now. An ergonomic
+accessor surface (`self` / `children` / `flatten` / `find(predicateId)`) is defined for when visualization (E7)
+needs it; it will wrap the data without changing it, so nodes stay pure. Consumers today traverse `root.children`
+directly.
+
+> **Status:** with PE-INV-8, the evaluator output is **FINAL** — `EvaluationResult` v1.0 + `EvaluationArtifact`
+> v1.1. E3 and all downstream consumers build against this finalized contract.
 
 **Traces are derived, disposable, and never persisted as business truth.** They are a pure function of
 `Ledger → FactGraph → Predicate Engine` and can always be regenerated (Constitution Law 4). Persisting a trace as

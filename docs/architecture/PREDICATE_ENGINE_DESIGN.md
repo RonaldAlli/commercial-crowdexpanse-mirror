@@ -98,6 +98,10 @@ Therefore:
 - **PE-INV-7 · Trace completeness (v1.1).** Every reason in the `EvaluationResult` is traceable to at least one
   node in the trace tree — no unexplained verdicts. The trace **explains** the result (explanatory); the result is
   **authoritative** — never the other way around.
+- **PE-INV-8 · Trace locality (v1.1).** Every trace node explains only **its own predicate** (its result) and its
+  **immediate child evaluations** (the direct `context.evaluate` calls). A node never summarizes, hoists, or
+  reinterprets another subtree — grandchildren live under their parent, never flattened into an ancestor. This keeps
+  the trace faithful to the actual predicate graph and prevents "helpful" narrative drift.
 
 ## 7. First predicate set (ratified acceptance anchors, `ruleSetVersion = "rs-1"`)
 
