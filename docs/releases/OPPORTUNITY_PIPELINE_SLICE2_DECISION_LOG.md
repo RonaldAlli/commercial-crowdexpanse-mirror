@@ -773,6 +773,41 @@ stage (`PAID`)** — a higher abstraction than the earlier single-fact families.
 nearly determined by GI-2 + GI-3 + 5A; **5C** by 5.1. **OWN-3** = the policy *content* (required facts + states
 per deal type). **Status: FROZEN** (Ronald, 2026-07-22).
 
+### OWN-2 · Decision 5B — Deterministic-eval applicability (closing) · **✅ FROZEN 2026-07-22**
+
+**Adopted policy (frozen).** References **GI-2 + GI-3 + 5A**. `TRANSACTION_CLOSED` is **not a primitive fact** —
+it is a **policy evaluation over a fact graph.** The deterministic evaluator does exactly one thing: *evaluate the
+configured closing-policy predicate over the fact graph → true/false → assert (or abstain).* It never creates,
+repairs, or interprets facts, and never waives requirements. Per-fact: **artifact** → mechanical; **evidence** →
+captured, never synthesized (GI-3); **constituent decision** facts → deterministic only where their sub-policy is
+machine-evaluable; **`TRANSACTION_CLOSED`** → the clean case (below); **`ACCEPT_CLOSING_EXCEPTION`** → never.
+
+**Invariants.**
+- **5B-INV-1 · Deterministic assertion follows GI-2.**
+- **5B-INV-2 · Artifact = mechanical; evidence = captured-never-synthesized (GI-3);** constituent decision facts
+  deterministic only where their sub-policy is machine-evaluable.
+- **5B-INV-3 · `TRANSACTION_CLOSED` is deterministic only when the closing policy is machine-evaluable and every
+  required authoritative fact satisfies the configured policy *predicate*** — accommodating existence, state,
+  ordering, relationships, and future constraints — **and GI-2 holds.** The evaluator evaluates the predicate over
+  the fact graph and **never invents a missing evidence fact** (5A-INV-3).
+- **5B-INV-4 · Closing exceptions are never deterministic.**
+
+**Downstream.** The policy engine evaluates the **topology of the transaction** (a predicate over the fact graph),
+not isolated facts — the expressiveness closing requires. **Status: FROZEN** (Ronald, 2026-07-22).
+
+### OWN-2 · Decision 5C — Closing projection · **✅ CONFIRMED BY REFERENCE 2026-07-22**
+
+Not independently decided. **OWN-1 + 5.1** already fix that projection occurs from authoritative **decision** facts;
+therefore `TRANSACTION_CLOSED → PAID` is simply an instance of the rule. **Only `TRANSACTION_CLOSED` projects
+`PAID`.** The only open question is *stage enumeration* — whether an intermediate **"clear-to-close"** stage exists
+(would need a stable state fact per 1C-INV-2) — which is **OWN-4**, not stage semantics.
+
+> **➡ Closing / PAID fact family COMPLETE** — 5.1 (ontology + `TRANSACTION_CLOSED`) · 5A (authority) · 5B
+> (deterministic-eval); 5C confirmed by reference. **➡➡ ALL FIVE FACT FAMILIES COMPLETE** (diligence · buyer match ·
+> LOI · executed contract · closing/PAID). Global invariants **GI-1 / GI-2 / GI-3** and the fact-operation authority
+> taxonomy are stable. **Next: OWN-3** (configured closing-policy content — archetype-first) → **OWN-4** (stage
+> enumeration) → **OPP-3** (ratify globals + consolidate the authority taxonomy) → then **Phase 2: Workflow Freeze.**
+
 ---
 
 ## OWN-3 · What must be true for PAID? · **DRAFT**
