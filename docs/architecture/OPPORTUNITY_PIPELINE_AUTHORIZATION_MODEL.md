@@ -197,6 +197,7 @@ acceptance suite (§3.3). Not four independent implementations. This makes "auth
 | **AUTH-INV-11** | **Authorization is commit-valid.** An authorization decision is valid only while its evaluated fact graph remains current; any **stale** authorization MUST be revalidated before commit (stronger than optimistic locking alone) | STM-INV-2/6; §9 |
 | **AUTH-INV-12** | **Authorization purity.** `authorize` consumes only `{ AuthorizationPolicy, EvaluationArtifact, Actor, Capability, Operation }`; it never queries the ledger, rebuilds the FactGraph, evaluates predicates independently, or projects stages (complements Laws 12/13) | E3 design §5 |
 | **AUTH-INV-13** | **Explanation preservation.** Authorization never rewrites or reinterprets the evaluator's explanation; the `EvaluationArtifact` is embedded unchanged and authz may only *append* permission-specific reasoning | E3 design §5; [AuthorizationDecision Contract](./AUTHORIZATION_DECISION_CONTRACT.md) |
+| **AUTH-INV-14** | **Decision vs commit guard.** `authorize()` is a pure decision function; a separate transactional guard revalidates its inputs against current authoritative state (fresh FactGraph + re-evaluation + refreshed actor snapshot) before an authorized fact operation commits, rejecting stale authorization (`STALE_FACT_GRAPH`). A prior ALLOW is never a reservation/lock/durable permission (realizes AUTH-INV-11) | E3 design §1/§6 |
 
 ---
 
