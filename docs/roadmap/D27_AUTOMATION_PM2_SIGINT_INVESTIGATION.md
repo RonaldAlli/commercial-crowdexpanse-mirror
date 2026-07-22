@@ -1,6 +1,7 @@
 # D27 — Automation runtime: unexpected SIGINT under pm2 (investigation charter)
 
-> **Opened 2026-07-22** out of the [D19 production verification](../releases/D19_PRODUCTION_VERIFICATION.md).
+> **Chartered 2026-07-22** out of the [D19 production verification](../releases/D19_PRODUCTION_VERIFICATION.md).
+> **QUEUED — not started; begins under its own authorization** (founder chose a natural pause here).
 > **Acceptance-first, identification-first.** D19's startup contract is fixed + deployed; this initiative is the
 > *separate* production-only problem: under pm2 supervision the automation runtime receives **unexpected
 > `SIGINT`** signals and exits cleanly, causing a restart loop. **The signal source is not yet identified.**
@@ -48,6 +49,18 @@ Root cause **before** remedies.
 - Any remedy — pm2 config change, a launcher/wrapper, a **systemd** unit, Prisma engine changes, or runtime
   code changes. These are evaluated **only after** Q1–Q5 are answered.
 - Enabling automation or the scheduler. `AUTOMATION_SCHEDULER_ENABLED` stays **0** regardless of D27.
+
+## Hard constraint (founder rule) — do NOT modify production supervision during attribution
+While identifying the signal source, make **no changes to how production processes are supervised**:
+- **no** pm2 configuration experiments on prod,
+- **no** systemd migration,
+- **no** wrapper / launcher scripts,
+- **no** daemon replacement or restart-policy changes.
+
+Changing the supervisor before the sender is known would both (a) turn D27 into an implementation initiative
+prematurely and (b) perturb the very behavior under observation. Any such change waits until Q1–Q5 are answered
+**and** is proposed separately for review. (Controlled *minimal probes* — short, tagged, `autorestart:false`,
+removed — are permitted for attribution; they do not alter the supervision of real apps.)
 
 ## Safety boundaries
 Diagnostics are **read-only / observational** (signal tracing, controlled minimal probes). No prod queue
