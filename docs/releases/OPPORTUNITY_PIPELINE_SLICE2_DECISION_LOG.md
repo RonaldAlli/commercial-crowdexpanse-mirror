@@ -946,13 +946,53 @@ money-related semantic classes. *(Reinforces OWN3-INV-2.)*
 
 ---
 
-## OWN-4 · Stages with no backing artifact · **DRAFT**
+## OWN-4 · Projected stage enumeration · **✅ FROZEN 2026-07-22**
 
-**Question.** `INTERESTED_SELLER`, `LOI_SENT`, `UNDER_CONTRACT` currently record facts no object owns (LOI
-generation deferred; no executed-contract object; `contractValueUsd` optional). Under OWN-1 a stage cannot be
-projected without a backing fact — so this becomes: **define the authoritative fact + evidence behind each such
-stage** (e.g. `UNDER_CONTRACT` ⇒ an executed-contract Document), or rule the stage out of the projected set.
-**Depends on:** OWN-1, OWN-2. **Status: DRAFT.**
+**Reframed.** Enumerate the **canonical projected pipeline stages**, each backed by **exactly one** authoritative
+**decision** fact (1C-INV-3); activity/possession stages **demote to operational attention**. The pipeline now
+projects *only authoritative business decisions* — OWN-1's goal fully realized.
+
+**Canonical projected stage spine (frozen):**
+`LEAD → UNDERWRITTEN → BUYER_MATCHED → LOI_ACCEPTED → UNDER_CONTRACT → CLEAR_TO_CLOSE → PAID`
+
+| Stage | Backing decision fact |
+|---|---|
+| `LEAD` | entry state (opportunity exists) |
+| `UNDERWRITTEN` | **`UNDERWRITING_APPROVED`** — the existing **V1.3** authoritative decision, **reused** (no new underwriting fact family; OWN3-INV-2) |
+| `BUYER_MATCHED` | `BUYER_MATCHED` |
+| `LOI_ACCEPTED` | `LOI_ACCEPTED` |
+| `UNDER_CONTRACT` | `CONTRACT_EXECUTED` |
+| `CLEAR_TO_CLOSE` | **`CLEAR_TO_CLOSE`** — a **new** decision fact (below) |
+| `PAID` | `TRANSACTION_CLOSED` |
+
+**New decision fact — `CLEAR_TO_CLOSE`.** A **policy-relative decision fact** = *"the configured **pre-closing
+policy** is satisfied"* (every required pre-closing condition met — e.g. required contingencies removed ∧
+`FINANCING=CLEARED`, per org config). Symmetric with `DILIGENCE_COMPLETE` and `TRANSACTION_CLOSED`
+(facts → configured policy → decision). It is a genuine business truth distinct from both `UNDER_CONTRACT` and
+`TRANSACTION_CLOSED`: **"closing may now occur"** (not "working on closing"). A **second** policy-relative
+decision in the closing domain (a *pre-closing* policy), evaluated over the same fact graph — its predicate,
+authority, and deterministic-eval follow the **same frozen machinery** (GI-2/GI-3/5A; archetype-configurable per
+OWN-3, structural-core + org-config per OWN3-INV-3). *(`FINANCING=CLEARED` is the natural pre-closing state, per
+OWN3.2-INV-1's CLEARED≠FUNDED distinction.)*
+
+**Demoted to operational attention (activity/possession — NOT pipeline truth):** `SELLER_CONTACTED`,
+`FINANCIALS_REQUESTED`, `T12_RECEIVED`, `RENT_ROLL_RECEIVED`, `OFFER_READY`, `LOI_SENT`. *(`T12_RECEIVED` /
+`RENT_ROLL_RECEIVED` are `DILIGENCE_MATERIAL_RECEIVED` possession facts, non-projecting per 1C-INV-1; `LOI_SENT`
+non-projecting per 3.1-INV-5.)*
+
+**Deferred (not removed, not kept):** `INTERESTED_SELLER` — the only early stage that *plausibly* represents more
+than activity. Survives as a stage **only if** an authoritative **`SELLER_INTEREST_CONFIRMED`** decision fact
+(mutual intent to continue) is explicitly defined; otherwise → operational attention. Pending semantic definition
+(edges into the CRM/sourcing domain, arguably outside Slice 2's spine).
+
+**Invariant.** **OWN4-INV-1 · Every projected stage maps to EXACTLY ONE authoritative decision fact** (not
+one-or-more). If a stage would require *combining* facts, introduce a **decision fact** (e.g. `TRANSACTION_CLOSED`,
+`CLEAR_TO_CLOSE`) and project from it. Keeps the projection layer trivial + deterministic.
+
+**Downstream.** The current enum has `BUYER_MATCHED` after `UNDER_CONTRACT` (a pre-existing ordering oddity) — the
+canonical spine fixes the order (buyer-match precedes contract). New facts introduced by OWN-4: `CLEAR_TO_CLOSE`
+(defined) + `SELLER_INTEREST_CONFIRMED` (deferred). Last open item: **OPP-3**. **Status: FROZEN** (Ronald,
+2026-07-22).
 
 ---
 
