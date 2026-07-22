@@ -1,9 +1,13 @@
-# D19 — Automation Runtime · Investigation (acceptance-first, reproduction gate)
+# D19 — Automation Runtime · Investigation + Fix (acceptance-first)
 
-> **Phase 1–3 done in STAGING (test DB, scheduler OFF, synthetic). Reproduced the crash BEFORE changing any
-> dependency / startup command / PM2 config / app code. Production UNTOUCHED — `crowdexpanse-automation` was
-> never started (not in the pm2 list).** No implementation. `node --import tsx` is treated as a HYPOTHESIS to
-> validate against a clean production-style install — NOT a conclusion. 2026-07-22.
+> **Investigation (Phase 1–3) reproduced the crash in STAGING BEFORE any change; Option A then implemented +
+> verified against a CLEAN `npm ci --omit=dev` install + full Phase 4 runtime acceptance (19/19). Production
+> UNTOUCHED throughout — `crowdexpanse-automation` never started; scheduler kill-switch stays OFF.**
+> **STOP POINT: awaiting review before any production scheduler enablement.** 2026-07-22.
+>
+> — See **[Implementation (Option A) + Phase 4 acceptance](#implementation-option-a--phase-4-acceptance)** below.
+> The Phase-2 note that `node --import tsx` was "known/proven" was treated as a hypothesis and has now been
+> validated against a real production-style dependency graph (not just the source tree).
 
 ---
 
@@ -101,6 +105,50 @@ clean `--omit=dev` install in staging (Phase 4 acceptance) → review → and on
 production enablement (which stays gated by the `AUTOMATION_SCHEDULER_ENABLED` kill-switch regardless).
 
 ---
-*Stop point: D19 present failure REPRODUCED (`ERR_UNKNOWN_FILE_EXTENSION`, startup); `--import tsx` starts but
-`tsx` is a devDep omitted by prod installs → the durable fix must promote tsx (or compile). Prod untouched.
-Awaiting review of the minimal-fix option.*
+
+## Implementation (Option A) + Phase 4 acceptance
+Founder approved **Option A**. Implemented on branch `fix/d19-automation-runtime-tsx-dep` (from `main 00f429f`).
+
+### The change (two edits, no app-logic change)
+1. **`package.json`** — moved `"tsx": "^4.19.2"` from `devDependencies` → `dependencies` (lockfile
+   regenerated: `node_modules/tsx` now `dev=false`; `npm ls tsx --omit=dev` → `tsx@4.19.2`, previously empty).
+2. **`ecosystem.config.js`** — the `crowdexpanse-automation` app gets `node_args: "--import tsx"` (tsx requires
+   `--import`, not `--loader`). The web app (`crowdexpanse-commercial`) is **untouched**.
+
+### Decisive clean-install verification (the founder's gate — dependency graph, not source tree)
+Fresh `git clone` → `npm ci --omit=dev` in a throwaway checkout (`/opt/crowdexpanse/d19-clean-verify`):
+| Check | Result |
+|---|---|
+| `npm ls tsx` (clean `--omit=dev` tree) | **`tsx@4.19.2` present** (was `(empty)` before the fix) |
+| Baseline `node scripts/automation-runtime.mjs` (unfixed cmd, same clean tree) | still **rc=1 · `ERR_UNKNOWN_FILE_EXTENSION`** (repro holds) |
+| Fixed `node --import tsx scripts/automation-runtime.mjs` | **STARTED** · `runtime starting · scheduler=off · handlers=1` · drains cleanly on SIGTERM |
+
+### Phase 4 runtime acceptance — `scripts/d19-runtime-acceptance.mjs` (19/19)
+A durable harness that spawns the **real PM2 entrypoint** (`node --import tsx …`, scheduler OFF) against the
+`*_test` DB with a throwaway org + synthetic tagged jobs (distinct from `e2e-automation.mjs`, which tests the
+lib functions). Proves: (1) boots under the production command — no D19 crash; (2) in-process executor drains
+the queue; (3) success **persisted** (SUCCEEDED / ALLOW / `producedDomainEffect=false` / AUTOMATION principal);
+(4) a failed job (unknown type) **dead-letters without crashing** the worker; (5) missing/malformed input →
+clean **NOOP**, process stays up; (6) **graceful SIGTERM** → exit 0, "stopped cleanly"; (7) **restart** claims
+new work but records **no new executions for terminal jobs** (idempotent); (8) same-identity re-enqueue → one
+job. Maps to acceptance criteria 1–7,9 (8 = the clean-install check above; 10 = prod untouched).
+
+### Out-of-scope finding (recorded, NOT fixed in D19)
+**Shutdown latency:** `shutdown()` awaits `reaper.stop()`, whose interval-loop sleeps on a
+**non-interruptible** `AUTOMATION_REAPER_INTERVAL_MS` (default **30 s**). A clean drain can therefore lag up to
+that interval — and PM2's default `kill_timeout` (~1.6 s) would `SIGKILL` the process before it drains. This is
+a **pre-existing** property of the reaper loop, unrelated to the startup crash D19 fixes; the acceptance
+harness sets a short interval to exercise the drain deterministically. → Candidate follow-up: make the
+interval sleeps interruptible on stop (or shorten the interval + raise PM2 `kill_timeout`). Not changed here.
+
+### Gate (branch)
+`tsc` 0 · unit **73 files** · e2e **43 scripts** · `build:isolated` ok. Frozen kernels untouched (docs +
+`package.json`/`ecosystem.config.js` + one new acceptance script only). See also the
+[devDependency runtime audit](./DEVDEP_RUNTIME_AUDIT.md) (the follow-up: D19 closed the only prod-runtime
+devDep gap; the remaining devDep usage is the build step, which is by design).
+
+---
+*Stop point: **Option A implemented + clean-`--omit=dev`-verified + Phase 4 accepted (19/19), gate green.**
+Branch `fix/d19-automation-runtime-tsx-dep`, NOT merged, NOT deployed. `AUTOMATION_SCHEDULER_ENABLED` stays
+`0`; the executor is not started in production. **Awaiting review before merge/deploy and, separately, before
+any scheduler enablement.***
