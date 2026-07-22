@@ -61,6 +61,27 @@ No schema change, no API change, no change to the per-deal analyzer or nearby ro
 A Playwright regression (mirroring `tests/visual/opportunity-board-stage.spec.ts`) asserting `/analyzer`
 renders ≤ `ANALYZER_LIMIT` rows + the "View all" affordance at scale.
 
+## Production Verification (2026-07-22) — ✅ CLOSED
+Shipped through the corrected D25 Deployment Engine (`deploy.mjs --app-dir /opt/crowdexpanse/commercial
+--production --yes`) — the **first successful production deploy via the engine** (the initial attempt
+surfaced + was blocked by [DE-5](./DE5_DEPLOY_TSCONFIG_RELEASES.md), which was fixed first). Full lifecycle:
+`PRECHECK → BUILD → VERIFY_BUILD → SWAP → RESTART → VERIFY_RUNTIME → SMOKE → COMPLETE`. New build
+`iV84TbmJSWasU9XBvMmdQ` (was `AKUhg2…`); restore-verified backup `20260722-005453Z`; prior release retained.
+
+**Before → After (prod, operator session — the metrics that exposed the defect):**
+| Metric | Before | After |
+|---|---|---|
+| `/analyzer` render time | 4.65 s | **0.22 s** (~21× faster) |
+| Response size | 9.53 MB | **87 KB** (~107× smaller) |
+| Opportunity links rendered | 9,642 | **61 + "View all"** |
+
+**Acceptance (all met):** HTTP 200 ✅ · size/time materially reduced ✅ · click a deal → 307 to `/edit`
+(correct) ✅ · direct refresh 200 ✅ · PM2 stable (`unstable_restarts=0`, online) ✅ · **no new
+application errors** (error log unchanged since 2026-07-20) ✅ · short observation health 20/20 ✅ · no
+rollback required ✅.
+
+**Deal Analyzer defect: PRODUCTION VERIFIED · CLOSED.**
+
 ---
-*Stop point: reproduced, root-caused, smallest fix implemented + verified in staging. Branch
-`fix/analyzer-unbounded-load`. Awaiting review before production deployment.*
+*Closed 2026-07-22: reproduced → root-caused → bounded fix + regression test → staging-verified → shipped via
+the D25 engine → production-verified (21×/107× improvement). Deploy also validated the engine + DE-5 fix live.*

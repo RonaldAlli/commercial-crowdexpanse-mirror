@@ -1,8 +1,9 @@
 # DE-5 — Deploy tsconfig type-checks sibling releases (blocks the first engine prod deploy)
 
-> **Found on the FIRST real production deploy via the D25 engine (deploying the Deal Analyzer fix).
-> Production is UNTOUCHED — the build failed BEFORE swap; the engine's fail-before-swap design held.
-> Reporting before touching the frozen engine or a live release.** 2026-07-22.
+> **✅ FIXED + PRODUCTION-VERIFIED · CLOSED 2026-07-22.** Found on the first prod engine deploy (build failed
+> BEFORE swap — prod untouched); fixed as an engine correction (deploy tsconfig excludes build-output/release
+> dirs), staging-reproduced + regression-tested, then the analyzer deploy succeeded through the corrected
+> engine (full PRECHECK→…→COMPLETE, build `iV84TbmJSWasU9XBvMmdQ`). Frozen-engine baseline moves: `main b5bdb4c`.
 
 ---
 
