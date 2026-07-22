@@ -1,8 +1,10 @@
-# ProjectionResult — Public Contract **v1.1** (FROZEN, pre-E4)
+# ProjectionResult — Public Contract **v1.2** (FROZEN, pre-E4)
 
-> **v1.1 (founder refinements):** first-class versioned `StageSpine`; `frontier` + `decidingArtifact` +
-> `completeness`; indicators originate from the authoritative `EvaluationResult` (not the trace); PR-INV-8 (stage
-> independence) + PR-INV-9 (frontier completeness).
+> **v1.1:** first-class versioned `StageSpine`; `frontier` + `decidingArtifact` + `completeness`; indicators from the
+> authoritative `EvaluationResult` (not the trace); PR-INV-8 (stage independence) + PR-INV-9 (frontier completeness).
+> **v1.2 (founder refinement):** stage is projected by **observing active Decision Facts** — the spine binds stages
+> to Decision Fact types, NOT to evaluator predicates; `EvaluationArtifact`s are optional supporting explanation.
+> Added PR-INV-10 (projection observes decisions). No `STAGE:*` predicates in the evaluator.
 
 > **What this freezes:** the *output* of E4 Projection — the derived, user-facing **operational state** computed
 > from authoritative data. Frozen before implementation, like the E1 ledger API, Fact Graph API, EvaluationResult/
@@ -21,10 +23,13 @@
 ## 1. The pipeline (first-class object, not a bare stage)
 
 ```
-FactGraph → EvaluationArtifact(s) → Projection → ProjectionResult
+FactGraph (active Decision Facts) → Projection → ProjectionResult
+        (optional supporting EvaluationArtifacts explain WHY those facts exist)
 ```
-Never `FactGraph → stage string`. Projection consumes the **one evaluator's** artifacts (Law 6) and produces a
-structured, disposable `ProjectionResult`.
+Never `FactGraph → stage string`. **Stage is projected by OBSERVING active Decision Facts in the FactGraph**
+(PR-INV-10), not by asking the evaluator "is this currently eligible?" — the evaluator already answered that before
+the decision was authorized and declared. `EvaluationArtifact`s are **optional supporting explanation** (they
+explain why a decision fact exists), never the stage driver.
 
 ## 2. `ProjectionResult` (v1.0)
 
@@ -35,21 +40,23 @@ ProjectionResult = {                 // v1.1
   spineVersion:      string,   // the StageSpine version projected against
 
   // AUTHORITATIVE-of-the-derived-layer (still derived + disposable overall — Law 4):
-  stage:        string,        // OWN-1 furthest-fact projected stage (OWN-4 spine: LEAD … PAID)
-  completeness: "COMPLETE" | "PARTIAL",   // whether every spine predicate had an artifact (PR-INV-9)
+  stage:        string,        // OWN-1 furthest-fact projected stage = furthest spine stage whose Decision Fact is active
+  completeness: "COMPLETE" | "PARTIAL",   // whether every frontier entry has its supporting artifact (explanation completeness — PR-INV-9)
   labels:       { code: string, detail?: string }[],   // operational display labels
-  indicators:   { code: string, detail?: string }[],   // operational-attention indicators, derived from EvaluationRESULTs (§2a)
+  indicators:   { code: string, detail?: string }[],   // operational-attention indicators, from supporting EvaluationRESULTs (§2a)
 
   // DERIVED explanation (preserves, never reinterprets, the evaluator output — PR-INV-7):
-  frontier:         FrontierEntry[],           // EVERY spine predicate + its artifact + satisfied (an architectural artifact)
-  decidingArtifact: EvaluationArtifact | null, // = frontier.lastSatisfied() (LEAD/base ⇒ null)
-  evaluationArtifacts: EvaluationArtifact[],    // all consumed artifacts, embedded byte-identical (PR-INV-7)
+  frontier:         FrontierEntry[],           // EVERY spine entry: its Decision Fact, present/active, + optional supporting artifact
+  decidingStage:    string,                    // = frontier.lastActive().stage (LEAD ⇒ base)
+  decidingArtifact: EvaluationArtifact | null, // optional supporting artifact for the deciding decision (null if none supplied)
+  evaluationArtifacts: EvaluationArtifact[],    // supporting artifacts supplied, embedded byte-identical (PR-INV-7)
   derivedFacts: { code: string, detail?: string }[], // computed/disposable derived values
-  explanation:  { reasoning: string[], decidingPredicateId?: string | null, inconsistencies: Inconsistency[] },
+  explanation:  { reasoning: string[], decidingDecisionFactType?: string | null, inconsistencies: Inconsistency[] },
 }
 
-FrontierEntry = { stage: string, predicateId: string | null, satisfied: boolean, artifact: EvaluationArtifact | null }
-Inconsistency  = { code: string, detail?: string }   // core taxonomy (design §): missing-predecessor / conflicting-successor / mutually-exclusive-active / retracted-predecessor-surviving-successor
+// The frontier is fundamentally about OBSERVED TRUTH; the artifact only explains why that truth exists.
+FrontierEntry = { stage: string, decisionFactType: string | null, present: boolean, supportingArtifact: EvaluationArtifact | null }
+Inconsistency  = { code: string, detail?: string }   // core taxonomy (design §6): missing-predecessor / conflicting-successor / mutually-exclusive-active / retracted-predecessor-surviving-successor
 ```
 
 Everything here is **derived and disposable** — the whole `ProjectionResult` can be discarded and recomputed from
@@ -58,9 +65,9 @@ facts. `projectionId` is a deterministic **identity** (content address), not an 
 
 ### 2a. Indicators originate from the authoritative EvaluationResult (not the trace)
 
-`indicators` (and `derivedFacts`) are derived from each frontier artifact's **`result`** (`satisfied` / `missing` /
-`reasons` — the authoritative outcome), **never** from the `trace` structure. The trace is explanatory; the result
-is authoritative; an indicator must always originate from the authoritative result.
+`indicators` (and `derivedFacts`) are derived from each **supporting** artifact's **`result`** (`satisfied` /
+`missing` / `reasons` — the authoritative outcome) when one is present, **never** from the `trace` structure. The
+trace is explanatory; the result is authoritative; an indicator must always originate from the authoritative result.
 
 ## 3. Projection invariants (PR-INV)
 
@@ -76,12 +83,16 @@ is authoritative; an indicator must always originate from the authoritative resu
 - **PR-INV-7 · Explanation preservation.** The consumed `EvaluationArtifact`(s) are embedded unchanged; projection
   may only *append* projection-specific reasoning, never rewrite or reinterpret the evaluator's explanation (mirrors
   AUTH-INV-13).
-- **PR-INV-8 · Stage independence.** `stage` is derived **only** from `StageSpine` + `EvaluationArtifacts`; it is
-  **never** influenced by `indicators`, `labels`, `derivedFacts`, or `inconsistencies` (and they are never derived
+- **PR-INV-8 · Stage independence.** `stage` is derived **only** from `StageSpine` + **active Decision Facts**; it
+  is **never** influenced by `indicators`, `labels`, `derivedFacts`, or `inconsistencies` (and they are never derived
   from `stage`). Stage and operational attention are different models and must not cross-contaminate.
-- **PR-INV-9 · Frontier completeness.** For a spine of N decision predicates, projection must either receive all N
-  corresponding `EvaluationArtifact`s or explicitly report `completeness: "PARTIAL"`. It never silently evaluates a
-  missing predicate itself (it consumes the one evaluator's artifacts — PR-INV-4).
+- **PR-INV-9 · Frontier completeness.** The frontier reports every spine entry. `completeness` is `COMPLETE` only
+  when every entry has its supporting `EvaluationArtifact`; otherwise `PARTIAL` — projection never fabricates or
+  self-evaluates a missing supporting artifact (stage itself is always determinable from the Decision Facts alone).
+- **PR-INV-10 · Projection observes decisions.** Projection derives `stage` from `StageSpine` → **active Decision
+  Facts** in the FactGraph — never directly from business predicates. Business predicates exist to *authorize
+  decision creation* (E2·B/E3); a declared Decision Fact *becomes truth* (E1); Projection *observes truth* (E4).
+  Chain: `Predicate → Authorization → Decision Fact → Projection` — never `Predicate → Projection`.
 
 ## 4. Symmetry with the rest of the stack
 
@@ -89,9 +100,10 @@ Same shape as every layer: immutable input → deterministic core → authoritat
 explanation.
 
 ```
-Evaluation:     FactGraph          → Evaluator     → EvaluationResult     + Trace
-Authorization:  EvaluationArtifact → Authorization → AuthorizationDecision(decision) + explanation
-Projection:     EvaluationArtifact → Projection    → ProjectionResult(stage/labels/indicators) + explanation
+Evaluation:     FactGraph               → Evaluator     → EvaluationResult     + Trace
+Authorization:  EvaluationArtifact      → Authorization → AuthorizationDecision(decision) + explanation
+Projection:     active Decision Facts   → Projection    → ProjectionResult(stage/labels/indicators) + explanation
+                (+ optional supporting EvaluationArtifacts as explanation)
 ```
 
 ## 5. Out of scope

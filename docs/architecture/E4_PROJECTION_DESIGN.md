@@ -1,9 +1,9 @@
 # E4 · Projection — Technical Design (ratified decisions; for freeze before implementation)
 
-> Projection derives operational **presentation** state from authoritative reasoning. It consumes the one
-> evaluator's `EvaluationArtifact`s (never re-derives truth) and produces a first-class, disposable
-> [`ProjectionResult`](./PROJECTION_RESULT_CONTRACT.md) (Law 4/8, PR-INV-1..9). Derives from OWN-1 (stage =
-> deterministic furthest-fact projection), OWN-4 (stage spine), and the Phase-3
+> Projection derives operational **presentation** state by **observing active Decision Facts** in the FactGraph (it
+> never re-derives truth). Optional `EvaluationArtifact`s are supporting explanation only. Produces a first-class,
+> disposable [`ProjectionResult`](./PROJECTION_RESULT_CONTRACT.md) (Law 4/8, PR-INV-1..10). Derives from OWN-1
+> (stage = deterministic furthest-fact projection), OWN-4 (stage spine), and the Phase-3
 > [State-Transition Model](./OPPORTUNITY_PIPELINE_STATE_TRANSITION_MODEL.md). Founder-ratified w/ refinements
 > 2026-07-22.
 
@@ -12,62 +12,62 @@
 ## 1. The function
 
 ```
-project({ spine, evaluationArtifacts, projectionPolicy }) → ProjectionResult
+project({ spine, graph, evaluationArtifacts?, projectionPolicy }) → ProjectionResult
 ```
-Observational; consumes only immutable inputs (PR-INV-1/2). It does **not** evaluate predicates, read the ledger,
-mutate facts, or authorize (PR-INV-3/4/5). `projectionId = H(spineId, spineVersion, projectionVersion, ordered
-frontier evaluationIds)` — a deterministic identity.
+Observational; consumes only immutable inputs (PR-INV-1/2): the **`FactGraph`** (to observe active Decision Facts),
+the `StageSpine`, optional **supporting** `EvaluationArtifact`s (explanation only), and projection policy. It does
+**not** evaluate predicates, read the ledger, mutate facts, or authorize (PR-INV-3/4/5). `projectionId =
+H(spineId, spineVersion, projectionVersion, ordered active decision-fact ids, ordered supporting evaluationIds)`.
 
-## 2. `StageSpine` — first-class and versioned (refinement 1)
+## 2. `StageSpine` — first-class, versioned, bound to Decision Facts (required refinement)
 
-The progression model is data, versioned independently of projection code:
+The progression model is data, versioned independently of projection code. **Each stage binds to a Decision Fact
+type — NOT to an evaluator predicate.** No `STAGE:*` predicates are added to the evaluator; the reasoning layer stays
+focused on "can this decision be declared?", while projection asks "has it been declared?".
 
 ```
 StageSpine = {
   spineId: string,
   spineVersion: string,
-  entries: { stage: string, predicateId: string | null }[],   // ordered LEAD..PAID; LEAD has predicate null (base)
+  entries: { stage: string, decisionFactType: string | null }[],   // ordered LEAD..PAID; LEAD binds to null (base)
 }
 ```
 
-`ss-1` realizes the OWN-4 spine — each stage bound to its **decision-fact-presence predicate** (a stage is reached
-iff its one decision fact is asserted, OWN4-INV-1):
+`ss-1` realizes the OWN-4 spine — each stage bound to its one Decision Fact (OWN4-INV-1):
 
-| stage | predicateId (presence of the decision fact) |
+| stage | Decision Fact type |
 |---|---|
 | LEAD | `null` (base case) |
-| UNDERWRITTEN | `STAGE:UNDERWRITING_APPROVED` |
-| BUYER_MATCHED | `STAGE:BUYER_MATCHED` |
-| LOI_ACCEPTED | `STAGE:LOI_ACCEPTED` |
-| UNDER_CONTRACT | `STAGE:CONTRACT_EXECUTED` |
-| CLEAR_TO_CLOSE | `STAGE:CLEAR_TO_CLOSE` |
-| PAID | `STAGE:TRANSACTION_CLOSED` |
+| UNDERWRITTEN | `UNDERWRITING_APPROVED` |
+| BUYER_MATCHED | `BUYER_MATCHED` |
+| LOI_ACCEPTED | `LOI_ACCEPTED` |
+| UNDER_CONTRACT | `CONTRACT_EXECUTED` |
+| CLEAR_TO_CLOSE | `CLEAR_TO_CLOSE` |
+| PAID | `TRANSACTION_CLOSED` |
 
-The `STAGE:*` predicates are **decision-fact-presence** predicates — additive registrations in the evaluator (the
-sanctioned extension path, Predicate Engine Design §7). Stage projects from the *decision fact*, not the composite
-policy predicate (the policy predicate gated the DECLARE in E3; the stage reflects the resulting fact). Predicates
-consume decision-visible reads (retractions suppress — FactGraph §4.3).
+## 3. Stage = furthest active Decision Fact (PR-INV-8/10)
 
-## 3. Stage = furthest satisfied (refinements 1 & 2, PR-INV-8)
+Projection walks the spine and asks the **FactGraph** whether each stage's Decision Fact is **active**
+(`graph.activeByType(decisionFactType)` present — decision-visible, so a retraction suppresses it, FactGraph §4.3).
+`stage` = the furthest entry whose Decision Fact is active (`frontier.lastActive()`); LEAD is the base. **Stage is
+derived only from `StageSpine` + active Decision Facts** — never from artifacts, indicators, labels, derivedFacts,
+or inconsistencies (PR-INV-8/10). Total; may regress (OWN-1). No evaluator involvement for stage.
 
-The caller evaluates **every** spine predicate through the one evaluator and passes the resulting artifacts.
-Projection walks the spine and sets `stage` = the furthest entry whose artifact is `satisfied`
-(`frontier.lastSatisfied()`); LEAD is the base. **Stage is derived only from `StageSpine` + artifacts** — never
-from indicators/labels/derivedFacts/inconsistencies (PR-INV-8). It is total and may regress (OWN-1).
+## 4. Frontier + completeness (PR-INV-9)
 
-## 4. Frontier + completeness (refinement 2, PR-INV-9)
+`frontier` carries **every** spine entry: its `decisionFactType`, whether it is `present` (active), and an
+**optional** `supportingArtifact` (which explains *why* that decision exists). `decidingStage =
+frontier.lastActive().stage`; `decidingArtifact` = that entry's supporting artifact if supplied. The frontier is
+about **observed truth**; artifacts merely explain it. `completeness` is `COMPLETE` only when every entry has its
+supporting artifact, else `PARTIAL` — projection never fabricates/self-evaluates a missing one (stage is always
+determinable from the Decision Facts regardless).
 
-`frontier` carries **every** spine entry with its `predicateId`, `satisfied`, and embedded `artifact` — an
-architectural artifact for debugging/replay/audit/analytics. `decidingArtifact = frontier.lastSatisfied().artifact`.
-If any non-base spine predicate has no supplied artifact, projection sets `completeness: "PARTIAL"` and records which
-are absent — it **never** evaluates a missing predicate itself (PR-INV-9). Otherwise `COMPLETE`.
+## 5. Operational attention — separate model (§2a)
 
-## 5. Operational attention — separate model (refinement 3, §2a)
-
-`indicators` / `labels` / `derivedFacts` are derived from each frontier artifact's authoritative **`result`**
-(`satisfied` / `missing` / `reasons`), **never** from the trace. Examples: `BLOCKED_ON_EVIDENCE` (a nearer
-predicate unsatisfied due to missing evidence), `NEEDS_REVIEW`. These **never** influence `stage` and `stage` never
-implies them (PR-INV-8). Strictly derived + disposable (Law 4).
+`indicators` / `labels` / `derivedFacts` are derived from each **supporting** artifact's authoritative **`result`**
+(`satisfied` / `missing` / `reasons`) when present, **never** from the trace. Examples: `BLOCKED_ON_EVIDENCE`,
+`NEEDS_REVIEW`. These **never** influence `stage` and `stage` never implies them (PR-INV-8). Strictly derived +
+disposable (Law 4).
 
 ## 6. Core inconsistency taxonomy (refinement 4)
 
@@ -83,11 +83,14 @@ they never change `stage` (PR-INV-8) and never error.
 
 ## 7. Acceptance (AC-OWN1-* / AC-STM-* / AC-OPP3-*)
 
-Base LEAD · each stage projected from its decision-fact-presence · **regression** (a retracted decision moves stage
-back) · furthest-fact selection across a full frontier · `PARTIAL` completeness when an artifact is absent · each of
-the four inconsistencies · indicators sourced from `result` (not trace). **Every scenario also asserts
-`ProjectionResult.evaluationArtifacts` (and each `frontier[i].artifact`) is byte-identical to the supplied
-artifacts** — no reinterpretation, only organization (mirrors AUTH-INV-13 / PR-INV-7).
+Base LEAD · each stage projected from its active Decision Fact · **regression** (a retracted decision moves stage
+back) · furthest-active selection across a full frontier · `PARTIAL` completeness when a supporting artifact is
+absent · each of the four inconsistencies · indicators sourced from `result` (not trace). **Decision survives,
+evaluation changes, projection unchanged** — a declared Decision Fact keeps projecting its stage even if predicate
+logic/inputs later change; only a **retraction** moves the stage (projection observes facts, not hypothetical
+current eligibility — PR-INV-10). **Every scenario also asserts `ProjectionResult.evaluationArtifacts` (and each
+supplied `frontier[i].supportingArtifact`) is byte-identical to the supplied artifacts** — no reinterpretation, only
+organization (mirrors AUTH-INV-13 / PR-INV-7).
 
 ## 8. Boundaries / traceability
 
