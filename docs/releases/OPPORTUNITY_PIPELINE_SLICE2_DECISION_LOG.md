@@ -442,6 +442,53 @@ product choice **deferred to OWN-4**.
 
 ---
 
+## OWN-2 · Fact 3 — Letter of Intent (LOI)
+
+**Umbrella question.** What authoritative business truth does an LOI establish? An LOI is a **negotiated
+artifact**, so the family is inherently **versioned** (counter-offers are the norm).
+
+### OWN-2 · Decision 3.1 — LOI fact decomposition & semantics · **✅ FROZEN 2026-07-22**
+
+**Adopted policy (frozen).** Four facts:
+- **`LOI_DRAFTED`** — a draft LOI (version) exists. Preparation, not agreement. **Non-projecting.**
+- **`LOI_SENT`** — a specific LOI **version** was transmitted to the intended counterparty (one-sided action;
+  evidence: version identity, sender, timestamp, delivery record if available). **Non-projecting.**
+- **`LOI_DELIVERED`** — the counterparty received / delivery was confirmed (**model-neutral**: an attributable
+  delivery-evidence record whose source satisfies org evidence policy). Evidence, not agreement. **Non-projecting.**
+- **`LOI_ACCEPTED`** — both parties have assented to the terms of a **specific LOI version**. **Projects** the LOI
+  stage. Requires: the **accepted version identity** + an attributable counterparty-acceptance record (per org
+  evidence policy) + both parties' assent to that same version. A **counter-offer is a new `LOI_DRAFTED`/`LOI_SENT`
+  cycle for a new version** — never acceptance of the prior. Establishes **mutual agreed intent over the identified
+  terms** and implies **no** executed contract, closing, or payment.
+
+Version anchoring continues the family discipline: diligence → policy version, buyer qualification →
+qualification-policy version, **LOI → artifact version**.
+
+**Invariants.**
+- **3.1-INV-1 · Acceptance is version-specific.** Every `LOI_ACCEPTED` fact identifies exactly one LOI version;
+  acceptance never floats across versions.
+- **3.1-INV-2 · Acceptance does not propagate.** Acceptance of version N implies nothing about any other version;
+  each version stands independently.
+- **3.1-INV-3 · Same-version mutual assent.** `LOI_ACCEPTED` establishes that **both** parties assented to the
+  **same identified** version; how each party's assent is evidenced depends on who authored that version.
+- **3.1-INV-4 · Counter-offer creates a new version** — a new draft/sent cycle; never a modification of a prior
+  acceptance.
+- **3.1-INV-5 · Only `LOI_ACCEPTED` projects.** `LOI_DRAFTED`/`LOI_SENT`/`LOI_DELIVERED` are non-projecting
+  (operational attention + audit). *(Formalized in 3C.)*
+- **3.1-INV-6 · Acceptance ≠ commitment.** `LOI_ACCEPTED` implies no executed contract, closing, or payment.
+- **3.1-INV-7 · Evidence capture is distinct** (per GI-2 / 2B-INV-5). Automated capture of acceptance/delivery
+  evidence never asserts `LOI_ACCEPTED`; the declaration happens at the fact boundary.
+
+**Downstream.** `LOI_ACCEPTED` is "further" than `BUYER_MATCHED` (furthest-fact): an imported deal with an
+accepted LOI but no recorded match projects the LOI stage **and** surfaces the missing-earlier-fact inconsistency
+(OWN-1 INV-5) — no special logic. **GI-3** (external event → evidence → fact → projection) now has its **third**
+instance (LOI delivery/acceptance evidence → `LOI_ACCEPTED`) — still *watched*; promote after the contract family.
+Opens **3A** (authority), **3B** (deterministic-eval applicability); **3C** (projection) is effectively ruled by
+3.1-INV-5 (a separate 3C is needed only if OWN-4 introduces a pre-acceptance LOI stage). **Status: FROZEN**
+(Ronald, 2026-07-22).
+
+---
+
 ## OWN-3 · What must be true for PAID? · **DRAFT**
 
 **Question.** Should PAID require Financing/Escrow/Assignment artifacts, or only the due-diligence checklist?
