@@ -740,6 +740,39 @@ seller-finance / subject-to / double-close differ). Opens **5A** (authority — 
 fact-operation taxonomy), **5B** (deterministic-eval — a machine-evaluable closing policy is plausible, per 4B),
 **5C** (projection — only `TRANSACTION_CLOSED` projects `PAID`). **Status: FROZEN** (Ronald, 2026-07-22).
 
+### OWN-2 · Decision 5A — Closing-fact authority · **✅ FROZEN 2026-07-22**
+
+**Adopted policy (frozen).** Closing facts reuse the frozen fact-operation authority taxonomy, applied **per GI-3
+class**: **artifact** (`ASSIGNMENT_DRAFTED`) → `DRAFT_*` (create); **evidence** (`EARNEST_DEPOSITED`,
+`FINANCING_FUNDED` evidence, `DEED_RECORDED`, `FUNDS_DISBURSED`, `SETTLEMENT_COMPLETED` evidence) →
+`RECORD_*_EVIDENCE` (record, never synthesize); **decision** (`ESCROW_OPENED`/`RELEASED`,
+`FINANCING_COMMITTED`/`CLEARED`, `ASSIGNMENT_EXECUTED`, `CONTINGENCY_REMOVED`, `CHECKLIST_ITEM_SATISFIED`,
+`TRANSACTION_CLOSED`) → `DECLARE_*`/`RETRACT_*` (subject to policy); **all** → `CORRECT_HISTORY` (append-only,
+GI-1). `TRANSACTION_CLOSED` gets `DECLARE_TRANSACTION_CLOSED` / `RETRACT_TRANSACTION_CLOSED` /
+`ACCEPT_CLOSING_EXCEPTION` *(policy-gated)*.
+
+**`ACCEPT_CLOSING_EXCEPTION` (frozen scope).** May relax only an **org-policy / decision-layer** requirement;
+it **never** substitutes for a missing **required evidence fact** (funds disbursed, deed recorded, earnest
+deposit, settlement evidence). *You can waive an internal approval; you cannot waive the funds into existence.*
+
+**Invariants.**
+- **5A-INV-1 · Closing facts use the fact-operation taxonomy per GI-3 class** (artifact = create · evidence =
+  record-only · decision = declare/retract).
+- **5A-INV-2 · Required-fact completeness precedes closing authority — in the required *state*.**
+  `DECLARE_TRANSACTION_CLOSED` may assert only when every fact required by the configured closing policy exists
+  **in its required authoritative state** (existence + state + relationships — not mere presence; `ESCROW=OPENED`
+  ≠ `RELEASED`, `FINANCING=COMMITTED` ≠ `FUNDED`).
+- **5A-INV-3 · Closing exceptions never substitute for missing evidence facts.**
+- **5A-INV-4 · Closing exception does not redefine policy.**
+- **5A-INV-5 · Policy evaluates authoritative fact state.** The closing authority evaluates fact **existence,
+  state, and relationships** — never UI state, stage, or derived projections. *(Extends 5.1-INV-1 into the
+  authority layer.)*
+
+**Downstream.** The architecture is now **fact graph → policy evaluation → decision fact (`TRANSACTION_CLOSED`) →
+stage (`PAID`)** — a higher abstraction than the earlier single-fact families. **5B** (deterministic-eval) is
+nearly determined by GI-2 + GI-3 + 5A; **5C** by 5.1. **OWN-3** = the policy *content* (required facts + states
+per deal type). **Status: FROZEN** (Ronald, 2026-07-22).
+
 ---
 
 ## OWN-3 · What must be true for PAID? · **DRAFT**
