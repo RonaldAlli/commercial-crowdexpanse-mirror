@@ -21,7 +21,7 @@
 - **`lib/pipeline-authorization/commit-guard.ts`** — `revalidateForCommit` (AUTH-INV-14): reruns the canonical
   components (rebuild FactGraph → re-evaluate required predicate via the one evaluator → recompute `authorize`),
   compares `decisionId`, rejects a changed state with `STALE_FACT_GRAPH`. Observational; the DB transaction is E6.
-- **`scripts/e2e-authorization.mjs`** — `AC-AUTH-*` (15 assertions).
+- **`scripts/e2e-authorization.mjs`** — `AC-AUTH-*` (16 assertions).
 
 ## Corrections (both required by the founder) — applied and verified
 
@@ -42,20 +42,27 @@ identity in `decisionId` [9] · archetype allow [10] · commit-guard valid/stale
 
 ```
 Architecture satisfied            ✓  pure decision + commit guard · frozen codes · {decision,explanation} · scope held (no eval/reconstruct/ledger/projection)
-Acceptance scenarios passing       ✓  AC-AUTH 15/15 (Law 11)
+Acceptance scenarios passing       ✓  AC-AUTH 16/16 (Law 11)
 Full E2E sweep                     ✓  49/49 (E1 · AC-FG · AC-GI2 · trace · cycle all green)
 Traceability complete              ✓  authorize → E3 Design → Authorization Model (AUTH-INV-1..14, §11a) + AuthorizationDecision + EvaluationResult/Artifact contracts → Decision Log
 No constitutional violations       ✓  Law 8/13 · AUTH-INV-10/12/13/14 · frozen taxonomy honored · one evaluator reused (not duplicated)
 Ready for next epic                ✓  E4 (Projection) can consume EvaluationArtifact + AuthorizationDecision; E6 wires the commit transaction
 ```
-**Build gate:** `tsc` 0 · e2e 49/49 · AC-AUTH 15/15 · unit 73 files · `build:isolated` ok.
+**Build gate:** `tsc` 0 · e2e 49/49 · AC-AUTH 16/16 · unit 73 files · `build:isolated` ok.
+
+## Post-review correction (founder-required, applied)
+
+- **Removed the evidence-name heuristic.** `authorize` no longer inspects `missing[]` strings to guess a DENY code.
+  An unsatisfied precondition now maps to the frozen code **declared by policy** — `AuthorizationPolicy.
+  preconditionFailureCode` (default `POLICY_PRECONDITION_FAILED`). Authorization performs no business
+  interpretation (restores AUTH-INV-12/13). Coverage added: diligence policy → `MISSING_REQUIRED_EVIDENCE`,
+  clear-to-close policy → `POLICY_PRECONDITION_FAILED` for the *same* unsatisfied state (proves policy-driven, not
+  name-inferred). AC-AUTH now **16/16**.
+- **Barrel comment clarified** — `authorize()` does no eval/reconstruct/ledger-read/projection; `revalidateForCommit()`
+  *orchestrates* the canonical Builder + one Evaluator for commit-time freshness (no independent algorithm).
 
 ## Deviations (disclosed)
 
-- **Evidence-vs-precondition mapping is heuristic** — `authorize` maps an unsatisfied precondition to
-  `MISSING_REQUIRED_EVIDENCE` when the artifact's `missing[]` names evidence-like items, else
-  `POLICY_PRECONDITION_FAILED`. Both are frozen codes; the finer split can move into policy later without a
-  contract change.
 - **`EXCLUSIVITY_CONFLICT`** is defined in the taxonomy but not exercised by the initial capability set (no
   exclusivity rule among the first predicates); reserved for when such a rule is added.
 - **Commit-guard staleness via `decisionId` comparison** — the fresh `decisionId` encodes the graph fingerprint

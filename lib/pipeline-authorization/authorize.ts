@@ -72,13 +72,14 @@ export function authorize(input: AuthorizeInput): AuthorizationDecision {
     }
   }
 
-  // 5 · business precondition (only if REQUIRED, artifact present, and it is the right/current evaluation)
+  // 5 · business precondition (only if REQUIRED, artifact present, and it is the right/current evaluation).
+  //     The frozen DENY code is DECLARED BY POLICY (policy.preconditionFailureCode) — Authorization never infers
+  //     the failure category from the missing item's name. Default: POLICY_PRECONDITION_FAILED.
   if (policy.predicateRequirement === "REQUIRED" && evaluationArtifact && !versionMismatch) {
     if (!evaluationArtifact.result.satisfied) {
-      const missing = evaluationArtifact.result.missing;
-      const isEvidence = missing.some((m) => /diligence:|FUNDS_DISBURSED|EVIDENCE|MATERIAL/i.test(m));
-      if (isEvidence) { codes.push("MISSING_REQUIRED_EVIDENCE"); reasons.push({ code: "MISSING_EVIDENCE", detail: missing.join(",") }); }
-      else { codes.push("POLICY_PRECONDITION_FAILED"); reasons.push({ code: "PRECONDITION_NOT_SATISFIED", detail: missing.join(",") }); }
+      const failureCode = policy.preconditionFailureCode ?? "POLICY_PRECONDITION_FAILED";
+      codes.push(failureCode);
+      reasons.push({ code: "PRECONDITION_NOT_SATISFIED", detail: evaluationArtifact.result.missing.join(",") });
     }
   }
 

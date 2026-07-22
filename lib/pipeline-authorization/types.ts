@@ -41,6 +41,12 @@ export type AuthorizationPolicy = {
   requiredVersionScope?: VersionScope;
   requiredRuleSetVersion?: string;
   allowExceptions?: boolean;
+  /**
+   * The frozen DENY code an unsatisfied precondition maps to for THIS policy — declared explicitly, so
+   * Authorization never infers a category from a missing item's name (removes the heuristic). Defaults to
+   * POLICY_PRECONDITION_FAILED when omitted.
+   */
+  preconditionFailureCode?: "MISSING_REQUIRED_EVIDENCE" | "POLICY_PRECONDITION_FAILED";
 };
 
 /** The frozen DENY taxonomy (Authorization Model §11a) — no renamed/invented codes. */

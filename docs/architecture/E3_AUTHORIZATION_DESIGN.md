@@ -53,6 +53,7 @@ AuthorizationPolicy = {
   requiredVersionScope?: { policyVersion?: string, ruleSetVersion?: string, artifactVersion?: string },
   requiredRuleSetVersion?: string,
   allowExceptions?:     boolean,
+  preconditionFailureCode?: "MISSING_REQUIRED_EVIDENCE" | "POLICY_PRECONDITION_FAILED",  // frozen code an unsatisfied precondition maps to (default POLICY_PRECONDITION_FAILED)
 }
 ```
 
@@ -72,7 +73,7 @@ is stable):
 | 2 | Actor & capability | `INSUFFICIENT_CAPABILITY` | `CAPABILITY_NOT_HELD` (capability ∉ actor.capabilities) · `ACTOR_CLASS_NOT_ALLOWED` (class ∉ allowedActorClasses) |
 | 3 | Migration / exception scope | `MIGRATION_NOT_PERMITTED` · `INVALID_EXCEPTION_SCOPE` | migration op by non-MIGRATION_PRINCIPAL · exception outside allowed scope |
 | 4 | Version binding | `VERSION_MISMATCH` | `REQUIRED_PREDICATE_MISMATCH` · `POLICY_VERSION_MISMATCH` · `RULE_SET_MISMATCH` · `ARTIFACT_VERSION_SCOPE_MISMATCH` |
-| 5 | Business precondition | `POLICY_PRECONDITION_FAILED` · `MISSING_REQUIRED_EVIDENCE` | precondition predicate not satisfied · specific missing evidence from the artifact |
+| 5 | Business precondition | `POLICY_PRECONDITION_FAILED` · `MISSING_REQUIRED_EVIDENCE` | code is **declared by policy** (`preconditionFailureCode`) — Authorization never infers the category from the missing item's name |
 | 6 | Exclusivity / commit-state | `EXCLUSIVITY_CONFLICT` · `STALE_FACT_GRAPH` | conflicting active fact · stale vs current graph (commit guard only) |
 
 `ACTOR_CLASS_NOT_ALLOWED` maps to the frozen `INSUFFICIENT_CAPABILITY` (per your preferred path — no silent new

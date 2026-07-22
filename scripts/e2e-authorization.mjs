@@ -47,12 +47,20 @@ try {
   console.log("\n[2] AC-AUTH · explanation preservation (AUTH-INV-13) — embedded artifact is unchanged:");
   assert(JSON.stringify(dec.explanation.evaluationArtifact) === JSON.stringify(aOk), "the EvaluationArtifact is embedded byte-identical (never rewritten)");
 
-  console.log("\n[3] AC-AUTH · DENY on failed business predicate → MISSING_REQUIRED_EVIDENCE (business group):");
+  console.log("\n[3] AC-AUTH · failed precondition → DENY code DECLARED BY POLICY (no name heuristic):");
   const dNo = newOpp();
   await rf(dNo, "DILIGENCE_MATERIAL_RECEIVED", "RECORD_EVIDENCE", { subjectKey: "t12" });
   const aNo = await art(dNo, "DILIGENCE_COMPLETE");
   const d3 = authorize({ actor: HUMAN_OK, capability: "DECLARE_DILIGENCE_COMPLETE", operation: OP_DIL, policy: POL_DIL, evaluationArtifact: aNo });
-  assert(!d3.decision.allow && has(d3, "MISSING_REQUIRED_EVIDENCE"), "unsatisfied precondition denies with MISSING_REQUIRED_EVIDENCE");
+  assert(!d3.decision.allow && has(d3, "MISSING_REQUIRED_EVIDENCE"), "diligence policy declares MISSING_REQUIRED_EVIDENCE for an unsatisfied precondition");
+  // Same 'unsatisfied' state, DIFFERENT policy → DIFFERENT frozen code, driven purely by policy.preconditionFailureCode.
+  const ctcNo = newOpp();
+  for (const k of ["t12", "rent_roll", "psa"]) await rf(ctcNo, "DILIGENCE_MATERIAL_RECEIVED", "RECORD_EVIDENCE", { subjectKey: k });
+  await rf(ctcNo, "CONTINGENCY_REMOVED", "DECLARE", { subjectKey: "inspection" }); // missing 'financing' contingency
+  await rf(ctcNo, "FINANCING", "DECLARE", { state: "CLEARED" });
+  const aCtc = await art(ctcNo, "CLEAR_TO_CLOSE");
+  const d3b = authorize({ actor: HUMAN_OK, capability: "DECLARE_CLEAR_TO_CLOSE", operation: { factType: "CLEAR_TO_CLOSE", factClass: "DECISION", op: "DECLARE" }, policy: getPolicy("ap1-declare-clear-to-close"), evaluationArtifact: aCtc });
+  assert(!d3b.decision.allow && has(d3b, "POLICY_PRECONDITION_FAILED") && !has(d3b, "MISSING_REQUIRED_EVIDENCE"), "clear-to-close policy declares POLICY_PRECONDITION_FAILED (mapping is policy-driven, not name-inferred)");
 
   console.log("\n[4] AC-AUTH · DENY on missing capability → INSUFFICIENT_CAPABILITY (authorization group):");
   const d4 = authorize({ actor: HUMAN_NOCAP, capability: "DECLARE_DILIGENCE_COMPLETE", operation: OP_DIL, policy: POL_DIL, evaluationArtifact: aOk });

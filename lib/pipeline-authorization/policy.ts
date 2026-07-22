@@ -15,6 +15,7 @@ const AP1: AuthorizationPolicy[] = [
     requiredPredicate: "DILIGENCE_COMPLETE",
     requiredFactClass: "DECISION",
     requiredRuleSetVersion: "rs-1",
+    preconditionFailureCode: "MISSING_REQUIRED_EVIDENCE", // this predicate fails only on absent diligence evidence
   },
   {
     policyId: "ap1-declare-clear-to-close",
@@ -26,6 +27,7 @@ const AP1: AuthorizationPolicy[] = [
     requiredPredicate: "CLEAR_TO_CLOSE",
     requiredFactClass: "DECISION",
     requiredRuleSetVersion: "rs-1",
+    preconditionFailureCode: "POLICY_PRECONDITION_FAILED", // composite policy precondition
   },
   {
     policyId: "ap1-declare-transaction-closed-cash",
@@ -37,6 +39,7 @@ const AP1: AuthorizationPolicy[] = [
     requiredPredicate: "TRANSACTION_CLOSED.CASH",
     requiredFactClass: "DECISION",
     requiredRuleSetVersion: "rs-1",
+    preconditionFailureCode: "POLICY_PRECONDITION_FAILED",
   },
   {
     policyId: "ap1-declare-transaction-closed-third-party-financed",
@@ -48,6 +51,7 @@ const AP1: AuthorizationPolicy[] = [
     requiredPredicate: "TRANSACTION_CLOSED.THIRD_PARTY_FINANCED",
     requiredFactClass: "DECISION",
     requiredRuleSetVersion: "rs-1",
+    preconditionFailureCode: "POLICY_PRECONDITION_FAILED",
   },
   {
     policyId: "ap1-declare-transaction-closed-assignment",
@@ -59,6 +63,7 @@ const AP1: AuthorizationPolicy[] = [
     requiredPredicate: "TRANSACTION_CLOSED.ASSIGNMENT",
     requiredFactClass: "DECISION",
     requiredRuleSetVersion: "rs-1",
+    preconditionFailureCode: "POLICY_PRECONDITION_FAILED",
   },
 ];
 
