@@ -810,13 +810,43 @@ therefore `TRANSACTION_CLOSED → PAID` is simply an instance of the rule. **Onl
 
 ---
 
-## OWN-3 · What must be true for PAID? · **DRAFT**
+## OWN-3 · Configured closing policy (the archetype matrix)
 
-**Question.** Should PAID require Financing/Escrow/Assignment artifacts, or only the due-diligence checklist?
-Proposed framing (to ratify): **"PAID = successful completion of the org's *configured closing policy*,"** with
-the closing template encoding required artifacts per deal type (cash / assignment / seller-finance / subject-to
-/ double-close differ). No hard-coded rule; the OPP-1 fix already makes any added required item enforceable.
-**Depends on:** OWN-1. **Status: DRAFT.**
+**Reframed by Fact 5.** "What must be true for PAID?" is now: *for each transaction archetype, which authoritative
+facts — in which required states and relationships — constitute the configured closing policy whose satisfaction
+asserts `TRANSACTION_CLOSED`?* A **data-driven matrix**, not hardcoded rules. This is the ontology's **policy
+layer**, distinct from the product roadmap.
+
+### OWN-3.0 — Archetype framework · **✅ FROZEN 2026-07-22**
+
+**Adopted policy (frozen).** Archetypes are grounded in legal **transaction structures**, not market terminology.
+- **Tier 1 — Core archetypes (predicates defined now):**
+  1. **Standard Purchase — Cash**
+  2. **Standard Purchase — Third-Party Financed** *(named "third-party" deliberately — seller/private/hard-money/
+     subject-to financing are all "financed" in ordinary language; this avoids ambiguity from the start)*
+  3. **Assignment** *("wholesale" is a business strategy that often uses assignment but may also use double-close/
+     novation — the archetype is the **structure**, not the strategy)*
+- **Tier 2 — Reserved archetypes (declared; predicates intentionally UNDEFINED until explicitly frozen):**
+  Double Close · Subject-To · Seller Finance · Lease Option · Hybrid/Custom. **Reserved** = the ontology already
+  expects them; defining a predicate later is a **planned extension, not an ad-hoc one.**
+
+**Invariants.**
+- **OWN3-INV-1 · Every transaction belongs to exactly one active closing-policy archetype.** Not Cash *and*
+  Assignment. A genuine structure change → the archetype changes, and **that change is itself an auditable
+  business event.** (Keeps policy evaluation deterministic.)
+- **OWN3-INV-2 · Policy predicates are archetype-specific, ontology-shared.** All archetypes evaluate the **same**
+  authoritative fact graph; they differ **only** in required facts, required states, and required relationships —
+  **never** by inventing new semantics.
+
+**Downstream.** Per-archetype predicates worked one at a time — for each: required facts · required states ·
+required relationships (ordering/dependencies) · closing predicate · ⇒ `TRANSACTION_CLOSED`. Opens **OWN-3.1**
+(Standard Purchase — Cash) · **OWN-3.2** (Third-Party Financed) · **OWN-3.3** (Assignment). **Status: FROZEN**
+(Ronald, 2026-07-22).
+
+### OWN-3.1 · Standard Purchase — Cash predicate · **DRAFT (open next)**
+### OWN-3.2 · Standard Purchase — Third-Party Financed predicate · **DRAFT**
+### OWN-3.3 · Assignment predicate · **DRAFT**
+*(Tier-2 archetypes: reserved, predicates deferred.)*
 
 ---
 
