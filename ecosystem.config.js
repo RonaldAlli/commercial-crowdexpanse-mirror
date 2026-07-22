@@ -24,6 +24,10 @@ module.exports = {
       // gated operational step (see the v2.0.1 runbook), never a side effect of a deploy.
       name: "crowdexpanse-automation",
       script: "scripts/automation-runtime.mjs",
+      // D19: the .mjs entrypoint imports .ts source — Node needs the tsx loader (`tsx` is now a runtime
+      // DEPENDENCY, so it survives a production `npm ci --omit=dev`). Without this, node exits at startup
+      // with ERR_UNKNOWN_FILE_EXTENSION. (`--loader tsx` is rejected by tsx; `--import` is required.)
+      node_args: "--import tsx",
       cwd: "/opt/crowdexpanse/commercial",
       instances: 1,
       exec_mode: "fork",

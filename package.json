@@ -41,7 +41,8 @@
     "next": "14.2.20",
     "nodemailer": "^6.10.1",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "tsx": "^4.19.2"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1",
@@ -54,7 +55,6 @@
     "postcss": "^8",
     "prisma": "^5.22.0",
     "tailwindcss": "^3.4.1",
-    "tsx": "^4.19.2",
     "typescript": "^5"
   }
 }
