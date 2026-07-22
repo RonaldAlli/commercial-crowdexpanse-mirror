@@ -37,6 +37,24 @@ Individual families **reference** these rather than restating them (which stops 
   supersessions create **linked successor facts** rather than mutating or deleting prior authoritative facts.
   *(Instances already frozen: 1A-INV-3 (diligence), 2.1-INV-6 (buyer match), 2A-INV-3. OPP-3 will lift this to a
   ratified global invariant that every family references.)*
+- **GI-2 · Deterministic evaluators follow one universal contract.** A policy-defined deterministic evaluator
+  may assert a business fact only under: **(a) explicit per-policy-version opt-in** (policy defines the fact as a
+  pure function over authoritative recorded facts); **(b) reproducible** (pure function of recorded facts +
+  policy version + rule-set version; evaluator identity/version + both versions + timestamp recorded for exact
+  replay); **(c) no machine waiver** (exceptions to policy are judgment, human-only); **(d) fail closed** (abstain
+  on ambiguity / missing / malformed / unauthorized, raising operational attention — never default to assert);
+  **(e) observational** (read/validate/evaluate/emit only — never repair, normalize, infer, or fetch facts,
+  create waivers, or rewrite history); **(f) judgment may not assert** (systems performing probabilistic
+  inference, interpretation, or discretion may only *recommend*). **Each family answers only two questions: is a
+  given fact eligible for deterministic assertion, and under what policy-defined conditions? Everything else
+  derives from GI-2.** *(Origin instance: 1B (diligence completion); referenced by 2B (buyer match). OPP-3 to
+  ratify.)*
+
+**Watched pattern (NOT yet an invariant).** A third structure is recurring but not yet proven universal — hold
+as candidate, do **not** freeze:
+- **(candidate) GI-3 · External evidence is distinct from an authoritative business fact.** Seen so far as
+  `external event → evidence record → authoritative fact → projection` in diligence and buyer acceptance;
+  watch for it in **LOI, contract, escrow, payment** before promoting. Two families isn't proof.
 
 ---
 
@@ -375,10 +393,30 @@ This keeps the domain independent of product evolution.
 now (mirrors 1A-INV-5). **Downstream.** Feeds OPP-3 (generalizes fact-operation authority across families; ratifies
 GI-1). **Status: FROZEN** (Ronald, 2026-07-22).
 
-### OWN-2 · Decision 2B — Deterministic evaluation applicability (buyer-match) · **DRAFT**
-**Question.** May a policy-defined deterministic evaluator assert any buyer-match fact (per 1B)? `BUYER_QUALIFIED`
-against hard, policy-defined criteria is plausibly mechanically evaluable; `BUYER_MATCHED` requires mutual assent
-(a human/counterparty act) and is almost certainly judgment. **Depends on:** 2.1, 2A. **Status: DRAFT.**
+### OWN-2 · Decision 2B — Deterministic evaluation applicability (buyer-match) · **✅ FROZEN 2026-07-22**
+
+**Adopted policy (frozen).** The deterministic-evaluator contract is **GI-2** (referenced, not restated). 2B
+answers only *which* buyer-match facts are eligible and *under what conditions*:
+
+| Fact | Deterministic assertion? |
+|---|---|
+| `BUYER_QUALIFIED` | **Yes — conditionally.** Only if the qualification-policy version **completely specifies** qualification as a deterministic evaluation over authoritative recorded facts. Otherwise it remains a **human** decision. |
+| `BUYER_MATCHED` | **No, by default.** **Negotiated matching defaults to human authority.** A deterministic evaluator may assert it **only** if *matching is designed into the business model itself* (e.g. marketplace auto-allocation, round-robin assignment, contractually predetermined routing) **and** explicitly authorized by policy — then under full GI-2 **and** the acceptance-evidence prerequisite (2A-INV-5). |
+| `ACCEPT_QUALIFICATION_WAIVER` | **Never.** An exception to policy is by definition outside the deterministic policy. |
+
+**Invariants.**
+- **2B-INV-1 · Deterministic assertion follows GI-2** for every mechanically-asserted buyer-match fact.
+- **2B-INV-2 · Qualification is deterministic only under complete policy specification** (else human).
+- **2B-INV-3 · Matching is human by default.** Deterministic matching must be **explicitly designed into the
+  business model** and explicitly authorized by policy — negotiated selection is judgment.
+- **2B-INV-4 · Waivers are never deterministic.**
+- **2B-INV-5 · Evidence capture is not decision.** *Systems may faithfully record externally originated events;
+  they may not synthesize, infer, or attribute external intent or assent that was never objectively recorded.*
+  Automated recording of acceptance evidence never asserts `BUYER_MATCHED` (which still requires `DECLARE_MATCH`
+  under 2A-INV-5). *(Likely a component of the watched candidate GI-3.)*
+
+**Downstream.** Confirms GI-2 as a reusable contract; 2B-INV-5 is the first frozen instance of the
+external-evidence-vs-fact distinction watched as GI-3. **Status: FROZEN** (Ronald, 2026-07-22).
 
 ### OWN-2 · Decision 2C — Buyer-match projection eligibility · **DRAFT**
 **Question.** Which buyer-match facts earn a stage (per 1C-INV-3)? Provisionally only `BUYER_MATCHED` projects;
