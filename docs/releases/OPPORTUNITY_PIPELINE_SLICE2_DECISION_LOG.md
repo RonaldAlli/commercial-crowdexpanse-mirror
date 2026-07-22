@@ -61,8 +61,18 @@ Individual families **reference** these rather than restating them (which stops 
     `LOI_ACCEPTED`, `CONTRACT_EXECUTED`).
 
   Structure: *artifact / evidence → decision → projection*; **projection operates exclusively over authoritative
-  facts.** This explains *why* the assertion rules differ per class. *(OPP-3 to formally ratify, alongside
-  GI-1/GI-2.)*
+  facts.** The classes are **ordered by what authority may change** — this is the operative rule, not just a
+  description:
+
+  | Class | May an authority *create* it? |
+  |---|---|
+  | Artifact | **Yes** (drafts can be generated) |
+  | Evidence | **No — only record it** (signatures cannot be invented; never synthesized or waived into existence) |
+  | Decision | **Yes, subject to policy** (execution can be declared) |
+
+  Consequence: **only decision-layer requirements are eligible for discretionary exception; evidence never is.**
+  This is why a missing required signature means *not executed* (full stop), while a missing org-internal approval
+  can be excepted. *(OPP-3 to formally ratify, alongside GI-1/GI-2.)*
 
 **Watched pattern (NOT yet an invariant).** Recurring structure not yet promoted — hold as candidate, do **not**
 freeze:
@@ -613,6 +623,36 @@ version exists, and all GI-2 conditions are satisfied (implementation-independen
 **OWN-3 (PAID = configured closing policy)** semantically independent. Opens **4A** (authority), **4B**
 (deterministic-eval), **4C** (projection). **Fourth GI-3 instance — GI-3 now promoted to a global invariant.**
 **Status: FROZEN** (Ronald, 2026-07-22).
+
+### OWN-2 · Decision 4A — Executed-contract fact authority · **✅ FROZEN 2026-07-22**
+
+**Adopted policy (frozen).** Authority attaches to fact operations; freeze capabilities + semantics; role-map is
+org policy. Capabilities: **`DRAFT_CONTRACT`** (assert `CONTRACT_DRAFTED`, new version) · **`RECORD_CONTRACT_SENT`**
+· **`RECORD_EXECUTION_EVIDENCE`** (per-party signature/approval evidence; cross-family `RECORD_*_EVIDENCE`) ·
+**`DECLARE_CONTRACT_EXECUTED`** · **`RETRACT_CONTRACT_EXECUTION`** · **`CORRECT_HISTORY`** · **`ACCEPT_EXECUTION_
+EXCEPTION`** *(policy-gated)*.
+
+**`ACCEPT_EXECUTION_EXCEPTION` (frozen scope).** Authorizes proceeding despite an **unmet organization-defined
+execution-policy requirement** (internal legal review, risk/manager/compliance approval). It explicitly does
+**not** authorize proceeding despite **missing legally-required execution evidence**. This is the clean split
+between **law** (external evidence — non-waivable) and **organizational governance** (decision-layer — exceptable),
+made possible by GI-3's authority-mutability ordering.
+
+**Invariants.**
+- **4A-INV-1 · Same-version execution evidence precedes authority.** `DECLARE_CONTRACT_EXECUTED` may assert only
+  when all policy-required execution evidence exists **for that exact version**.
+- **4A-INV-2 · Exceptions may never substitute for missing required external execution evidence.**
+  `ACCEPT_EXECUTION_EXCEPTION` may relax only an org-internal requirement; it can **never** stand in for missing
+  **required external execution evidence** (signatures, statutory filing acknowledgements, mandated e-execution
+  certificates, jurisdiction-specific execution artifacts, …) — non-synthesizable per GI-3.
+- **4A-INV-3 · Exception does not redefine policy** (the 3A-INV-2 / 2A-INV-7 pattern).
+- **4A-INV-4 · Evidence completeness precedes execution authority.** **No** principal — human or deterministic —
+  may assert `CONTRACT_EXECUTED` until **every** required external execution-evidence fact exists. This is an
+  **architectural prerequisite**, stronger than "the declaration requires evidence."
+
+**Downstream.** Feeds OPP-3 (fact-operation authority taxonomy). Sharpest illustration of GI-3 as *policy*: the
+evidence class is what makes required external execution non-waivable; the decision class is where discretion
+legitimately lives. **Status: FROZEN** (Ronald, 2026-07-22).
 
 ---
 
