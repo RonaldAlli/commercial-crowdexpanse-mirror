@@ -52,6 +52,13 @@ try {
 
   console.log("\n[4] Determinism preserved — a cyclic evaluation is still referentially transparent:");
   assert(JSON.stringify(evalA("CYC_A")) === JSON.stringify(a), "evaluateArtifact(cyclic) == evaluateArtifact(cyclic) (deterministic incl. trace)");
+
+  console.log("\n[5] PE-INV-10 · path locality — interleaved evaluations do not carry state between them:");
+  const b1 = evalA("CYC_B");
+  evalA("CYC_A"); evalA("DIA_ROOT"); evalA("CYC_SELF"); // unrelated evaluations in between
+  const b2 = evalA("CYC_B");
+  assert(JSON.stringify(b1) === JSON.stringify(b2), "evaluating CYC_B is identical before and after other evaluations (no path carry-over)");
+  assert(evalA("DIA_ROOT").result.satisfied === true, "a fresh evaluation starts with a clean path (unaffected by prior cyclic runs)");
 } finally {
   await prisma.pipelineFact.deleteMany({ where: { organizationId: ORG } }).catch(() => {});
   await prisma.$disconnect();

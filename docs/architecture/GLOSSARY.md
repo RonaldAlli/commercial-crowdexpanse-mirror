@@ -56,3 +56,15 @@
 | **PE-INV-1..9** | Predicate Engine invariants (isolation, referential transparency, graph-only, closure, trace determinism/completeness/locality/acyclic). |
 | **Epic Exit Gate** | The per-slice acceptance checklist; nothing merges until it is green (Constitution). |
 | Authority | [Engineering Constitution](./OPPORTUNITY_PIPELINE_ENGINEERING_CONSTITUTION.md) · [Business Semantics Spec](./BUSINESS_SEMANTICS_SPECIFICATION.md) |
+
+## Architectural Laws (fast orientation)
+
+The load-bearing laws by name — full text in the [Engineering Constitution](./OPPORTUNITY_PIPELINE_ENGINEERING_CONSTITUTION.md) (13 laws total).
+
+| Law | One line |
+|---|---|
+| **Law 4** | Derived state (projections, traces, inconsistencies, caches) is disposable and reconstructable — never authoritative. |
+| **Law 6** | Exactly one side-effect-free predicate evaluator serves authorization, projection, policy, what-if, and tests. |
+| **Law 8** | Authorization is on fact operations, never stages; projector, evaluator, and authorization are all observational. |
+| **Law 12** | Exactly one Fact Graph Builder — one interpretation of the ledger. |
+| **Law 13** | Consumers reason only over the immutable FactGraph — never reconstruct, reinterpret, or supplement the ledger. |

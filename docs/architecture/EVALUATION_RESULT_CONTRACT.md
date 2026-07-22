@@ -82,6 +82,9 @@ it operational rather than semantic and could break referential transparency. Go
   summarizes, hoists, or reinterprets another subtree (grandchildren stay under their parent).
 - **PE-INV-9 · Acyclic trace** — the trace is a finite tree; recursion always terminates. A predicate already on the
   evaluation path fails closed (`CYCLE_DETECTED`) rather than re-entering, so no cyclic rule-set can loop forever.
+- **PE-INV-10 · Evaluation path locality** — the cycle-detection path lives only within one evaluation (a threaded
+  parameter starting `[]`); no cached/thread-local/global state carries between evaluations, so they are fully
+  independent.
 - **The trace EXPLAINS the result** (explanatory); the **result is authoritative** — never the reverse.
 
 **Navigation (deferred to v1.2).** Trace nodes are **pure, serializable, immutable data** now. An ergonomic

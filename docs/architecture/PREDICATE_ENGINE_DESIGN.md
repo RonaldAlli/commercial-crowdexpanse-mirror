@@ -107,6 +107,10 @@ Therefore:
   predicate already on the current evaluation **path** fails closed (`CYCLE_DETECTED`) instead of recursing, so a
   cyclic rule-set can never loop forever. (A diamond — the same predicate reached via two *different* branches — is
   not a cycle and evaluates independently in each branch.)
+- **PE-INV-10 · Evaluation path locality (v1.1).** The cycle-detection `path` exists **only within a single
+  evaluation** and never survives into another: no cached recursion state, no thread-local carry-over, no global
+  registry. Every top-level `evaluate*` starts with `path = []`. Enforced by construction — `path` is a plain
+  function parameter threaded through `evaluateInternal`, so evaluations are completely independent.
 
 ## 7. First predicate set (ratified acceptance anchors, `ruleSetVersion = "rs-1"`)
 
