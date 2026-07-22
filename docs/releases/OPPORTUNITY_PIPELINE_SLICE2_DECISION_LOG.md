@@ -837,16 +837,51 @@ layer**, distinct from the product roadmap.
 - **OWN3-INV-2 · Policy predicates are archetype-specific, ontology-shared.** All archetypes evaluate the **same**
   authoritative fact graph; they differ **only** in required facts, required states, and required relationships —
   **never** by inventing new semantics.
+- **OWN3-INV-3 · Structural core + organizational configuration (structure precedes configuration).** Each
+  archetype has a **structural core** (invariant — what *makes* it that transaction structure) plus an
+  **org-configurable layer** (additional requirements before *this* org considers it closed). An org's closing
+  policy may **strengthen** an archetype's structural predicate but may **never redefine the archetype** (config
+  adds requirements; it can't turn Cash into Cash+Assignment). **Configured predicate = structural core ∧ org
+  configuration.** This is the transaction-structure vs. organizational-policy separation, one layer of the stack:
+  *ontology → authority → evaluation → projection → policy composition → organization configuration.*
 
 **Downstream.** Per-archetype predicates worked one at a time — for each: required facts · required states ·
 required relationships (ordering/dependencies) · closing predicate · ⇒ `TRANSACTION_CLOSED`. Opens **OWN-3.1**
 (Standard Purchase — Cash) · **OWN-3.2** (Third-Party Financed) · **OWN-3.3** (Assignment). **Status: FROZEN**
 (Ronald, 2026-07-22).
 
-### OWN-3.1 · Standard Purchase — Cash predicate · **DRAFT (open next)**
-### OWN-3.2 · Standard Purchase — Third-Party Financed predicate · **DRAFT**
+### OWN-3.1 · Standard Purchase — Cash predicate · **✅ FROZEN 2026-07-22**
+
+**Structural core (invariant).** `TRANSACTION_CLOSED` (Cash) structurally requires:
+- `CONTRACT_EXECUTED`
+- all required `CONTINGENCY_REMOVED`
+- `SETTLEMENT_COMPLETED`
+- `FUNDS_DISBURSED` (seller proceeds paid)
+- *(future ontology candidate)* `TITLE_TRANSFERRED` — the **legal transfer event**, distinct from `DEED_RECORDED`
+  (**recording evidence**: settlement → legal transfer → recording are three different truths). Not modeled today;
+  **noted for later** rather than overloading `DEED_RECORDED` to mean both.
+
+Ordering: all required contingencies removed **before** `SETTLEMENT_COMPLETED`; settlement **before/at**
+`FUNDS_DISBURSED`.
+
+**Org-configurable layer (may *strengthen*, per OWN3-INV-3).** An org's Cash closing policy MAY additionally
+require: `ESCROW=RELEASED`, `DEED_RECORDED`, additional checklist items, compliance approvals, jurisdiction-
+specific predicates.
+
+**Deliberately NOT structural** (founder rulings): **`ESCROW`** — escrow is a *mechanism* (cash closes via escrow /
+attorney / direct / jurisdiction-specific settlement); the ontology provides escrow facts *if* escrow exists, but
+the archetype does not require them. **`DEED_RECORDED`** — recording lags settlement (county processing);
+*transaction complete* ≠ *public record updated*. **`FINANCING`** — not required (N/A for cash).
+
+**Invariant.** **OWN3.1-INV-1 · Structure precedes configuration** (instance of OWN3-INV-3): an org's Cash policy
+may strengthen the structural predicate but never redefine the Cash archetype.
+
+**Configured predicate = structural core ∧ org configuration ⇒ `TRANSACTION_CLOSED`.** **Status: FROZEN**
+(Ronald, 2026-07-22).
+
+### OWN-3.2 · Standard Purchase — Third-Party Financed predicate · **DRAFT (open next)**
 ### OWN-3.3 · Assignment predicate · **DRAFT**
-*(Tier-2 archetypes: reserved, predicates deferred.)*
+*(Tier-2 archetypes: reserved, predicates deferred. Future ontology candidate noted: `TITLE_TRANSFERRED`.)*
 
 ---
 
