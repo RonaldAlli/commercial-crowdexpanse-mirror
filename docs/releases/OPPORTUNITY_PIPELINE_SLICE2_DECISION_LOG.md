@@ -104,15 +104,87 @@ the withdrawn "OPP-2 adjacency" framing.
 
 ---
 
-## OWN-2 · What are the authoritative facts, and how do they project to one stage? · **DRAFT (next)**
+## OWN-2 · Authoritative facts and the projection function · **IN PROGRESS**
 
-**Question (sharpened by OWN-1).** Define the **authoritative business facts**, the **evidence** that
-establishes each one, and the **deterministic, total projection function** that maps every valid *and* invalid
-fact combination to **exactly one** operational stage — while **surfacing inconsistencies separately**.
-*(Register origin: stage ⇄ diligence are today a dual, unsynchronized source of truth — e.g. stage
-`T12_RECEIVED` while the `t12` diligence item is `NOT_REQUESTED`, and vice-versa.)*
+**Umbrella question (sharpened by OWN-1).** Enumerate every authoritative business fact, the objective evidence
+that establishes each, the **deterministic total projection** (furthest-fact) from fact combinations to exactly
+one stage, and how inconsistencies surface **separately**. Worked **one fact family at a time, in business
+order**, each fact answering: *what truth · what evidence · who may assert/retract · which stage it projects ·
+what inconsistencies coexist · what it does NOT imply.* *(Register origin: stage ⇄ diligence are today a dual,
+unsynchronized source of truth — stage `T12_RECEIVED` while `t12` diligence item is `NOT_REQUESTED`, and
+vice-versa.)* **Depends on:** OWN-1 (Frozen). **Blocks:** the state-transition model (Phase 3).
 
-**Depends on:** OWN-1 (Frozen). **Blocks:** the state-transition model (Phase 3). **Status: DRAFT** — open next.
+### OWN-2 · Decision 1 — Diligence receipt vs. diligence completion · **✅ FROZEN 2026-07-22**
+
+**Question.** Is receiving a diligence document (e.g. a T12) enough to establish that diligence is *complete*?
+
+**Adopted policy (frozen).** Diligence material *receipt* and diligence *completion* are **separate authoritative
+facts**.
+- **`DILIGENCE_MATERIAL_RECEIVED`** is a **per-required-item** artifact fact: identified source material exists
+  and is attached to the opportunity. It proves **possession only** — never accuracy, sufficiency, review,
+  acceptance, or completion.
+- **`DILIGENCE_COMPLETE`** is a **single, explicit, auditable completion decision made against a specific
+  diligence-policy version**. Its evidence includes the authorized actor or approved deterministic seam,
+  timestamp, policy version, reviewed-evidence references, outcome, and any explicitly accepted exceptions/waivers.
+- The explicit completion decision is **required even when the applicable checklist contains no required items or
+  only optional items**. Checklist emptiness, artifact presence, or apparent satisfaction of requirements
+  **never independently** establishes completion.
+- **Only `DILIGENCE_COMPLETE` may advance the projected pipeline beyond diligence.** Neither receipt nor
+  completion may be inferred, synthesized, or backfilled by the stage projector.
+- A later **policy change does not retract or rewrite an existing completion decision**. The completion remains
+  historically true against its recorded policy version; completion against a superseded policy surfaces
+  **separately** as a data-quality / operational-attention condition.
+
+**Invariants (checkable).**
+- **D1-INV-1 · Receipt is item-specific.** Receipt state exists independently for every diligence item/artifact
+  category; no aggregate receipt boolean substitutes for the item-level facts.
+- **D1-INV-2 · Receipt never implies completion.** No quantity/combination of received artifacts establishes
+  `DILIGENCE_COMPLETE` without the explicit completion decision.
+- **D1-INV-3 · Completion is policy-versioned.** Every completion decision identifies the exact diligence policy
+  against which it was made.
+- **D1-INV-4 · Policy changes do not rewrite historical facts.** Replacing/amending a diligence policy never
+  automatically retracts, mutates, or re-dates an existing completion decision.
+- **D1-INV-5 · Empty requirements do not fail open.** An empty, unavailable, or all-optional checklist never
+  produces completion by default.
+- **D1-INV-6 · Exceptions are explicit evidence.** A completion that depends on waived/unresolved requirements
+  must identify the accepted exceptions and the authority that accepted them.
+- **D1-INV-7 · Projection does not infer diligence facts.** The stage projector may read receipt and completion
+  facts but may never create, infer, repair, or backfill either. *(Instance of OWN-1 INV-7.)*
+
+**Downstream implications.** Diligence-stage projection depends **only** on `DILIGENCE_COMPLETE`; receipt feeds
+operational-attention (and possibly a distinct stage — Decision 1C). Opens sub-decisions **1A** (authority),
+**1B** (deterministic seam), **1C** (receipt projection). Ties: OPP-1 fail-open lesson → D1-INV-5; OWN-3 policy
+versioning; OPP-3 fact-boundary authorization via 1A.
+
+**Status: FROZEN** (Ronald, 2026-07-22).
+
+### OWN-2 · Decision 1A — Diligence fact authority · **DRAFT (open next)**
+**Question.** Who may **assert, retract, reopen, supersede, or waive** diligence facts — distinguishing at least:
+(i) upload/record an artifact, (ii) invalidate an artifact, (iii) declare `DILIGENCE_COMPLETE`, (iv) reopen
+diligence, (v) accept exceptions/waivers, (vi) correct erroneous historical entries? Authority is **part of
+defining the fact** (OWN-1's fact-boundary authorization). Aligns with — and **precedes** — OPP-3, which then
+generalizes one authorization model across all fact categories rather than inventing diligence authority
+afterward. **Depends on:** Decision 1. **Status: DRAFT.**
+
+### OWN-2 · Decision 1B — Deterministic completion seam · **DRAFT**
+**Question.** May a deterministic system process assert `DILIGENCE_COMPLETE`, and under exactly what constraints?
+**Founder provisional policy:** a deterministic seam may assert completion **only** when the frozen policy
+explicitly defines completion as a **mechanically-evaluable** result over authoritative recorded facts — **no
+judgment, discretion, probabilistic inference, or interpretation** (all mandatory facts exist + validation rules
+pass + policy explicitly authorizes mechanical completion → completion recorded by a **named** seam). AI/
+automation may **recommend/flag/summarize/prepare** a decision but must **not** silently exercise business
+judgment — consistent with the V2.0 automation lock (automation never owns authoritative state) — unless a
+later explicit founder decision changes that boundary. **Depends on:** Decision 1, 1A. **Status: DRAFT.**
+
+### OWN-2 · Decision 1C — Receipt projection · **DRAFT**
+**Question.** Does receiving diligence material establish its own pipeline **stage**, or affect only operational
+attention? Two valid outcomes: **(a)** receipt is authoritative but **non-projecting** (stage unchanged; next
+action = "review diligence materials"); **(b)** receipt backs a distinct stage (`DILIGENCE_RECEIVED` /
+`DILIGENCE_IN_REVIEW`). **Founder initial recommendation:** do **not** create a stage merely because one artifact
+arrives — a distinct diligence stage exists only if it marks a **stable, useful business-state boundary**, not
+an activity beginning (else it violates INV-6 by turning "the team is reviewing documents" into stage
+semantics). This is **stage enumeration**, kept separate from the receipt/completion truth. **Depends on:**
+Decision 1; interacts with OWN-4. **Status: DRAFT.**
 
 ---
 
