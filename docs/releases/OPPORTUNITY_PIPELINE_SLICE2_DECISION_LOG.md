@@ -277,6 +277,68 @@ diligence. **Status: FROZEN** (Ronald, 2026-07-22).
 
 ---
 
+## OWN-2 · Fact 2 — Buyer Match
+
+**Umbrella question.** When is an opportunity objectively **buyer-matched**? Decomposition mirrors diligence:
+possession → (policy-relative) qualification → authoritative decision.
+
+### OWN-2 · Decision 2.1 — Buyer-match fact decomposition & semantics · **✅ FROZEN 2026-07-22**
+
+**Adopted policy (frozen).** Three separate authoritative facts:
+- **`BUYER_CANDIDATE_IDENTIFIED`** records that a buyer has been **associated** with the opportunity as a
+  potential counterparty. (Possession; proves association only.)
+- **`BUYER_QUALIFIED`** records that the **buyer–opportunity pair satisfies the organization's buyer-selection
+  policy for the current policy version.** Qualification is a property of *(buyer + opportunity + policy)*, **not**
+  an intrinsic buyer trait — structurally identical to policy-relative diligence completion.
+- **`BUYER_MATCHED`** records the authoritative business fact that **both parties have mutually assented to
+  pursue the opportunity together as the intended counterparty** — *mutual pursuit, not legal commitment*:
+  it implies **neither** an LOI, a contract, nor any legally binding obligation.
+
+**Invariants.**
+- **2.1-INV-1 · Candidate is non-exclusive.** Multiple candidates may exist simultaneously.
+- **2.1-INV-2 · Qualification is policy-relative.** Evaluated against the buyer, the opportunity, and the current
+  qualification-policy version.
+- **2.1-INV-3 · Matching is exclusive unless explicitly configured otherwise.** At any moment there is **at most
+  one** authoritative `BUYER_MATCHED` fact per opportunity, unless organizational policy explicitly permits
+  multiple matched counterparties (first-class parallel negotiation).
+- **2.1-INV-4 · Match requires mutual assent.** Internal designation alone never establishes `BUYER_MATCHED`.
+- **2.1-INV-5 · Match is not commitment.** `BUYER_MATCHED` implies neither an LOI, a contract, nor a legal
+  obligation.
+- **2.1-INV-6 · Retraction preserves history.** A withdrawn or declined match **supersedes** the prior match
+  fact without deleting it (consistent with 1A-INV-3).
+
+**Clarifying notes (consistent with the decision).**
+- **Evidence of assent.** `BUYER_MATCHED`'s evidence must include a **record of the buyer's affirmative
+  acceptance** of being the intended counterparty for *this* opportunity — not merely an internal assertion. That
+  recorded acceptance is what distinguishes it from `BUYER_CANDIDATE_IDENTIFIED` and makes 2.1-INV-4 auditable.
+- **Projection vs. exclusivity.** The projector maps *"≥ 1 authoritative `BUYER_MATCHED` fact"* → the
+  `BUYER_MATCHED` stage; 2.1-INV-3's exclusivity is a **fact-integrity / authority** constraint on how many match
+  facts may exist, **not** projection logic. Permitting multiple matches never changes the projected stage — it
+  changes data integrity and operational attention.
+
+**Downstream.** `BUYER_MATCHED` is the completion-equivalent that projects the `BUYER_MATCHED` stage (subject to
+2C). Boundary held: the LOI is **Fact 3**, not part of the match. Opens **2A** (authority), **2B** (deterministic
+evaluation applicability), **2C** (projection eligibility). **Status: FROZEN** (Ronald, 2026-07-22).
+
+### OWN-2 · Decision 2A — Buyer-match fact authority · **DRAFT (open next)**
+**Question.** Capabilities + semantics for asserting/retracting/superseding buyer-match facts (identify candidate,
+assert qualification, declare match, retract/decline match, correct history) — plus two family-specific questions:
+does a **qualification waiver** exist (match a buyer who fails the selection policy, by exception)? and what
+authority records the **buyer's affirmative acceptance** (mutual-assent evidence)? Inherits 1A's append-only
+supersession. **Depends on:** Decision 2.1. **Status: DRAFT.**
+
+### OWN-2 · Decision 2B — Deterministic evaluation applicability (buyer-match) · **DRAFT**
+**Question.** May a policy-defined deterministic evaluator assert any buyer-match fact (per 1B)? `BUYER_QUALIFIED`
+against hard, policy-defined criteria is plausibly mechanically evaluable; `BUYER_MATCHED` requires mutual assent
+(a human/counterparty act) and is almost certainly judgment. **Depends on:** 2.1, 2A. **Status: DRAFT.**
+
+### OWN-2 · Decision 2C — Buyer-match projection eligibility · **DRAFT**
+**Question.** Which buyer-match facts earn a stage (per 1C-INV-3)? Provisionally only `BUYER_MATCHED` projects;
+`BUYER_CANDIDATE_IDENTIFIED` and `BUYER_QUALIFIED` feed operational attention unless they meet the stable-state
+criterion. **Depends on:** 2.1; interacts with OWN-4. **Status: DRAFT.**
+
+---
+
 ## OWN-3 · What must be true for PAID? · **DRAFT**
 
 **Question.** Should PAID require Financing/Escrow/Assignment artifacts, or only the due-diligence checklist?
