@@ -28,8 +28,20 @@
    applicable. No invariant ships untested.
 10. **A semantic change requires reopening the Decision process** — Decision Log → Spec → re-derivation. Never an
     ad-hoc code change.
+11. **Implementation never outruns acceptance.** No implementation is "complete" until **every** acceptance
+    scenario tied to its traceability entries **passes**. Acceptance defines correctness — implementation does not.
 
 ---
+
+## Epic-exit gate (every epic concludes with this)
+
+```
+Architecture satisfied            ✓
+Acceptance scenarios passing       ✓   (Law 11)
+Traceability complete              ✓   (no orphan implementation)
+No constitutional violations       ✓
+Ready for next epic                ✓   → the next epic is authorized only after this gate passes
+```
 
 ## How a slice ships (slice-completion checklist)
 
