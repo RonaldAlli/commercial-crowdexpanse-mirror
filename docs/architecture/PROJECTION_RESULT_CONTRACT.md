@@ -110,3 +110,21 @@ Projection:     active Decision Facts   → Projection    → ProjectionResult(s
 
 No fact mutation, no authorization, no predicate evaluation, no persistence as authoritative truth, no execution/
 timing metadata. Those belong to E1/E3/E2·B or the operational layer.
+
+## 6. Evolution & consumption (founder guidance, non-blocking)
+
+**6.1 StageSpine evolution.** `StageSpine` is versioned (`spineId`/`spineVersion`); changes are a **new spine
+version**, never an in-place edit. Permitted evolutions: *additive* stages, *reordered* stages, *retired* stages —
+each as a new `spineVersion`. A projected `ProjectionResult` records the `spineVersion` it was computed under, so a
+consumer always knows the progression model in force. Migrating an opportunity from one spine version to another is
+a deliberate, versioned step (not silent).
+
+**6.2 Spine and policy are independently versioned (orthogonal).** `StageSpine` determines **progression** (which
+Decision Facts map to which stages); `ProjectionPolicy` determines **presentation** (indicators, labels,
+mutual-exclusion, derived facts). They evolve independently — a presentation change must not require a spine bump,
+and vice versa. `ProjectionResult` stamps both (`spineVersion`, `projectionVersion`).
+
+**6.3 Consumer discipline (API/UI).** Downstream consumers treat `ProjectionResult` exactly as Authorization treats
+`EvaluationArtifact`: **consume, never reinterpret, never recompute, never infer hidden semantics.** Projection owns
+presentation; a consumer that needs a value the result doesn't carry extends *projection* (here), never re-derives
+it downstream (mirrors FG-INV-12 / PR-INV-4).
