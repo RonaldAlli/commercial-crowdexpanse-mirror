@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { resolveSellerPromotion } from "@/lib/promote-seller";
 
 import { deleteSeller } from "../actions";
 import { unlinkSellerAction } from "../../owners/actions";
@@ -67,6 +68,16 @@ export default async function SellerDetailPage({ params }: { params: { id: strin
 
   const deleteSellerBound = deleteSeller.bind(null, seller.id);
 
+  // Promote to opportunity — the Seller Acquisition vertical (Path A). Pure decision
+  // in lib/promote-seller.ts; this only seeds the existing New-Opportunity form, which
+  // invokes the canonical createOpportunity path (AC-PROMOTE-7).
+  const promote = resolveSellerPromotion({
+    canCreateOpportunity: can(user.role, "CREATE", "OPPORTUNITY"),
+    outreachStatus: seller.outreachStatus,
+    sellerId: seller.id,
+    propertyIds: seller.properties.map((p) => p.id),
+  });
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -75,6 +86,12 @@ export default async function SellerDetailPage({ params }: { params: { id: strin
         description={seller.company ?? undefined}
         actions={
           <>
+            {promote ? (
+              <Link className="btn-primary" href={promote.href}>
+                <Icon name="pipeline" className="h-4 w-4" />
+                {promote.label}
+              </Link>
+            ) : null}
             {can(user.role, "UPDATE", "SELLER") ? (
               <Link className="btn-ghost" href={`/sellers/${seller.id}/edit`}>
                 <Icon name="notes" className="h-4 w-4" />
