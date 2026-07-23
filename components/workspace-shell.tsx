@@ -22,6 +22,7 @@ const navigation: NavItem[] = [
   { href: "/analyzer", label: "Deal Analyzer", icon: "analyzer", section: "Overview", title: "Deal analyzer" },
   { href: "/matches", label: "Matches", icon: "spark", section: "Overview", title: "Buyer matches" },
   { href: "/closing", label: "Closing", icon: "check", section: "Overview", title: "Transaction dashboard" },
+  { href: "/insights", label: "Source performance", icon: "arrowUpRight", section: "Overview", title: "Source performance" },
   { href: "/contacts", label: "Contacts", icon: "mail", section: "Records", title: "Contacts" },
   { href: "/owners", label: "Owners", icon: "buyers", section: "Records", title: "Owners" },
   { href: "/sellers", label: "Sellers", icon: "sellers", section: "Records", title: "Sellers" },

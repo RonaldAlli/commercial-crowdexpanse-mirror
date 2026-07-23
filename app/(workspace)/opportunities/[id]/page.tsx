@@ -33,6 +33,7 @@ import { checklistCategoryLabel } from "@/lib/closing-options";
 import { contactMethodLabel, outreachStatusLabel, outreachStatusTone, touchTypeLabel } from "@/lib/contact-options";
 import { matchStatusLabel, matchStatusTone } from "@/lib/match-options";
 import { STAGE_OPTIONS, stageLabel } from "@/lib/opportunity-options";
+import { channelLabel } from "@/lib/acquisition-options";
 import { diligenceFocusForStage, diligenceStatusLabel, diligenceStatusTone, isPostContractStage, summarizeDiligence } from "@/lib/opportunity-diligence";
 import { ensureOpportunityDiligence } from "@/lib/opportunity-diligence-service";
 import { titleCase } from "@/lib/property-options";
@@ -410,6 +411,8 @@ export default async function OpportunityDetailPage({
   const showAssignmentHeaderBadge = assignmentView != null && assignmentView.status !== "NOT_STARTED";
 
   const terms: { label: string; value: string | null }[] = [
+    { label: "Acquisition channel", value: opportunity.acquisitionChannel ? channelLabel(opportunity.acquisitionChannel) : null },
+    { label: "Campaign", value: opportunity.acquisitionCampaign },
     { label: "Source", value: opportunity.source },
     { label: "Priority", value: opportunity.priority },
     { label: "Target close", value: opportunity.targetCloseDate ? opportunity.targetCloseDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }) : null },
