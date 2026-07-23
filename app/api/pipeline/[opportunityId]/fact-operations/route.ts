@@ -1,47 +1,15 @@
-// E7 · thin HTTP adapter — perform an authorized fact operation. Maps the transport DTO onto FactOperationRequest
-// and delegates to the Coordinator; the response (COMMITTED/DENIED/STALE) is returned AS-IS. No business logic here.
+// E7 · pipeline fact-operations WRITE route — DISABLED FOR LAUNCH.
 //
-// Tenant scope is SESSION-AUTHORITATIVE (resolveOwnedPipelineScope): the organization is derived from the
-// authenticated user, never from the request body. A cross-tenant or unknown opportunity is 404 BEFORE any
-// coordinator work — the body's organizationId is ignored.
-import { type NextRequest, NextResponse } from "next/server";
-
-import { requireUser } from "@/lib/auth";
-import { resolveOwnedPipelineScope } from "@/lib/pipeline-tenant";
-import { perform } from "@/lib/pipeline-api";
-import { getPolicy } from "@/lib/pipeline-authorization";
-import { SS1 } from "@/lib/pipeline-projection";
+// The Slice-2 pipeline is dormant and not part of the launch workflow (the live app runs the legacy
+// stage system). This write path previously accepted a CLIENT-SUPPLIED actor/capability, which an
+// authenticated user could spoof. Rather than build session→actor derivation for a subsystem we are
+// not activating, the endpoint is CLOSED until the pipeline is activated (the Opportunity Pipeline
+// Migration Initiative) — at which point the actor MUST be derived from the authenticated session and
+// its capabilities from the user's role. Returns 404 for every caller (non-disclosure).
+import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(req: NextRequest, { params }: { params: { opportunityId: string } }) {
-  const user = await requireUser();
-  const scope = await resolveOwnedPipelineScope(user, params.opportunityId);
-  if (!scope) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-  const body = await req.json();
-  const policy = getPolicy(body.policyId, body.policyVersion ?? "ap-1");
-  if (!policy) {
-    return NextResponse.json({ error: { category: "validation", httpStatus: 400, detail: `unknown policyId ${body.policyId}` } }, { status: 400 });
-  }
-  const response = await perform({
-    requestId: body.requestId,
-    organizationId: scope.organizationId,
-    opportunityId: scope.opportunityId,
-    actor: body.actor,
-    capability: body.capability,
-    operation: body.operation,
-    policy,
-    versionContext: body.versionContext ?? { policyVersion: "p1", ruleSetVersion: "rs-1" },
-    expectedVersion: body.expectedVersion,
-    subjectKey: body.subjectKey ?? null,
-    state: body.state ?? null,
-    payload: body.payload ?? null,
-    artifactVersion: body.artifactVersion ?? null,
-    spine: SS1,
-    projectionPolicy: body.projectionPolicy ?? { projectionVersion: "pp-1" },
-  });
-  const status = response.outcome === "COMMITTED" ? 200 : response.error?.httpStatus ?? 422;
-  return NextResponse.json(response, { status });
+export async function POST() {
+  return NextResponse.json({ error: "Not found" }, { status: 404 });
 }

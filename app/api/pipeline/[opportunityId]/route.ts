@@ -1,24 +1,13 @@
-// E7 · thin HTTP adapter — read the pipeline for an opportunity. Validates transport only; the read assembly
-// (build FactGraph → project → view models) is the canonical path (API-INV-1 / UI-INV-1).
+// E7 · pipeline READ route — DISABLED FOR LAUNCH.
 //
-// Tenant scope is SESSION-AUTHORITATIVE (resolveOwnedPipelineScope): the organization is derived from the
-// authenticated user, never from a request param. A cross-tenant or unknown opportunity is 404 with no body
-// detail — tenant existence is never disclosed.
-import { type NextRequest, NextResponse } from "next/server";
-
-import { requireUser } from "@/lib/auth";
-import { resolveOwnedPipelineScope } from "@/lib/pipeline-tenant";
-import { readPipeline } from "@/lib/pipeline-view-models";
+// The Slice-2 pipeline is dormant and unlinked; it is not part of the launch workflow. Its HTTP surface
+// is closed until the pipeline is activated (the Opportunity Pipeline Migration Initiative). The read
+// assembly (lib/pipeline-view-models) remains intact for that work; only the exposed endpoint is gated.
+// Returns 404 for every caller (non-disclosure).
+import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest, { params }: { params: { opportunityId: string } }) {
-  const user = await requireUser();
-  const scope = await resolveOwnedPipelineScope(user, params.opportunityId);
-  if (!scope) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-  const activeTab = req.nextUrl.searchParams.get("tab") ?? undefined;
-  const { pipeline, render } = await readPipeline({ organizationId: scope.organizationId, opportunityId: scope.opportunityId, activeTab });
-  return NextResponse.json({ pipeline, render });
+export async function GET() {
+  return NextResponse.json({ error: "Not found" }, { status: 404 });
 }
