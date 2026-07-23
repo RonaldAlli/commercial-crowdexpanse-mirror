@@ -176,6 +176,7 @@ export async function setSellerOutreachStatus(id: string, formData: FormData): P
 
   revalidatePath(`/sellers/${existing.id}`);
   revalidatePath("/sellers");
+  revalidatePath("/acquire");
 }
 
 export async function deleteSeller(id: string) {

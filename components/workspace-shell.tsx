@@ -18,6 +18,7 @@ type NavItem = {
 
 const navigation: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard", section: "Overview", title: "Acquisitions dashboard" },
+  { href: "/acquire", label: "Acquisition workspace", icon: "phone", section: "Overview", title: "Seller acquisition workspace" },
   { href: "/opportunities", label: "Pipeline", icon: "pipeline", section: "Overview", title: "Opportunity pipeline" },
   { href: "/analyzer", label: "Deal Analyzer", icon: "analyzer", section: "Overview", title: "Deal analyzer" },
   { href: "/matches", label: "Matches", icon: "spark", section: "Overview", title: "Buyer matches" },
