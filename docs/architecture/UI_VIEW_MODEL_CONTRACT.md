@@ -20,7 +20,13 @@
   into subsystem internals (a `PipelineFact` row, a `TraceNode`, a graph). A view model is a *presentation shaping*
   of a frozen contract object — it re-labels and arranges, it never reinterprets (mirrors AUTH-INV-13 / PR-INV-7).
 - **UI-INV-3 · Navigation is presentation-only.** `Opportunity → Tabs → Panels` is a display structure, independent
-  of business semantics; changing navigation never changes meaning, and vice versa.
+  of business semantics. **Navigation is presentation state, not business state** — changing tabs never changes
+  projection, authorization, facts, or evaluation, and vice versa.
+- **UI-INV-4 · View-model determinism.** The same API response always produces the same view model — no client
+  clock, local storage, browser state, or hidden cache may influence assembly (mirrors the determinism discipline
+  of every layer below).
+- **UI-INV-5 · No contract mutation.** The UI may **organize / group / format / sort**; it may **never** rewrite,
+  reinterpret, infer, or synthesize the frozen contracts (mirrors AUTH-INV-13 / PR-INV-7).
 
 ## 2. View models (assembled from frozen contracts)
 
@@ -35,6 +41,21 @@
 
 Every view model **embeds or references** the frozen contract object unchanged; assembly only selects, labels, and
 orders for display (UI-INV-2).
+
+### 2a. Two view-model tiers (Domain → Presentation)
+
+A seam so presentation can change without touching contracts:
+
+```
+Frozen contract  →  Domain View Model      →  Presentation View Model  →  React props
+(ProjectionResult)   (OpportunityViewModel…)   (PipelineViewModel)          (component input)
+```
+
+- **Domain view models** shape a *single* frozen contract for display (the table above), embedding it unchanged.
+- **Presentation view models** (e.g. **`PipelineViewModel`**) compose the domain view models into a screen's worth
+  of panels — still derived, still disposable. React components consume **presentation** view models only, never a
+  raw subsystem object. If presentation needs to change, it changes the presentation tier — the domain tier and the
+  contracts are untouched.
 
 ## 3. Separation preserved
 
