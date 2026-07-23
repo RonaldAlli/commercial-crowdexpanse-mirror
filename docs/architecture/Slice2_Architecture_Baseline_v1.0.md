@@ -128,12 +128,21 @@ and Slice 2 was "source only." What "dormant" means, as verified live post-deplo
 **Business activation and navigation exposure remain DEFERRED** to the separately-recorded
 `docs/roadmap/OPPORTUNITY_PIPELINE_MIGRATION_INITIATIVE.md`.
 
-> ⚠️ **Pre-activation security item (dormant, not a live regression).** The `/api/pipeline/[opportunityId]` GET adapter
-> takes `organizationId` from the query string and does not constrain it to the caller's session org — so an
-> *authenticated* user could read another org's pipeline projection (cross-org IDOR). It is **not anonymously
-> exploitable** (auth-gated) and the route is unlinked/dormant, so it is not a regression of existing behavior — but it
-> **must be fixed before the pipeline is activated.** Tracked as an entry for the Migration Initiative / Slice 3 authz
-> hardening.
+> ✅ **Cross-tenant IDOR — FIXED 2026-07-23** (main `a1d36d5`, tag `security-pipeline-tenant-scope`; deployed release
+> `r726349273793014`). All three deployed adapters (`/api/pipeline/[opportunityId]` GET, `.../fact-operations` POST,
+> `/pipeline/[opportunityId]` screen) previously took tenant scope from the client (`?organizationId` / `body.organizationId`
+> / `searchParams.org`) — an authenticated user could read/act on another org's pipeline. Fix: one shared resolver
+> `lib/pipeline-tenant.ts` (`resolveOwnedPipelineScope`) derives org ONLY from `requireUser()`; the request-supplied
+> org is removed from the authority path entirely; a cross-tenant/unknown opportunity → 404 (API) / `notFound()`
+> (page), no disclosure. Acceptance AC-PIPE-AUTHZ-1..6 (`tests/unit/pipeline-tenant/*`, `scripts/e2e-pipeline-tenant-scope.mjs`,
+> 6/6). **Live-verified post-deploy:** own-org read 200; a spoofed `?organizationId` is ignored (200, own data); a
+> foreign/unowned opportunity → 404 (both with and without a spoofed org param — the exact old exploit); anonymous → 307;
+> screen own→200 / foreign→404; `pipeline_facts`/`api_idempotency_records` still 0.
+>
+> ⚠️ **Remaining pre-activation authz item (dormant, NOT a live regression):** the `.../fact-operations` POST still
+> trusts `body.actor`/`capability` — actor identity is client-asserted (tenant is now enforced, but the actor is not
+> authenticated from the session). Must be hardened before the pipeline is activated. Tracked for the Migration
+> Initiative / Slice 3 authz hardening.
 
 ## 8. Gates & process (how work ships)
 
