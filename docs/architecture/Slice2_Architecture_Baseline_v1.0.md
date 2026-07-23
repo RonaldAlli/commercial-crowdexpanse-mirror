@@ -128,3 +128,11 @@ main only when no branch is outstanding.** Prod migrations are separately author
 2. Resolve **D27** (pm2/SIGINT process-supervision investigation) — prerequisite for any automation runtime.
 3. Implement the **deterministic Automation Rule Engine** (design-first against the frozen `AutomationEvent`).
 4. Enable **AutomationExecution** only after D27 is complete (scheduler stays OFF until then).
+
+## 10. Slice 3 kickoff note (deferred — do at Slice 3 start, not before)
+
+When Slice 3 begins, create **`ARCHITECTURAL_DECISION_INDEX.md`** — not another design doc, but the *table of
+contents* for the whole architecture: an index of every frozen contract, every invariant family, every public API,
+every additive version, every production migration, and every tagged milestone. As phases accumulate, it becomes the
+fastest way to locate the authoritative document for any subsystem. (This baseline is the Slice-2 snapshot; the index
+is the cross-slice locator.)
