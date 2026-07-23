@@ -12,12 +12,17 @@
 ```
 ApiError = {
   category: ErrorCategory,     // one of the six below
+  httpStatus: number,          // the transport status (preserved alongside the code — no lossy translation)
   subsystemCode?: string,      // the ORIGINAL frozen code, preserved (e.g. INSUFFICIENT_CAPABILITY, STALE_FACT_GRAPH)
+  subsystemOutcome?: unknown,  // the original subsystem outcome object (e.g. the fresh AuthorizationDecision) AS-IS
   detail?: string,
   decision?: AuthorizationDecision,   // when the error originates from authorization (embedded AS-IS)
   contractVersions: ContractVersions,
 }
 ```
+
+**No lossy translation:** an `ApiError` always preserves `category` · `httpStatus` · `subsystemCode` ·
+`subsystemOutcome` together (e.g. `CONCURRENCY` / `409` / `STALE_FACT_GRAPH` / fresh `AuthorizationDecision`).
 
 ## 2. The six categories (stable)
 

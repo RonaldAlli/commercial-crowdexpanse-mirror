@@ -33,6 +33,7 @@ guard → project**. All in one canonical pipeline; the API adds only transport.
 
 ```
 FactOperationRequest = {
+  requestId,                            // client-generated TRANSPORT idempotency key (§4a) — NOT a reasoning identity
   organizationId, opportunityId,
   actor: ActorSnapshot,                 // supplied by identity layer (immutable snapshot)
   capability, operation: OperationRef,
@@ -43,13 +44,19 @@ FactOperationRequest = {
 }
 
 FactOperationResponse = {
+  requestId,
   outcome: "COMMITTED" | "DENIED" | "STALE",
   decision: AuthorizationDecision,      // AS-IS from E3 (decision + explanation) — never rewritten
   committedFact?: { id, factChainId, globalSequence, provenance },  // when COMMITTED
+  committedGlobalSequence?,             // the appended fact's sequence (COMMITTED)
+  projectedThroughGlobalSequence?,      // max sequence the post-commit projection observed (≥ committedGlobalSequence)
   projection: ProjectionResult,         // AS-IS from E4 (post-commit state)
   contractVersions: ContractVersions,   // §5
 }
 ```
+
+Commit is **transaction-scoped and race-safe (API-INV-2)** and **side-effect-free before commit (API-INV-3)** — see
+[E6 API Design](./E6_API_DESIGN.md) §2–§5.
 
 `DENIED` ⇒ the `AuthorizationDecision.decision.denyCodes` (frozen §11a) are surfaced through the
 [Error Contract](./API_ERROR_CONTRACT.md); `STALE` ⇒ `STALE_FACT_GRAPH` from the commit guard (§4).
@@ -76,6 +83,14 @@ At commit the Coordinator runs `revalidateForCommit` (AUTH-INV-14): it re-derive
 FactGraph and compares identities; any drift ⇒ `STALE` (`STALE_FACT_GRAPH`). **`evaluationId` / `decisionId` /
 `projectionId` remain the identities** — the API may attach an operational `authorizationEventId` alongside, but
 never *replaces* the deterministic identities with an opaque one.
+
+### 4a. Transport idempotency (`requestId`) — a different concern
+
+`requestId` is a **client-generated transport idempotency key**. It does **not** replace `decisionId` /
+`evaluationId` / `projectionId` / `globalSequence` (which identify *reasoning*) — it solves *transport retry
+duplication* (a lost response causing a re-send, which could otherwise append the same fact twice). An idempotency
+record `{ requestId → { factId, decisionId, responseDigest } }` is written **atomically with the fact**; a retried
+`requestId` returns the **stored** response instead of appending again (E6 Design §6).
 
 ## 5. Version negotiation
 
