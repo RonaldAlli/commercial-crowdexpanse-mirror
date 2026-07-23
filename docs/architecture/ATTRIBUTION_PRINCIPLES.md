@@ -46,7 +46,40 @@ Revenue            attributable back to the originating source
    additionally needs cost-per-source** (channel spend), which attribution alone does not provide — that is a separate
    input.
 
-### A distinct concern this rule does NOT cover
+## The three-layer attribution model
 
-*Which tenant* may see an object is authority (see `AUTHORITY_PRINCIPLES.md`, Authority Rule 1). *Where an object came
-from* is attribution. They are independent axes — do not conflate.
+Attribution is not one field — it is three layers, captured on the lead and retained downstream. You can always
+aggregate upward (event → campaign → channel):
+
+| Layer | Changes | Governed? | Example |
+|---|---|---|---|
+| **Channel** | rarely | **yes** — a controlled taxonomy | `OWNER_DIRECT` |
+| **Campaign** | often | no — free-form label | `Fulton Probate July 2026` |
+| **Acquisition Event** | per import | no — the concrete batch/import | `Import Batch #2026-07-23-01` |
+
+This answers three business questions at once: *which channels work · which campaigns work · which individual imports
+worked.* Two design constraints govern the **channel** layer specifically:
+
+- **Stable** — do not mint a new channel every month. Channels change rarely; campaigns/batches/lists/vendors carry
+  the frequent change.
+- **Actionable** — every channel must be something you could reasonably decide to invest *more* in, or *stop*
+  investing in. If it isn't a budget lever, it's a campaign, not a channel.
+
+### Canonical channel taxonomy (initial, Model B — coexisting across asset classes)
+
+**Commercial:** `OWNER_DIRECT` · `COMMERCIAL_BROKER` · `CREXI` · `LOOPNET` · `COSTAR` · `COUNTY_RECORDS` ·
+`TAX_DELINQUENT` · `BANK_SPECIAL_SERVICER` · `RECEIVERSHIP` · `AUCTION` · `REFERRAL` · `OUTBOUND_CALLING` ·
+`DIRECT_MAIL` · `EMAIL_OUTREACH` · `WEB_INBOUND`
+
+**Residential / DealFlow:** `DEALFLOW_PROBATE` · `DEALFLOW_FSBO` · `DEALFLOW_EXPIRED` · `DEALFLOW_VACANT` ·
+`DEALFLOW_PREFORECLOSURE` · `DEALFLOW_TAX_DELINQUENT` · `DEALFLOW_REFERRAL`
+
+The taxonomy is a **business classification** — the software preserves it faithfully; it does not invent it. Changing
+it is a business decision, not a code change.
+
+## Authority vs Attribution — orthogonal axes
+
+> **Authority answers *who may act*. Attribution answers *why this opportunity exists*.**
+
+One protects the platform (`AUTHORITY_PRINCIPLES.md`, Authority Rule 1); the other measures the business (this
+document). They are independent — never conflate the tenant an object belongs to with the source it came from.
