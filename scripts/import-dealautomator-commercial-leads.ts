@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 import { AssetType, OpportunityStage, type OwnerEntityType } from "@prisma/client";
 
 import { prisma } from "../lib/prisma";
+import { isAcquisitionChannel } from "../lib/acquisition-options";
 import { resolveOrCreateProperty } from "../lib/intelligence/property-resolver";
 import { addPropertyExternalIdentifier } from "../lib/intelligence/property-identity";
 import { computeMatchKey } from "../lib/intelligence/owner-identity";
@@ -41,6 +42,10 @@ type ParsedArgs = {
   dryRun: boolean;
   limit: number | null;
   summaryFile: string | null;
+  // Attribution (Import Approach A) — stamped onto every opportunity this batch creates.
+  acquisitionChannel: string | null;
+  acquisitionCampaign: string | null;
+  acquisitionEventKey: string | null;
 };
 
 type ParsedAddress = {
@@ -150,12 +155,30 @@ function parseArgs(argv: string[]): ParsedArgs {
     dryRun: false,
     limit: null,
     summaryFile: null,
+    acquisitionChannel: null,
+    acquisitionCampaign: null,
+    acquisitionEventKey: null,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--dry-run") {
       out.dryRun = true;
+      continue;
+    }
+    if (arg === "--channel") {
+      out.acquisitionChannel = argv[index + 1] ?? null;
+      index += 1;
+      continue;
+    }
+    if (arg === "--campaign") {
+      out.acquisitionCampaign = (argv[index + 1] ?? "").trim() || null;
+      index += 1;
+      continue;
+    }
+    if (arg === "--event-key") {
+      out.acquisitionEventKey = argv[index + 1] ?? null;
+      index += 1;
       continue;
     }
     if (arg === "--file") {
@@ -631,6 +654,17 @@ async function main() {
   const selected = args.limit ? deduped.slice(0, args.limit) : deduped;
   const { organization, actor } = await ensureOrganizationAndActor(args.organizationSlug, args.actorEmail);
 
+  // Import Approach A — acquisition attribution stamped onto every opportunity this batch creates,
+  // by value, at creation. Same three fields, same semantics as the manual/promote path, so downstream
+  // consumers read attribution without branching on how the opportunity entered (AC-ATTR-8). Immutable
+  // once written: reused opportunities are never re-stamped (AC-ATTR-5).
+  const importAttribution = {
+    acquisitionChannel:
+      args.acquisitionChannel && isAcquisitionChannel(args.acquisitionChannel) ? args.acquisitionChannel : null,
+    acquisitionCampaign: args.acquisitionCampaign,
+    acquisitionEventKey: args.acquisitionEventKey,
+  };
+
   const ownerCache = new Map<string, string>();
   const propertyCache = new Map<string, string>();
 
@@ -795,6 +829,7 @@ async function main() {
               source: normalizeWhitespace(record.source_system) || "Deal Automator",
               priority: inferPriority(tags),
               summary: buildOpportunitySummary(record, tags),
+              ...importAttribution,
             },
             select: { id: true },
           });

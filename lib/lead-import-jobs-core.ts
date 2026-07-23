@@ -41,6 +41,11 @@ export type LeadImportJobRecord = {
   provider: string;
   dryRun: boolean;
   limit: number | null;
+  // Acquisition attribution stamped onto every opportunity this batch creates (Attribution Rule 1).
+  // Channel is required for imports (same historical contract as the manual path); the eventKey the
+  // importer records on each opportunity is this job's id.
+  acquisitionChannel: string;
+  acquisitionCampaign: string | null;
   logFile: string;
   summaryFile: string;
   summary?: LeadImportJobSummary | null;

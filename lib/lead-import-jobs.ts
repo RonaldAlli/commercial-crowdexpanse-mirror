@@ -58,6 +58,8 @@ export async function queueLeadImportJob(input: {
   provider: string;
   dryRun: boolean;
   limit: number | null;
+  acquisitionChannel: string;
+  acquisitionCampaign: string | null;
 }): Promise<PublicLeadImportJob> {
   if (!input.organizationId) {
     throw new Error("Organization context is required to queue an import.");
@@ -85,6 +87,8 @@ export async function queueLeadImportJob(input: {
     provider: input.provider,
     dryRun: input.dryRun,
     limit: input.limit,
+    acquisitionChannel: input.acquisitionChannel,
+    acquisitionCampaign: input.acquisitionCampaign,
     logFile,
     summaryFile,
     summary: null,
@@ -108,6 +112,13 @@ export async function queueLeadImportJob(input: {
     input.actorEmail,
     "--provider",
     input.provider,
+    // Attribution (Import Approach A): stamped onto every opportunity this batch creates. eventKey = job id.
+    "--channel",
+    input.acquisitionChannel,
+    "--campaign",
+    input.acquisitionCampaign ?? "",
+    "--event-key",
+    id,
     "--dry-run",
     input.dryRun ? "1" : "0",
   ];

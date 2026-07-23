@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 
 import { startLeadImportAction } from "@/app/(workspace)/settings/imports/actions";
+import { CHANNEL_GROUPS } from "@/lib/acquisition-options";
 
 export function LeadImportForm({
   defaults,
@@ -71,6 +72,44 @@ export function LeadImportForm({
         <p className="mt-1 text-xs text-slate-400">
           Optional if you upload a file above. Allowed roots: <code>/tmp</code>, <code>uploads</code>, or <code>imports</code> inside the app directory.
         </p>
+      </div>
+
+      {/* Acquisition source for the whole batch (Attribution Rule 1 / Import Approach A). Channel is
+          required and stamped onto every opportunity this import creates. */}
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div>
+          <label className="text-xs font-medium text-slate-500" htmlFor="import-channel">
+            Acquisition channel <span className="text-rose-500">*</span>
+          </label>
+          <select id="import-channel" name="acquisitionChannel" required defaultValue="" className="input mt-1 h-10 text-sm">
+            <option value="" disabled>
+              Select a channel…
+            </option>
+            {CHANNEL_GROUPS.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.options.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-slate-400">Stamped onto every opportunity in this batch.</p>
+        </div>
+
+        <div>
+          <label className="text-xs font-medium text-slate-500" htmlFor="import-campaign">
+            Campaign
+          </label>
+          <input
+            id="import-campaign"
+            name="acquisitionCampaign"
+            className="input mt-1 h-10 text-sm"
+            placeholder="Deal Automator July 2026"
+          />
+          <p className="mt-1 text-xs text-slate-400">Optional free-form label for this batch.</p>
+        </div>
       </div>
 
       <div className="grid gap-5 sm:grid-cols-2">

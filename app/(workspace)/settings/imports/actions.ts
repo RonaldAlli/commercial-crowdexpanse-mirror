@@ -4,6 +4,7 @@ import { UserRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
 import { requireRole } from "@/lib/auth";
+import { isAcquisitionChannel } from "@/lib/acquisition-options";
 import { queueLeadImportJob } from "@/lib/lead-import-jobs";
 import { absolutePathFor, buildStorageKey, MAX_UPLOAD_BYTES, persistFile } from "@/lib/storage";
 
@@ -15,7 +16,15 @@ export async function startLeadImportAction(formData: FormData) {
   const provider = String(formData.get("provider") ?? "").trim() || "dealautomator.com/commercial-lead";
   const limitRaw = String(formData.get("limit") ?? "").trim();
   const dryRun = String(formData.get("dryRun") ?? "") === "on";
+  const acquisitionChannel = String(formData.get("acquisitionChannel") ?? "").trim();
+  const acquisitionCampaign = String(formData.get("acquisitionCampaign") ?? "").trim() || null;
   const uploaded = formData.get("leadFile");
+
+  // Attribution Rule 1: an import batch is a single acquisition event, so a channel is required —
+  // it is stamped onto every opportunity the batch creates (same historical contract as manual entry).
+  if (!isAcquisitionChannel(acquisitionChannel)) {
+    return { error: "An acquisition channel is required for the import batch." };
+  }
 
   if (uploaded instanceof File && uploaded.size > 0) {
     if (uploaded.size > MAX_UPLOAD_BYTES) {
@@ -60,6 +69,8 @@ export async function startLeadImportAction(formData: FormData) {
       provider,
       dryRun,
       limit,
+      acquisitionChannel,
+      acquisitionCampaign,
     });
     revalidatePath("/settings/imports");
     return {

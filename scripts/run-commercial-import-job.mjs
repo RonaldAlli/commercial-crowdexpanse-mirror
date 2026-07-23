@@ -30,6 +30,10 @@ async function main() {
   const limit = args["limit"];
   const dryRun = args["dry-run"] === "1";
   const summaryFile = args["summary-file"];
+  // Attribution (Import Approach A) — stamped onto every opportunity the batch creates.
+  const channel = args["channel"];
+  const campaign = args["campaign"];
+  const eventKey = args["event-key"];
 
   if (!jobFile || !logFile || !sourceFile || !organizationSlug || !actorEmail || !provider || !summaryFile) {
     throw new Error("Missing required runner arguments.");
@@ -62,6 +66,9 @@ async function main() {
     "--summary-file",
     summaryFile,
   ];
+  if (channel) importerArgs.push("--channel", channel);
+  if (campaign) importerArgs.push("--campaign", campaign);
+  if (eventKey) importerArgs.push("--event-key", eventKey);
   if (dryRun) importerArgs.push("--dry-run");
   if (limit) importerArgs.push("--limit", limit);
 
