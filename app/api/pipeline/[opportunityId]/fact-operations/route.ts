@@ -1,7 +1,13 @@
 // E7 · thin HTTP adapter — perform an authorized fact operation. Maps the transport DTO onto FactOperationRequest
 // and delegates to the Coordinator; the response (COMMITTED/DENIED/STALE) is returned AS-IS. No business logic here.
+//
+// Tenant scope is SESSION-AUTHORITATIVE (resolveOwnedPipelineScope): the organization is derived from the
+// authenticated user, never from the request body. A cross-tenant or unknown opportunity is 404 BEFORE any
+// coordinator work — the body's organizationId is ignored.
 import { type NextRequest, NextResponse } from "next/server";
 
+import { requireUser } from "@/lib/auth";
+import { resolveOwnedPipelineScope } from "@/lib/pipeline-tenant";
 import { perform } from "@/lib/pipeline-api";
 import { getPolicy } from "@/lib/pipeline-authorization";
 import { SS1 } from "@/lib/pipeline-projection";
@@ -9,6 +15,11 @@ import { SS1 } from "@/lib/pipeline-projection";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest, { params }: { params: { opportunityId: string } }) {
+  const user = await requireUser();
+  const scope = await resolveOwnedPipelineScope(user, params.opportunityId);
+  if (!scope) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   const body = await req.json();
   const policy = getPolicy(body.policyId, body.policyVersion ?? "ap-1");
   if (!policy) {
@@ -16,8 +27,8 @@ export async function POST(req: NextRequest, { params }: { params: { opportunity
   }
   const response = await perform({
     requestId: body.requestId,
-    organizationId: body.organizationId,
-    opportunityId: params.opportunityId,
+    organizationId: scope.organizationId,
+    opportunityId: scope.opportunityId,
     actor: body.actor,
     capability: body.capability,
     operation: body.operation,
