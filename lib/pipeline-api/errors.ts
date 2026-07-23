@@ -29,3 +29,8 @@ export function translateDenied(decision: AuthorizationDecision, contractVersion
 export function staleError(decision: AuthorizationDecision, contractVersions: ContractVersions): ApiError {
   return { category: "concurrency", httpStatus: 409, subsystemCode: "STALE_FACT_GRAPH", subsystemOutcome: decision, decision, contractVersions };
 }
+
+/** A requestId reused with a DIFFERENT payload — a client/transport validity conflict (never re-appends). */
+export function idempotencyConflictError(contractVersions: ContractVersions): ApiError {
+  return { category: "validation", httpStatus: 409, subsystemCode: "IDEMPOTENCY_KEY_REUSE", detail: "requestId reused with a different request payload", contractVersions };
+}

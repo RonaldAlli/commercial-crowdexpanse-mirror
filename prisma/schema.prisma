@@ -2168,3 +2168,20 @@ enum PipelineFactProvenance {
   VERIFIED
   MIGRATION_ORIGIN
 }
+
+/// E6 API transport idempotency (operational metadata — NOT part of the semantic fact model). One record per
+/// (organizationId, requestId), written atomically with the committed fact; a retry replays `originalResponse`.
+model ApiIdempotencyRecord {
+  id               String   @id @default(cuid())
+  organizationId   String
+  requestId        String
+  requestDigest    String
+  factId           String?
+  decisionId       String
+  originalResponse Json
+  responseDigest   String
+  createdAt        DateTime @default(now())
+
+  @@unique([organizationId, requestId], map: "api_idempotency_org_request_key")
+  @@map("api_idempotency_records")
+}

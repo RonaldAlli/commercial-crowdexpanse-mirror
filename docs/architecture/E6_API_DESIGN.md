@@ -77,9 +77,21 @@ committedGlobalSequence` — the projection provably reflects the committed fact
 
 `FactOperationRequest.requestId` is a **client-generated** transport identity (idempotency key). It is **not** a
 substitute for `decisionId`/`evaluationId`/`projectionId`/`globalSequence` (which identify *reasoning*) — it solves
-*transport retry duplication* (a lost response causing a re-send). An idempotency record `{requestId → {factId,
-decisionId, responseDigest}}` is written **atomically with the fact** (§4); a retried `requestId` returns the stored
-response instead of appending a second fact.
+*transport retry duplication* (a lost response causing a re-send).
+
+A **dedicated `ApiIdempotencyRecord`** (its own table — transport metadata does **not** live in the semantic
+`PipelineFact.reason`) is written **atomically with the fact** inside the commit transaction:
+
+```
+ApiIdempotencyRecord { organizationId, requestId, requestDigest, factId, decisionId, originalResponse, responseDigest, createdAt }
+@@unique(organizationId, requestId)
+```
+
+The **`originalResponse`** (the exact COMMITTED response, assembled inside the transaction so it includes the just-
+appended fact) is stored. On retry (under the advisory lock): locate `(organizationId, requestId)`; if
+`requestDigest` matches, **return the stored `originalResponse` verbatim** (never a rebuilt current view — the
+projectionId/sequence boundaries are the originals); if it differs, **reject** (`IDEMPOTENCY_KEY_REUSE`) — the same
+key must not be reused with a different payload. A retry **never** appends a second fact.
 
 ## 7. Coordinator purity
 
