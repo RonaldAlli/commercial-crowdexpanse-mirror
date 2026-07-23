@@ -109,11 +109,31 @@ PR-INV-4 / API-INV-1 / UI-INV-1/2).
 | E4 Projection | ✅ merged | `opp-slice2-e4-complete` | library only |
 | E5 Migration | ✅ merged | `opp-slice2-e5-complete` | library only (prod data migration = separately-authorized, not run) |
 | E6 API | ✅ merged | `opp-slice2-e6-complete` | table `api_idempotency_records` **deployed** (migration 32) |
-| E7 UI | ✅ merged | `opp-slice2-e7-complete` | source only — **UI not deployed** (D25 deploy engine, separate step) |
+| E7 UI | ✅ merged | `opp-slice2-e7-complete` | **code + authenticated routes DEPLOYED 2026-07-23, DORMANT** (see below) |
 | E8 Automation | ⏸ deferred | — | rule engine buildable; **runtime gated on D27** (scheduler OFF) |
 
 **Migration history (prod):** 30 legacy → **31** `add_pipeline_facts` → **32** `add_api_idempotency`. Both additive;
 zero existing data modified; restore-verified backups taken each time.
+
+**Production deployment status (updated 2026-07-23).** Slice 2 code and its authenticated routes are now **deployed
+but dormant.** The first production build to carry Slice 2 shipped 2026-07-23 (release `r723981950001803`, atop the
+Seller Acquisition "Promote" feature, main `c160474`) via the D25 engine — previously prod ran D19-era `61d130f`
+and Slice 2 was "source only." What "dormant" means, as verified live post-deploy:
+- `/pipeline/[opportunityId]` (screen) and `/api/pipeline/[opportunityId]` (read) **initialize cleanly** (HTTP 200
+  over zero facts) but are **not in navigation** and **not referenced by any live workflow** (disjoint from legacy).
+- Anonymous access is blocked (middleware → 307). **`pipeline_facts` and `api_idempotency_records` remain at 0 rows**
+  — deployment and read-only exercise created no pipeline data.
+- Automation process absent from pm2; scheduler OFF; D27 posture unchanged.
+
+**Business activation and navigation exposure remain DEFERRED** to the separately-recorded
+`docs/roadmap/OPPORTUNITY_PIPELINE_MIGRATION_INITIATIVE.md`.
+
+> ⚠️ **Pre-activation security item (dormant, not a live regression).** The `/api/pipeline/[opportunityId]` GET adapter
+> takes `organizationId` from the query string and does not constrain it to the caller's session org — so an
+> *authenticated* user could read another org's pipeline projection (cross-org IDOR). It is **not anonymously
+> exploitable** (auth-gated) and the route is unlinked/dormant, so it is not a regression of existing behavior — but it
+> **must be fixed before the pipeline is activated.** Tracked as an entry for the Migration Initiative / Slice 3 authz
+> hardening.
 
 ## 8. Gates & process (how work ships)
 
