@@ -148,6 +148,36 @@ enum ContactOutreachStatus {
   DO_NOT_CONTACT
 }
 
+// Acquisition Attribution — Layer 1 (Channel). Governed, stable, actionable: every value is a
+// budget lever you could invest more in or stop. Campaigns/batches carry the frequent change, not
+// this list. Model B: commercial + residential/DealFlow channels coexist. See ATTRIBUTION_PRINCIPLES.md.
+enum AcquisitionChannel {
+  // Commercial
+  OWNER_DIRECT
+  COMMERCIAL_BROKER
+  CREXI
+  LOOPNET
+  COSTAR
+  COUNTY_RECORDS
+  TAX_DELINQUENT
+  BANK_SPECIAL_SERVICER
+  RECEIVERSHIP
+  AUCTION
+  REFERRAL
+  OUTBOUND_CALLING
+  DIRECT_MAIL
+  EMAIL_OUTREACH
+  WEB_INBOUND
+  // Residential / DealFlow
+  DEALFLOW_PROBATE
+  DEALFLOW_FSBO
+  DEALFLOW_EXPIRED
+  DEALFLOW_VACANT
+  DEALFLOW_PREFORECLOSURE
+  DEALFLOW_TAX_DELINQUENT
+  DEALFLOW_REFERRAL
+}
+
 enum ContactMethod {
   CALL
   TEXT
@@ -703,6 +733,12 @@ model Seller {
   city                   String?
   state                  String?
   outreachStatus         ContactOutreachStatus @default(NEW)
+  // Acquisition Attribution (Attribution Rule 1). Where this lead came from. Channel is required at
+  // the app layer for new MANUAL sellers (DB column nullable → additive/backfill-safe). Campaign is a
+  // free-form label; eventKey is the immutable acquisition-event identifier (e.g. import job id).
+  acquisitionChannel     AcquisitionChannel?
+  acquisitionCampaign    String?
+  acquisitionEventKey    String?
   preferredContactMethod ContactMethod?
   nextFollowUpAt         DateTime?
   assignedUserId         String?
@@ -951,6 +987,11 @@ model Opportunity {
   title            String
   stage            OpportunityStage  @default(LEAD)
   source           String?
+  // Acquisition Attribution — RETAINED from the originating lead at creation, IMMUTABLE thereafter
+  // (AC-ATTR-5): describes WHY this opportunity exists, never re-derived when the Seller changes.
+  acquisitionChannel  AcquisitionChannel?
+  acquisitionCampaign String?
+  acquisitionEventKey String?
   priority         String?
   targetCloseDate  DateTime?
   contractValueUsd Int?

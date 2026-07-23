@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";
 import { authorize, checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
+import { isAcquisitionChannel } from "@/lib/acquisition-options";
 import { prisma } from "@/lib/prisma";
 
 export type SellerFormState = { error?: string } | undefined;
@@ -19,6 +20,8 @@ function parseSeller(formData: FormData) {
     city: value("city"),
     state: value("state"),
     motivation: value("motivation"),
+    acquisitionChannel: value("acquisitionChannel"),
+    acquisitionCampaign: value("acquisitionCampaign"),
   };
 }
 
@@ -38,6 +41,12 @@ export async function createSeller(
     return { error: "Seller name is required." };
   }
 
+  // Attribution Rule 1: acquisition channel is REQUIRED at the app layer for new manual sellers,
+  // so the source gap never reopens one lead at a time (the DB column stays nullable for backfill).
+  if (!isAcquisitionChannel(data.acquisitionChannel)) {
+    return { error: "An acquisition channel is required." };
+  }
+
   const seller = await prisma.seller.create({
     data: {
       organizationId: user.organizationId,
@@ -48,6 +57,9 @@ export async function createSeller(
       city: orNull(data.city),
       state: orNull(data.state),
       motivation: orNull(data.motivation),
+      acquisitionChannel: data.acquisitionChannel,
+      acquisitionCampaign: orNull(data.acquisitionCampaign),
+      // acquisitionEventKey stays null for manual entry (no import event). Layer 3 is set by importers.
     },
   });
 
@@ -82,6 +94,13 @@ export async function updateSeller(
     return { error: "Seller name is required." };
   }
 
+  // Channel remains required on edit (also backfills a pre-attribution seller). Editing the LEAD's
+  // own channel is allowed (correction); it never rewrites the frozen attribution already stamped on
+  // opportunities derived from this seller (AC-ATTR-5).
+  if (!isAcquisitionChannel(data.acquisitionChannel)) {
+    return { error: "An acquisition channel is required." };
+  }
+
   // Org-scope guard: only touch sellers that belong to this organization.
   const existing = await prisma.seller.findFirst({
     where: { id, organizationId: user.organizationId },
@@ -101,6 +120,8 @@ export async function updateSeller(
       city: orNull(data.city),
       state: orNull(data.state),
       motivation: orNull(data.motivation),
+      acquisitionChannel: data.acquisitionChannel,
+      acquisitionCampaign: orNull(data.acquisitionCampaign),
     },
   });
 

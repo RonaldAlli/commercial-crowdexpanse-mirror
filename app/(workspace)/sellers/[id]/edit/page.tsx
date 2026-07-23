@@ -36,6 +36,8 @@ export default async function EditSellerPage({ params }: { params: { id: string 
             city: seller.city,
             state: seller.state,
             motivation: seller.motivation,
+            acquisitionChannel: seller.acquisitionChannel,
+            acquisitionCampaign: seller.acquisitionCampaign,
           }}
           submitLabel="Save changes"
           cancelHref={`/sellers/${seller.id}`}

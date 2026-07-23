@@ -16,7 +16,7 @@ export default async function NewSellerPage() {
       <PageHeader
         eyebrow="Seller records"
         title="Add seller"
-        description="Create a new motivated-seller record. Only a name is required."
+        description="Create a new motivated-seller record. Name and acquisition channel are required."
       />
       <div className="card p-6">
         <SellerForm action={createSeller} submitLabel="Create seller" cancelHref="/sellers" />

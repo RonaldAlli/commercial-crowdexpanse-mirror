@@ -10,6 +10,7 @@ import { getClosingGateStatus } from "@/lib/closing-service";
 import { applyStageTransition, evaluateStageTransition } from "@/lib/stage-policy-service";
 import { prisma } from "@/lib/prisma";
 import { stageLabel } from "@/lib/opportunity-options";
+import { opportunityAttributionFromSeller } from "@/lib/acquisition-options";
 
 export type OpportunityFormState = { error?: string } | undefined;
 
@@ -108,8 +109,20 @@ export async function createOpportunity(
   const result = await buildPayload(formData, user.organizationId, true);
   if ("error" in result) return { error: result.error };
 
+  // Attribution Rule 1 (retain, don't join): stamp the originating lead's acquisition attribution
+  // onto the opportunity AT CREATION, copied by value. It is immutable thereafter — updateOpportunity
+  // never touches these fields, so the opportunity permanently records WHY it exists even if the
+  // seller is later re-channeled, unlinked, or deleted (AC-ATTR-5).
+  const seller = result.payload.sellerId
+    ? await prisma.seller.findFirst({
+        where: { id: result.payload.sellerId, organizationId: user.organizationId },
+        select: { acquisitionChannel: true, acquisitionCampaign: true, acquisitionEventKey: true },
+      })
+    : null;
+  const attribution = opportunityAttributionFromSeller(seller);
+
   const opportunity = await prisma.opportunity.create({
-    data: { organizationId: user.organizationId, ...result.payload },
+    data: { organizationId: user.organizationId, ...result.payload, ...attribution },
   });
 
   await prisma.activityLog.create({

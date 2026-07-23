@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useFormState, useFormStatus } from "react-dom";
 
 import type { SellerFormState } from "@/app/(workspace)/sellers/actions";
+import { CHANNEL_GROUPS } from "@/lib/acquisition-options";
 
 export type SellerFormValues = {
   name?: string | null;
@@ -13,6 +14,8 @@ export type SellerFormValues = {
   city?: string | null;
   state?: string | null;
   motivation?: string | null;
+  acquisitionChannel?: string | null;
+  acquisitionCampaign?: string | null;
 };
 
 function Field({
@@ -96,6 +99,43 @@ export function SellerForm({
           placeholder="Why is this owner open to selling?"
         />
       </label>
+
+      {/* Acquisition source (Attribution Rule 1) — channel required; campaign optional/free-form. */}
+      <div className="border-t border-slate-100 pt-5">
+        <p className="eyebrow mb-3">Acquisition source</p>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium text-slate-700">
+              Channel<span className="text-rose-500"> *</span>
+            </span>
+            <select
+              className="input"
+              name="acquisitionChannel"
+              required
+              defaultValue={values?.acquisitionChannel ?? ""}
+            >
+              <option value="" disabled>
+                Select a channel…
+              </option>
+              {CHANNEL_GROUPS.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.options.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+          <Field
+            label="Campaign"
+            name="acquisitionCampaign"
+            defaultValue={values?.acquisitionCampaign}
+            placeholder="Fulton Probate July 2026"
+          />
+        </div>
+      </div>
 
       <div className="flex items-center gap-2 pt-1">
         <SubmitButton label={submitLabel} />
