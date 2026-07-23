@@ -79,8 +79,10 @@ node-tsx-runtime / OS-or-environment.**
 | **H1** | An **external, session-bound agent/monitor** signals Prisma/DB-connecting processes it doesn't recognize | Prisma-correlated · conditional · "recovered when the operational session ended" (07-10) | Reproduce the Prisma probe **fully detached** (`setsid`, no interactive session, no operator/agent active). SIGINT vanishes ⇒ session-bound external sender. |
 | **H2** | **pm2 supervision internal path** sends SIGINT outside the `pm2 stop` code path | pm2's default kill-signal is SIGINT; only reproduces under pm2 | Reproduce the same probe under **systemd unit** and **bare `setsid`** (no pm2). SIGINT vanishes ⇒ pm2-specific. |
 | **H3** | The **node/`--import tsx`/Prisma startup** self-signals or a helper signals ~3 s in | 3 s ≈ a startup-phase timing; only with Prisma | Reproduce Prisma **without tsx** (plain `.mjs` + `@prisma/client`) under pm2. SIGINT persists ⇒ not tsx; isolates Prisma×pm2. |
+| **H4** | An **environment-level lifecycle manager** outside pm2 supervises/culls the process — a container runtime, service wrapper, login/session manager, or infrastructure watchdog | supervision investigations must rule this out; cheap to eliminate | The `signal_generate` capture names a non-pm2, non-app sender; corroborate via the sender's `comm`/cgroup/parent. Also: does it persist across `{container vs host, login-session vs system-service}`? |
 
-A single `bpftrace signal:signal_generate` capture answers all three at once by **naming the sender**.
+A single `bpftrace signal:signal_generate` capture answers all four at once by **naming the sender** (pid/uid/comm),
+which directly exposes an environment-level manager (H4) if one is present.
 
 ## 4. Reproduction & attribution procedure (to run ONLY after ratification)
 
@@ -141,6 +143,9 @@ A decision tree, gated on §3's outcome; each paired with the ARI-3 soak as its 
   SIGINT, `unstable_restarts=0`.
 - **AC-D27-4 (prod safety, throughout):** the prod automation app stays out of the pm2 list + boot dump; queue tables
   remain 0; supervision of real apps unchanged.
+- **AC-D27-5 (attribution gate):** a proposed fix may be implemented **only after the sender is positively identified
+  by evidence.** `Unknown sender → no runtime change`; `Attributed sender → candidate remediation`. This forbids
+  fixing a symptom without the mechanism.
 
 ## 9. Rollback strategy
 
@@ -153,3 +158,39 @@ absent from the pm2 list and `dump.pm2`. No prod config/supervision change is pr
 This report + a ratified **attribution method** (§4) is the gate. Only after §3's sender is identified and §8's
 AC-D27-1/2 are met does D27 propose a specific remedy (§7) for separate review — then implement + soak (ARI-3) before
 any scheduler enablement (ARI-4).
+
+## 11. Controlled attribution experiment — results (2026-07-23)
+
+Ran the authorized controlled experiment (tagged `d27-*`, `autorestart:false`, no queries, removed after; the prod
+automation app + the 5 real pm2 apps untouched; boot dump untouched; **baseline restored + verified**). A minimal
+`new PrismaClient(); await $connect()` + keep-alive probe (the charter's discriminator), on the prod host under the
+deploy pm2 daemon.
+
+| Probe | Supervision | Result |
+|---|---|---|
+| Prisma probe **wrapped in `strace -e trace=signal`** | pm2 fork | **Stable — 54 s online, 0 restarts, 0 SIGINT** in the trace. |
+| Prisma probe **raw** (`node`, no strace) | pm2 fork | **Stable — 22 s+ online, 0 restarts, no received SIGINT.** |
+
+**Primary finding — the phenomenon does NOT reproduce in the current environment/session (2026-07-23).** The same
+minimal probe that SIGINT-looped on 2026-07-22 now runs **stably well past the ~3–4 s window**, both raw and traced.
+This is decisive on the *nature* of the fault, if not yet the exact sender:
+
+- **Confirms the fault is CONDITIONAL / transient**, gated on a factor present during the 2026-07-22 operational
+  window and **absent now** — matching the 2026-07-10 web recovery.
+- **Strengthens H1 (session-bound agent) / H4 (environment-level manager);** **weakens H2/H3** (an intrinsic
+  pm2×Prisma or node/tsx cause would reproduce now — it does not). The root-owned `code-server` is *running now* yet
+  the probe is stable now, which **partially exonerates** it as the sender.
+
+**Attribution (sender pid/uid/comm) not yet obtained — and why:**
+1. **Nothing to trace right now** — with the SIGINT not firing, there is no signal to attribute.
+2. **Tooling wall for the deploy user:** `bpftrace`/`auditd` require **root** (no non-interactive `sudo`); `perf`
+   is blocked (`perf_event_paranoid=4`); `strace` (the only same-uid option) both **perturbs** the process (a heavily
+   ptraced process may not present the state the sender keys on) and had **no signal to catch**.
+
+**Revised next step (needs a root-level, always-on watch — a decision point):** because the fault is *intermittent*,
+attribution requires a **low-overhead `signal:signal_generate` watch left running** so it captures the sender the
+*next* time the condition recurs (or during a deliberate reconstruction of the 2026-07-22 operational context):
+`sudo bpftrace -e 'tracepoint:signal:signal_generate /args->sig==2/ { printf("%s SIGINT tgt=%d(%s) by=%d(%s) uid=%d\n", strftime("%H:%M:%S",nsecs), args->pid, args->comm, pid, comm, uid); }'` (or an `auditd` signal rule). This
+requires **root**, which the deploy user lacks non-interactively — so it needs the founder to run it (e.g. via `!`)
+or to grant elevated access for the trace. **Per AC-D27-5, no runtime change until the sender is positively
+identified.**
