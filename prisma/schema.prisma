@@ -357,6 +357,10 @@ model Organization {
   invitations            Invitation[]
   activities             ActivityLog[]
   settings               OrganizationSettings?
+  conversations          Conversation[]
+  commsMessages          CommsMessage[]
+  callRecords            CallRecord[]
+  commsProviderConfig    CommsProviderConfig?
   emailMessages          EmailMessage[]
   owners                 Owner[]
   ownerContacts          OwnerContact[]
@@ -721,6 +725,146 @@ model EmailMessage {
   @@map("email_messages")
 }
 
+// ============================================================================
+// Integrated Communications Desk (v1.4) — channel-agnostic domain model.
+// Org-scoped (Authority Rule 1). Mirrors the EmailMessage delivery-state pattern
+// and a provider-adapter seam; the concrete Telnyx adapter is a later branch.
+// ============================================================================
+enum CommsChannel {
+  SMS
+  EMAIL
+  WHATSAPP
+}
+
+enum CommsDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum CommsMessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  RECEIVED
+}
+
+enum CommsCallStatus {
+  QUEUED
+  RINGING
+  ANSWERED
+  COMPLETED
+  NO_ANSWER
+  BUSY
+  FAILED
+  CANCELED
+}
+
+enum CommsProvider {
+  TELNYX
+}
+
+// One unified conversation per seller — the inbox that groups SMS / Email /
+// WhatsApp messages and calls into a single chronological history.
+model Conversation {
+  id             String         @id @default(cuid())
+  organizationId String
+  sellerId       String         @unique
+  lastActivityAt DateTime       @default(now())
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  seller         Seller         @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  messages       CommsMessage[]
+  calls          CallRecord[]
+
+  @@index([organizationId])
+  @@map("conversations")
+}
+
+// A messaging-channel message (SMS / Email / WhatsApp). Phone calls are CallRecord.
+model CommsMessage {
+  id                String             @id @default(cuid())
+  organizationId    String
+  conversationId    String
+  sellerId          String?
+  channel           CommsChannel
+  direction         CommsDirection
+  status            CommsMessageStatus @default(QUEUED)
+  body              String
+  subject           String? // email only
+  fromAddress       String?
+  toAddress         String?
+  provider          CommsProvider?
+  providerMessageId String?
+  externalEventId   String? // provider event id — inbound/webhook idempotency
+  error             String?
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  createdAt         DateTime           @default(now())
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  conversation      Conversation       @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  seller            Seller?            @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, externalEventId])
+  @@index([organizationId])
+  @@index([conversationId])
+  @@index([status])
+  @@map("comms_messages")
+}
+
+// A phone call (the PHONE channel), with call-specific lifecycle + recording.
+model CallRecord {
+  id             String          @id @default(cuid())
+  organizationId String
+  conversationId String?
+  sellerId       String?
+  direction      CommsDirection
+  status         CommsCallStatus @default(QUEUED)
+  fromNumber     String?
+  toNumber       String?
+  provider       CommsProvider?
+  providerCallId String?
+  durationSec    Int?
+  recordingUrl   String?
+  disposition    String?
+  startedAt      DateTime?
+  endedAt        DateTime?
+  createdAt      DateTime        @default(now())
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  conversation   Conversation?   @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  seller         Seller?         @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([conversationId])
+  @@map("call_records")
+}
+
+// Per-org provider configuration. Secrets (API key, webhook key, WebRTC credential)
+// are AES-256-GCM encrypted at rest (lib/comms/secret-box) and NEVER returned to the
+// browser — only a masked last-4 hint. Non-secret ids / number / enables stay plain.
+model CommsProviderConfig {
+  id                  String        @id @default(cuid())
+  organizationId      String        @unique
+  provider            CommsProvider @default(TELNYX)
+  smsEnabled          Boolean       @default(false)
+  voiceEnabled        Boolean       @default(false)
+  whatsappEnabled     Boolean       @default(false)
+  emailEnabled        Boolean       @default(false)
+  fromNumber          String?
+  connectionId        String?
+  messagingProfileId  String?
+  apiKeyEnc           String? // AES-256-GCM ciphertext
+  apiKeyLast4         String?
+  webhookPublicKeyEnc String?
+  webrtcCredentialEnc String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  organization        Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("comms_provider_configs")
+}
+
 model Seller {
   id                     String                @id @default(cuid())
   organizationId         String
@@ -758,6 +902,9 @@ model Seller {
   documents              Document[]
   activities             ActivityLog[]
   touchHistory           ContactTouch[]
+  conversation           Conversation?
+  commsMessages          CommsMessage[]
+  callRecords            CallRecord[]
 
   @@index([organizationId])
   @@index([ownerId])
