@@ -129,10 +129,17 @@ main only when no branch is outstanding.** Prod migrations are separately author
 3. Implement the **deterministic Automation Rule Engine** (design-first against the frozen `AutomationEvent`).
 4. Enable **AutomationExecution** only after D27 is complete (scheduler stays OFF until then).
 
-## 10. Slice 3 kickoff note (deferred — do at Slice 3 start, not before)
+## 10. Deferred future-work notes (do at the start of the relevant phase, not before)
 
-When Slice 3 begins, create **`ARCHITECTURAL_DECISION_INDEX.md`** — not another design doc, but the *table of
-contents* for the whole architecture: an index of every frozen contract, every invariant family, every public API,
-every additive version, every production migration, and every tagged milestone. As phases accumulate, it becomes the
-fastest way to locate the authoritative document for any subsystem. (This baseline is the Slice-2 snapshot; the index
-is the cross-slice locator.)
+Recorded here so they surface at the right time — not created now (each belongs at the beginning of its phase, like
+this baseline belonged at the end of Slice 2).
+
+- **At Slice 3 start — `ARCHITECTURAL_DECISION_INDEX.md`.** Not another design doc, but the *table of contents* for
+  the whole architecture: an index of every frozen contract, invariant family, public API, additive version,
+  production migration, and tagged milestone. This baseline is the Slice-2 snapshot; the index is the cross-slice
+  locator.
+- **At the start of a broader operational phase — `OPERATIONS_RUNBOOK.md`** (cross-project). An *operations manual*
+  (distinct from the architectural docs): incident-response workflow · production evidence collection · signal
+  attribution (D27's `scripts/d27-signal-watch.sh` is a first entry) · pm2 diagnostics · deployment rollback (D25/
+  D26) · database restore verification (`scripts/backup.sh`) · production health verification · postmortem template.
+  Shared across DealFlow / Communications / Automation / Genufly / CrowdExpanse to avoid duplicated procedures.

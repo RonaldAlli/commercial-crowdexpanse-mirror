@@ -197,6 +197,9 @@ identified.**
 
 ## 12. Disposition — latent intermittent defect (2026-07-23)
 
+**Status: OPEN (Monitoring)** — *not* Active Development. The platform proceeds on other work; D27 waits, tooling
+armed, for the next occurrence to yield the missing evidence.
+
 **Classification: latent intermittent defect.** The fault is real (evidenced 2026-07-22) but **not currently
 reproducible** and **conditional** on a transient session/environment factor. Rather than spend disproportionate
 effort forcing a reproduction of an intermittent issue, D27 stays **open** with attribution tooling **ready to
