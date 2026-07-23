@@ -2,6 +2,18 @@
 
 Reverse chronological. User-visible changes only. Baseline reference: `Launch_Baseline_v1.0.md`.
 
+## v1.2 — 2026-07-23
+
+### Enhancement — Acquisition Workspace: Calling (Sales Desk Phase A)
+
+Faster calling loop in `/acquire`:
+
+- **Click-to-call** — the seller's phone is a one-tap call button (hands off to the device/softphone dialer).
+- **Call timer** — an on-screen timer starts when you place the call.
+- **One-tap dispositions** — No answer · Left voicemail · Not interested · Callback requested · Connected — each logs a call and advances to the next seller. A collapsible "custom outcome" form remains for detailed notes / other channels.
+
+Reuses the existing contact-touch logging and auto-advance; no new backend. (Power/predictive dialer and call recording are later phases.)
+
 ## v1.1 — 2026-07-23
 
 ### New Feature — Seller Acquisition Workspace (`/acquire`)

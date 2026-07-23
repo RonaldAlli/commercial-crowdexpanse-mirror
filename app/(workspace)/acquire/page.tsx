@@ -16,10 +16,13 @@ import { getAcquisitionQueue, getDailyAcquisitionMetrics } from "@/lib/acquisiti
 import { logContactTouchAction } from "../contacts/actions";
 import { setSellerOutreachStatus } from "../sellers/actions";
 import { WorkspaceKeys } from "./WorkspaceKeys";
+import { CallControls } from "./CallControls";
 
 export const dynamic = "force-dynamic";
 
 const TOUCH_TYPES = ["CALL", "TEXT", "EMAIL", "NOTE"] as const;
+// One-tap call outcomes — each logs a CALL touch and advances to the next seller.
+const DISPOSITIONS = ["No answer", "Left voicemail", "Not interested", "Callback requested", "Connected"] as const;
 
 function dateInputValue(date: Date | null): string {
   return date ? date.toISOString().slice(0, 10) : "";
@@ -215,27 +218,46 @@ export default async function AcquireWorkspacePage({ searchParams }: { searchPar
                   </article>
 
                   <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                    {/* Log outcome + advance */}
+                    {/* Call + log outcome + advance (Phase A) */}
                     <article className="card p-6">
-                      <p className="eyebrow">Log outcome</p>
-                      <form action={logAction} className="mt-3 space-y-3">
+                      <p className="eyebrow">Call</p>
+                      <div className="mt-3">
+                        <CallControls phone={current.phone} />
+                      </div>
+
+                      <p className="mt-5 text-xs font-medium text-slate-500">Quick disposition — logs a call &amp; moves to the next seller</p>
+                      <form action={logAction} className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                        <input type="hidden" name="type" value="CALL" />
                         <input type="hidden" name="redirectTo" value={`/acquire?sellerId=${nextId}`} />
-                        <select name="type" defaultValue="CALL" className="input h-10 text-sm">
-                          {TOUCH_TYPES.map((t) => (
-                            <option key={t} value={t}>
-                              {touchTypeLabel(t)}
-                            </option>
-                          ))}
-                        </select>
-                        <textarea name="summary" className="input min-h-[80px] resize-y text-sm" placeholder="Outcome, objection, or note" />
-                        <label className="block text-xs text-slate-500">
-                          Next follow-up
-                          <input type="date" name="nextFollowUpAt" defaultValue={dateInputValue(current.nextFollowUpAt)} className="input mt-1 h-10 text-sm" />
-                        </label>
-                        <button type="submit" className="btn-primary w-full">
-                          Log &amp; next →
-                        </button>
+                        <input type="hidden" name="nextFollowUpAt" value={dateInputValue(current.nextFollowUpAt)} />
+                        {DISPOSITIONS.map((d) => (
+                          <button key={d} type="submit" name="summary" value={d} className="btn text-xs">
+                            {d}
+                          </button>
+                        ))}
                       </form>
+
+                      <details className="mt-5">
+                        <summary className="cursor-pointer text-xs font-medium text-slate-500">Log a custom outcome…</summary>
+                        <form action={logAction} className="mt-3 space-y-3">
+                          <input type="hidden" name="redirectTo" value={`/acquire?sellerId=${nextId}`} />
+                          <select name="type" defaultValue="CALL" className="input h-10 text-sm">
+                            {TOUCH_TYPES.map((t) => (
+                              <option key={t} value={t}>
+                                {touchTypeLabel(t)}
+                              </option>
+                            ))}
+                          </select>
+                          <textarea name="summary" className="input min-h-[80px] resize-y text-sm" placeholder="Outcome, objection, or note" />
+                          <label className="block text-xs text-slate-500">
+                            Next follow-up
+                            <input type="date" name="nextFollowUpAt" defaultValue={dateInputValue(current.nextFollowUpAt)} className="input mt-1 h-10 text-sm" />
+                          </label>
+                          <button type="submit" className="btn-primary w-full">
+                            Log &amp; next →
+                          </button>
+                        </form>
+                      </details>
                     </article>
 
                     {/* Quick status */}
