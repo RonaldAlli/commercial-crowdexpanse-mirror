@@ -1,5 +1,22 @@
 import { ContactMethod, ContactOutreachStatus, ContactTouchType } from "@prisma/client";
 
+// Ordered options for an outreach-status <select> (used by the seller record's qualify control).
+export const OUTREACH_STATUS_OPTIONS: ContactOutreachStatus[] = [
+  ContactOutreachStatus.NEW,
+  ContactOutreachStatus.ATTEMPTING,
+  ContactOutreachStatus.CONTACTED,
+  ContactOutreachStatus.RESPONDED,
+  ContactOutreachStatus.QUALIFIED,
+  ContactOutreachStatus.DEAD,
+  ContactOutreachStatus.DO_NOT_CONTACT,
+];
+
+const VALID_OUTREACH = new Set<string>(Object.values(ContactOutreachStatus));
+
+export function isOutreachStatus(value: string): value is ContactOutreachStatus {
+  return VALID_OUTREACH.has(value);
+}
+
 export function outreachStatusLabel(status: ContactOutreachStatus): string {
   switch (status) {
     case ContactOutreachStatus.NEW:

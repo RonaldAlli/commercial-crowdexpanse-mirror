@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { authorize, checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
 import { isAcquisitionChannel } from "@/lib/acquisition-options";
+import { isOutreachStatus, outreachStatusLabel } from "@/lib/contact-options";
 import { prisma } from "@/lib/prisma";
 
 export type SellerFormState = { error?: string } | undefined;
@@ -138,6 +139,43 @@ export async function updateSeller(
   revalidatePath("/sellers");
   revalidatePath(`/sellers/${existing.id}`);
   redirect(`/sellers/${existing.id}`);
+}
+
+/**
+ * Set a seller's outreach status directly from the seller record — the qualify control that makes the
+ * seller → QUALIFIED → promote path usable without detouring through the Contacts workspace. Updates
+ * ONLY outreachStatus (unlike the full contact-ops form), so it can't clobber the seller's other
+ * contact fields. Gated by UPDATE SELLER.
+ */
+export async function setSellerOutreachStatus(id: string, formData: FormData): Promise<void> {
+  const user = await requireUser();
+  // The control only renders for UPDATE-SELLER users over a controlled <select>, so denial/invalid are
+  // unreachable via the UI — guard defensively and no-op rather than surface an error.
+  if (!(await checkAuthorized(user, "UPDATE", "SELLER", { targetId: id, sellerId: id }))) return;
+  const next = String(formData.get("outreachStatus") ?? "").trim();
+  if (!isOutreachStatus(next)) return;
+
+  const existing = await prisma.seller.findFirst({
+    where: { id, organizationId: user.organizationId },
+    select: { id: true, name: true, outreachStatus: true },
+  });
+  if (!existing) return;
+
+  if (existing.outreachStatus !== next) {
+    await prisma.seller.update({ where: { id: existing.id }, data: { outreachStatus: next } });
+    await prisma.activityLog.create({
+      data: {
+        organizationId: user.organizationId,
+        sellerId: existing.id,
+        actorId: user.id,
+        eventType: "seller.outreach_status_changed",
+        eventLabel: `Outreach status: ${outreachStatusLabel(existing.outreachStatus)} → ${outreachStatusLabel(next)}`,
+      },
+    });
+  }
+
+  revalidatePath(`/sellers/${existing.id}`);
+  revalidatePath("/sellers");
 }
 
 export async function deleteSeller(id: string) {

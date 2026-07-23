@@ -11,8 +11,9 @@ import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { resolveSellerPromotion } from "@/lib/promote-seller";
+import { OUTREACH_STATUS_OPTIONS, outreachStatusLabel, outreachStatusTone } from "@/lib/contact-options";
 
-import { deleteSeller } from "../actions";
+import { deleteSeller, setSellerOutreachStatus } from "../actions";
 import { unlinkSellerAction } from "../../owners/actions";
 
 export const dynamic = "force-dynamic";
@@ -67,6 +68,7 @@ export default async function SellerDetailPage({ params }: { params: { id: strin
     : null;
 
   const deleteSellerBound = deleteSeller.bind(null, seller.id);
+  const setStatusBound = setSellerOutreachStatus.bind(null, seller.id);
 
   // Promote to opportunity — the Seller Acquisition vertical (Path A). Pure decision
   // in lib/promote-seller.ts; this only seeds the existing New-Opportunity form, which
@@ -115,6 +117,37 @@ export default async function SellerDetailPage({ params }: { params: { id: strin
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Details + motivation */}
         <div className="space-y-6 lg:col-span-2">
+          {/* Qualify control — makes seller → QUALIFIED → promote usable from the seller record itself. */}
+          <article className="card p-6">
+            <div className="flex items-center justify-between">
+              <p className="eyebrow">Outreach status</p>
+              <Badge tone={outreachStatusTone(seller.outreachStatus)}>{outreachStatusLabel(seller.outreachStatus)}</Badge>
+            </div>
+            {can(user.role, "UPDATE", "SELLER") ? (
+              <form action={setStatusBound} className="mt-4 flex flex-wrap items-center gap-2">
+                <select name="outreachStatus" defaultValue={seller.outreachStatus} className="input h-10 max-w-[220px] text-sm">
+                  {OUTREACH_STATUS_OPTIONS.map((status) => (
+                    <option key={status} value={status}>
+                      {outreachStatusLabel(status)}
+                    </option>
+                  ))}
+                </select>
+                <button type="submit" className="btn">
+                  Update status
+                </button>
+              </form>
+            ) : null}
+            {seller.outreachStatus === "QUALIFIED" ? (
+              <p className="mt-3 text-xs font-medium text-emerald-600">
+                Qualified — use “Promote to opportunity” above to create a deal.
+              </p>
+            ) : (
+              <p className="mt-3 text-xs text-slate-500">
+                Set status to <span className="font-medium text-slate-700">Qualified</span> to promote this seller to an opportunity.
+              </p>
+            )}
+          </article>
+
           <article className="card p-6">
             <p className="eyebrow">Contact</p>
             <dl className="mt-4 grid gap-4 sm:grid-cols-2">
