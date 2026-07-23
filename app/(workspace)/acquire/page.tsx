@@ -15,14 +15,15 @@ import { getAcquisitionQueue, getDailyAcquisitionMetrics } from "@/lib/acquisiti
 
 import { logContactTouchAction } from "../contacts/actions";
 import { setSellerOutreachStatus } from "../sellers/actions";
+import { DISPOSITIONS } from "@/lib/disposition";
+
 import { WorkspaceKeys } from "./WorkspaceKeys";
-import { CallControls } from "./CallControls";
+import { Comms } from "./Comms";
+import { recordDisposition } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 const TOUCH_TYPES = ["CALL", "TEXT", "EMAIL", "NOTE"] as const;
-// One-tap call outcomes — each logs a CALL touch and advances to the next seller.
-const DISPOSITIONS = ["No answer", "Left voicemail", "Not interested", "Callback requested", "Connected"] as const;
 
 function dateInputValue(date: Date | null): string {
   return date ? date.toISOString().slice(0, 10) : "";
@@ -151,6 +152,7 @@ export default async function AcquireWorkspacePage({ searchParams }: { searchPar
               });
               const logAction = logContactTouchAction.bind(null, "seller", current.id);
               const statusAction = setSellerOutreachStatus.bind(null, current.id);
+              const dispoAction = recordDisposition.bind(null, current.id);
 
               return (
                 <div className="space-y-6">
@@ -217,73 +219,73 @@ export default async function AcquireWorkspacePage({ searchParams }: { searchPar
                     ) : null}
                   </article>
 
-                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                    {/* Call + log outcome + advance (Phase A) */}
-                    <article className="card p-6">
-                      <p className="eyebrow">Call</p>
-                      <div className="mt-3">
-                        <CallControls phone={current.phone} />
-                      </div>
+                  {/* Operator console — every tool needed during the call, without leaving the screen */}
+                  <article className="card p-6">
+                    <p className="eyebrow">Operator console</p>
 
-                      <p className="mt-5 text-xs font-medium text-slate-500">Quick disposition — logs a call &amp; moves to the next seller</p>
-                      <form action={logAction} className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                        <input type="hidden" name="type" value="CALL" />
-                        <input type="hidden" name="redirectTo" value={`/acquire?sellerId=${nextId}`} />
-                        <input type="hidden" name="nextFollowUpAt" value={dateInputValue(current.nextFollowUpAt)} />
+                    <div className="mt-3">
+                      <Comms phone={current.phone} email={current.email} />
+                    </div>
+
+                    {/* Disposition + follow-up: one tap logs the call, applies the outcome, advances */}
+                    <form action={dispoAction} className="mt-5 space-y-3">
+                      <input type="hidden" name="redirectTo" value={`/acquire?sellerId=${nextId}`} />
+                      <label className="block text-xs text-slate-500">
+                        Next follow-up
+                        <input type="date" name="nextFollowUpAt" defaultValue={dateInputValue(current.nextFollowUpAt)} className="input mt-1 h-10 max-w-[200px] text-sm" />
+                      </label>
+                      <p className="text-xs font-medium text-slate-500">Disposition — logs the call, updates the lead, and moves to the next seller</p>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                         {DISPOSITIONS.map((d) => (
-                          <button key={d} type="submit" name="summary" value={d} className="btn text-xs">
+                          <button key={d} type="submit" name="disposition" value={d} className="btn text-xs">
                             {d}
                           </button>
                         ))}
-                      </form>
+                      </div>
+                    </form>
 
-                      <details className="mt-5">
-                        <summary className="cursor-pointer text-xs font-medium text-slate-500">Log a custom outcome…</summary>
-                        <form action={logAction} className="mt-3 space-y-3">
-                          <input type="hidden" name="redirectTo" value={`/acquire?sellerId=${nextId}`} />
-                          <select name="type" defaultValue="CALL" className="input h-10 text-sm">
-                            {TOUCH_TYPES.map((t) => (
-                              <option key={t} value={t}>
-                                {touchTypeLabel(t)}
-                              </option>
-                            ))}
-                          </select>
-                          <textarea name="summary" className="input min-h-[80px] resize-y text-sm" placeholder="Outcome, objection, or note" />
-                          <label className="block text-xs text-slate-500">
-                            Next follow-up
-                            <input type="date" name="nextFollowUpAt" defaultValue={dateInputValue(current.nextFollowUpAt)} className="input mt-1 h-10 text-sm" />
-                          </label>
-                          <button type="submit" className="btn-primary w-full">
-                            Log &amp; next →
-                          </button>
-                        </form>
-                      </details>
-                    </article>
-
-                    {/* Quick status */}
-                    <article className="card p-6">
-                      <p className="eyebrow">Outreach status</p>
+                    <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
                       {can(user.role, "UPDATE", "SELLER") ? (
-                        <form action={statusAction} className="mt-3 space-y-3">
-                          <select name="outreachStatus" defaultValue={current.outreachStatus} className="input h-10 text-sm">
+                        <form action={statusAction} className="flex items-center gap-2">
+                          <select name="outreachStatus" defaultValue={current.outreachStatus} className="input h-9 text-sm">
                             {OUTREACH_STATUS_OPTIONS.map((s) => (
                               <option key={s} value={s}>
                                 {outreachStatusLabel(s)}
                               </option>
                             ))}
                           </select>
-                          <button type="submit" className="btn w-full">
-                            Update status
+                          <button type="submit" className="btn text-sm">
+                            Set status
                           </button>
                         </form>
-                      ) : (
-                        <p className="mt-3 text-sm text-slate-500">{outreachStatusLabel(current.outreachStatus)}</p>
-                      )}
-                      <div className="mt-4 border-t border-slate-100 pt-3 text-xs text-slate-400">
-                        <kbd className="rounded bg-slate-100 px-1">j</kbd> next · <kbd className="rounded bg-slate-100 px-1">k</kbd> previous
-                      </div>
-                    </article>
-                  </div>
+                      ) : null}
+                      <Link href={`/acquire?sellerId=${nextId}`} className="btn-ghost ml-auto text-sm">
+                        Next seller →
+                      </Link>
+                    </div>
+
+                    <details className="mt-4">
+                      <summary className="cursor-pointer text-xs font-medium text-slate-500">Log a custom note or objection…</summary>
+                      <form action={logAction} className="mt-3 space-y-3">
+                        <input type="hidden" name="redirectTo" value={`/acquire?sellerId=${nextId}`} />
+                        <select name="type" defaultValue="NOTE" className="input h-10 text-sm">
+                          {TOUCH_TYPES.map((t) => (
+                            <option key={t} value={t}>
+                              {touchTypeLabel(t)}
+                            </option>
+                          ))}
+                        </select>
+                        <textarea name="summary" className="input min-h-[70px] resize-y text-sm" placeholder="Note, objection, or other outcome" />
+                        <button type="submit" className="btn-primary w-full">
+                          Log &amp; next →
+                        </button>
+                      </form>
+                    </details>
+
+                    <p className="mt-4 border-t border-slate-100 pt-3 text-xs text-slate-400">
+                      <kbd className="rounded bg-slate-100 px-1">j</kbd> next · <kbd className="rounded bg-slate-100 px-1">k</kbd> previous
+                    </p>
+                  </article>
 
                   {/* Contact history */}
                   <article className="card overflow-hidden">

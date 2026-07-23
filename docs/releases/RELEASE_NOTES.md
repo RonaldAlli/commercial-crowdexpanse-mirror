@@ -2,6 +2,19 @@
 
 Reverse chronological. User-visible changes only. Baseline reference: `Launch_Baseline_v1.0.md`.
 
+## v1.3 — 2026-07-23
+
+### Enhancement — Acquisition Workspace becomes an Operator Console
+
+The `/acquire` right panel is redesigned from an information view into an operator console so a rep can work a call without leaving the screen:
+
+- **Communications** — device-native **Call** (`tel:`, starts the timer), **Text** (`sms:`), **Email** (`mailto:`); disabled with a clear label when the seller has no phone/email.
+- **Disposition toolbar** — No answer · Voicemail · Connected · Wrong number · DNC · Appointment set. One tap logs the call, applies the outcome, and advances to the next seller: **Connected / Appointment set** → RESPONDED; **DNC** → do-not-contact (drops from the queue); **Wrong number** → flags bad phone.
+- **Follow-up** — set the next follow-up date inline; applied with the disposition.
+- **Status**, **custom note / objection**, and **Next seller →** all in the console; qualification checklist, contact history, and seller/property context alongside.
+
+Composes existing contact-touch, status, and promotion systems. **Deferred (need providers/credentials):** provider-backed SMS/email sending, power/predictive dialer, voicemail drop, call recording, calendar/appointment integration, AI notes. Also note: imported sellers currently have no phone/email, so click-to-call/text show their disabled state until that data exists.
+
 ## v1.2 — 2026-07-23
 
 ### Enhancement — Acquisition Workspace: Calling (Sales Desk Phase A)
