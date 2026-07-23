@@ -16,18 +16,39 @@
 That companion is why buyer *coverage* ships now but assignment-record creation is **not** honestly
 called a "contract date": a precise-sounding name over an administrative timestamp would lie.
 
+## BI Rule 2 — Consumers never compute metrics
+
+> **Dashboards, reports, exports, emails, and AI consume primitives; they never compute business
+> metrics themselves.**
+
+```
+Dashboard / report / export / email / AI
+        ↓
+closedWonConversionByChannel()        ← always. never a re-implementation.
+```
+
+Obvious, and the easiest place for drift to start: the moment a dashboard computes "conversion rate"
+itself, you have two definitions, then three. A metric has exactly one authoritative implementation —
+in `lib/business-intelligence/`. If a consumer needs a metric that doesn't exist yet, add a *primitive*,
+don't inline the math.
+
 ## The layer
 
 ```
-Business Facts            (Opportunity, AssignmentRecord, BuyerMatch, attribution — the truth)
+Authority        (who may act)
+        ↓
+Attribution      (why the opportunity exists)
+        ↓
+Business Facts   (Opportunity, AssignmentRecord, BuyerMatch, attribution — the truth)
         ↓
 Business Query Primitives (lib/business-intelligence/ — pure, deterministic, org-scoped)
         ↓
-Dashboards · Reports · KPIs · Exports · Email · AI     (mere CONSUMERS — the truth exists once)
+Presentation: Dashboards · Reports · KPIs · Exports · Email · AI   (mere CONSUMERS — truth exists once)
 ```
 
 Dashboards are not the artifact. They are one consumer among many. `revenueByChannel()` is written
-once, proven once, and every presentation reads that same trusted implementation.
+once, proven once, and every presentation reads that same trusted implementation. Authority, Attribution,
+and Business Intelligence are no longer application modules — they are **platform capabilities**.
 
 ## Frozen semantics (Phase 1)
 
