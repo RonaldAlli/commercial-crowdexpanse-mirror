@@ -194,3 +194,29 @@ attribution requires a **low-overhead `signal:signal_generate` watch left runnin
 requires **root**, which the deploy user lacks non-interactively — so it needs the founder to run it (e.g. via `!`)
 or to grant elevated access for the trace. **Per AC-D27-5, no runtime change until the sender is positively
 identified.**
+
+## 12. Disposition — latent intermittent defect (2026-07-23)
+
+**Classification: latent intermittent defect.** The fault is real (evidenced 2026-07-22) but **not currently
+reproducible** and **conditional** on a transient session/environment factor. Rather than spend disproportionate
+effort forcing a reproduction of an intermittent issue, D27 stays **open** with attribution tooling **ready to
+capture the next occurrence** (observe → identify → attribute → remediate, in order).
+
+**Standing posture (until the next recurrence):**
+- **Investigation OPEN** — root cause not yet established; sender unidentified.
+- **Automation runtime DISABLED** — not started, not in the pm2 boot dump; `AUTOMATION_SCHEDULER_ENABLED=0` (ARI-4).
+- **Do NOT force a reproduction** — low value for an intermittent fault.
+- **Attribution tooling READY** — `scripts/d27-signal-watch.sh` (inert until run as **root**): arms a low-overhead
+  `signal:signal_generate` watch (bpftrace, or an auditd fallback) that logs the SIGINT **sender** pid/uid/comm to a
+  persistent file. Least-privilege (Option 1): the founder arms it when convenient; the next recurrence is captured.
+- **No runtime/supervision/config change** — AC-D27-5 gate: `unknown sender → no change`.
+
+**Sign-off (2026-07-23):**
+| Item | State |
+|---|---|
+| Read-only investigation | ✅ Accepted |
+| Controlled attribution experiment | ✅ Accepted (baseline restored; prod pristine) |
+| Root cause | ⛔ Not yet established |
+| Evidence quality | ⬆ Improved — fault localized to a transient session/env sender; app/pm2/Prisma/tsx intrinsic causes weakened |
+| Runtime modifications | ⛔ Not authorized |
+| Next gate | **Capture sender attribution (AC-D27-1) on the next recurrence**, then propose remediation (AC-D27-5) |
