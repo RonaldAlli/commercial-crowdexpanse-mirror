@@ -8,7 +8,7 @@
 // stages, authorize operations, or mutate facts (FG-INV-11) — those are E2 Slice B / E3 / E4.
 
 import { PipelineFactOperation, type PipelineFactProvenance, type PipelineFact } from "@prisma/client";
-import { reconstructHistory } from "./service";
+import { reconstructHistory, type DbClient } from "./service";
 
 /** The explicit policy/rule-set context a graph is built under (reproducibility — FG-INV-7). */
 export type VersionContext = {
@@ -174,7 +174,7 @@ export class FactGraph {
  * The ONE constructor of a FactGraph (Law 12). Ledger-only input via the frozen E1 v1.0 API
  * (`reconstructHistory`) — FG-INV-9. Pure/observational; same request + same history ⇒ identical graph.
  */
-export async function buildFactGraph(request: FactGraphRequest): Promise<FactGraph> {
-  const history = await reconstructHistory(request.organizationId, request.opportunityId);
+export async function buildFactGraph(request: FactGraphRequest, client?: DbClient): Promise<FactGraph> {
+  const history = await reconstructHistory(request.organizationId, request.opportunityId, client);
   return new FactGraph(history, request.versionContext);
 }

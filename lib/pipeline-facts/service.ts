@@ -98,10 +98,16 @@ function baseData(input: RecordFactInput, factClass: PipelineFactClass, provenan
   };
 }
 
+/**
+ * A Prisma client OR a transaction-scoped client. The optional `db` parameter (default: global `prisma`) lets the
+ * commit path run every read+append on ONE transaction client (E6 / API-INV-2) — additive, backward-compatible.
+ */
+export type DbClient = typeof prisma | Prisma.TransactionClient;
+
 /** Assert a FRESH fact (starts a new supersession chain). Insert-only. */
-export async function recordFact(input: RecordFactInput): Promise<PipelineFact> {
+export async function recordFact(input: RecordFactInput, db: DbClient = prisma): Promise<PipelineFact> {
   const factClass = assertValidFresh(input);
-  return prisma.pipelineFact.create({
+  return db.pipelineFact.create({
     data: { ...baseData(input, factClass, PipelineFactProvenance.VERIFIED), factChainId: randomUUID() },
   });
 }
@@ -109,10 +115,11 @@ export async function recordFact(input: RecordFactInput): Promise<PipelineFact> 
 /** Record a MIGRATION-ORIGIN fact — provenance + migration principal enforced (STM §9c, AUTH-INV-9). */
 export async function recordMigrationFact(
   input: Omit<RecordFactInput, "actorType" | "actorId"> & { actorId: string },
+  db: DbClient = prisma,
 ): Promise<PipelineFact> {
   const full: RecordFactInput = { ...input, actorType: PipelineActorType.MIGRATION_PRINCIPAL };
   const factClass = assertValidFresh(full);
-  return prisma.pipelineFact.create({
+  return db.pipelineFact.create({
     data: { ...baseData(full, factClass, PipelineFactProvenance.MIGRATION_ORIGIN), factChainId: randomUUID() },
   });
 }
@@ -178,8 +185,8 @@ export async function recordSupersession(
 }
 
 /** Complete, immutable history for an opportunity, in authoritative order (globalSequence). */
-export async function reconstructHistory(organizationId: string, opportunityId: string): Promise<PipelineFact[]> {
-  return prisma.pipelineFact.findMany({
+export async function reconstructHistory(organizationId: string, opportunityId: string, db: DbClient = prisma): Promise<PipelineFact[]> {
+  return db.pipelineFact.findMany({
     where: { organizationId, opportunityId },
     orderBy: { globalSequence: "asc" },
   });
