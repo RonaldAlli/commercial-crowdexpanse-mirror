@@ -4,6 +4,18 @@ Reverse chronological. User-visible changes only. Baseline reference: `Launch_Ba
 
 ## v1.4 — Communications Desk (in progress)
 
+### Feature — Acquisition Session mode — 2026-07-24
+
+The Acquisition Workspace now works as a **calling session**, not a list of records. A prominent bar at the top of `/acquire` lets an operator **start a session with a call goal** and then tracks the block live:
+
+- **Goal · Completed · Remaining · Elapsed · Appointments · Qualified**, a progress bar, and a realized **calls/hr** pace.
+- Every number is **derived from the operator's own in-window facts** — completed = calls logged since start, appointments = the appointment-set disposition, qualified = status→Qualified changes — never a hand-kept tally. Counters refresh as you advance the queue; only the clock ticks live.
+- One open session per operator; **End session** closes the block.
+
+### Enhancement — Operator Test Deck (seed) — 2026-07-24
+
+A realistic day's queue for evaluating the operator workflow under real conditions: **37 seeded sellers** across new leads, callbacks, voicemails, hot/qualified, wrong numbers, DNC, and appointments — owners/LLCs/inherited/absentee spanning every asset type — each with a believable communication history that fills the Timeline. Tagged for clean re-seed/teardown; DNC excluded from the queue by design. (Internal test data, not a user-facing change.)
+
 ### Feature — Operator communications settings (Branch 4) — 2026-07-24
 
 A new **Settings → Communications** screen (admin-only) configures the org's **Telnyx** provider so the operator experience can be connected to a real provider without code changes:
