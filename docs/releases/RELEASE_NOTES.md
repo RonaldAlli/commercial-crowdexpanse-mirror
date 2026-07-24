@@ -4,6 +4,10 @@ Reverse chronological. User-visible changes only. Baseline reference: `Launch_Ba
 
 ## v1.4 — Communications Desk (in progress)
 
+### UI correction — Remove sticky auto dialer from the seller work panel — 2026-07-24
+
+The operator control cluster (auto dialer / dispositions / follow-up / status / next) in the non-session **current seller work panel** no longer uses `position: sticky` — it now scrolls naturally with the rest of the panel. This is a design correction, not a new feature: all dialer functionality is unchanged, and no replacement floating/sticky behavior was added. The session cockpit (Session Mode) already uses a fixed multi-pane layout and was intentionally left untouched. Deferred: the full cockpit-style fixed-pane redesign of this panel.
+
 ### Feature — Session Mode: the calling cockpit (Slice 1) — 2026-07-24
 
 Starting an acquisition session now **transforms the workspace into a calling cockpit** — the session becomes the thing you work, and the seller is just the current target it hands you:

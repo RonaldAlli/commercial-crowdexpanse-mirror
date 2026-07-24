@@ -7,7 +7,7 @@ import { DISPOSITIONS } from "@/lib/disposition";
 import { SoftPhone } from "./SoftPhone";
 
 // The operator control cluster: phone + dispositions + follow-up + status + next — one group, no scrolling
-// to reach any of it. Shared by the normal sticky panel and the session cockpit so both stay in lockstep.
+// to reach any of it. Shared by the normal work panel and the session cockpit so both stay in lockstep.
 export function OperatorDock({
   sellerId,
   sellerName,

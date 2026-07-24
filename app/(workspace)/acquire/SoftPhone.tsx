@@ -22,7 +22,7 @@ function statusLabel(s: SoftphoneState): string {
 
 type AudioDevice = { deviceId: string; label: string };
 
-// Compact softphone for the sticky operator dock: status + timer + number + call controls always shown;
+// Compact softphone for the operator dock: status + timer + number + call controls always shown;
 // keypad and audio-device selectors tuck behind a toggle so the dock stays short. Inert until a voice
 // provider is configured (shows "Voice provider not configured" instead of failing).
 export function SoftPhone({ toNumber }: { toNumber: string | null }) {

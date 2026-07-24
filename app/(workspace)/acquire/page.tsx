@@ -272,8 +272,9 @@ export default async function AcquireWorkspacePage({ searchParams }: { searchPar
                 <div className="space-y-4">
                   <WorkspaceKeys prevHref={`/acquire?sellerId=${prevId}`} nextHref={`/acquire?sellerId=${nextId}`} />
 
-                  {/* STICKY operator dock — phone, disposition, follow-up, status, next: never scroll away */}
-                  <div className="sticky top-4 z-20 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  {/* Operator dock — phone, disposition, follow-up, status, next. Scrolls with the panel;
+                      sticky positioning intentionally removed pending the fixed-pane cockpit redesign. */}
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                     <OperatorDock
                       sellerId={current.id}
                       sellerName={current.name}
