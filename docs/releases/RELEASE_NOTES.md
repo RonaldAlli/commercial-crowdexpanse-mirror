@@ -4,6 +4,18 @@ Reverse chronological. User-visible changes only. Baseline reference: `Launch_Ba
 
 ## v1.4 — Communications Desk (in progress)
 
+### Enhancement — Operator workspace refinement: sticky dock + unified Timeline — 2026-07-24
+
+The Acquisition Workspace is restructured so an acquisition rep can work an entire shift from one screen without scrolling to find controls:
+
+- **Sticky operator dock** — the phone, in-call **timer**, **disposition** buttons, **follow-up** date, **status**, and **Next →** stay pinned at the top and never scroll away during a call. Seller/property reference information scrolls below.
+- **Disposition adjacent to the phone** — the six disposition buttons sit immediately beneath the softphone in the same dock, so finishing a call and logging it takes no scrolling and no hunting.
+- **One unified Timeline** — the separate *History* tab and *Contact history* card are merged into a single chronological stream (calls, SMS/WhatsApp/email, logged notes/dispositions, follow-ups, and status changes), newest first. It is the default tab.
+- **Phone stays the default entry point** — the compact softphone leads the dock; the keypad and mic/speaker selectors tuck behind a **Keypad** toggle so the dock stays short.
+- **Seller details** — a compact reference card (phone, email, follow-up, channel, company, location, motivation, plus DNC / no-text / no-email flags) replaces the old contact-history card.
+
+Tabs are now **SMS · WhatsApp · Email · Timeline**. Behavior is otherwise unchanged; sending remains configuration-gated and the softphone remains inert until a voice provider is configured.
+
 ### Enhancement — Unified communications workspace (Branch 3) — 2026-07-24
 
 The right side of the Acquisition Workspace is now a full operator communications workspace with tabs **Phone · SMS · WhatsApp · Email · History**:
