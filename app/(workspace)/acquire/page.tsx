@@ -17,8 +17,10 @@ import { logContactTouchAction } from "../contacts/actions";
 import { setSellerOutreachStatus } from "../sellers/actions";
 import { DISPOSITIONS } from "@/lib/disposition";
 
+import { resolveChannelStatus } from "@/lib/comms/conversation-view";
+
 import { WorkspaceKeys } from "./WorkspaceKeys";
-import { SoftPhone } from "./SoftPhone";
+import { ConversationWorkspace } from "./ConversationWorkspace";
 import { recordDisposition } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -59,6 +61,26 @@ export default async function AcquireWorkspacePage({ searchParams }: { searchPar
         },
       })
     : null;
+
+  // Communications workspace data (Branch 3) — the current seller's message/call threads + provider config.
+  const convMessages = current
+    ? await prisma.commsMessage.findMany({ where: { organizationId: org, sellerId: current.id }, orderBy: { createdAt: "asc" }, take: 200 })
+    : [];
+  const convCalls = current
+    ? await prisma.callRecord.findMany({ where: { organizationId: org, sellerId: current.id }, orderBy: { createdAt: "asc" }, take: 200 })
+    : [];
+  const commsConfig = current ? await prisma.commsProviderConfig.findUnique({ where: { organizationId: org } }) : null;
+  const fmtTime = (d: Date) => d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  const wsMessages = convMessages.map((m) => ({ id: m.id, channel: m.channel, direction: m.direction, body: m.body, subject: m.subject, status: m.status, timeLabel: fmtTime(m.createdAt), at: m.createdAt.getTime() }));
+  const wsCalls = convCalls.map((c) => ({ id: c.id, direction: c.direction, status: c.status, durationSec: c.durationSec, disposition: c.disposition, timeLabel: fmtTime(c.createdAt), at: c.createdAt.getTime() }));
+  const chCfg = commsConfig
+    ? { smsEnabled: commsConfig.smsEnabled, emailEnabled: commsConfig.emailEnabled, whatsappEnabled: commsConfig.whatsappEnabled, hasApiKey: Boolean(commsConfig.apiKeyEnc), hasMessagingProfile: Boolean(commsConfig.messagingProfileId), hasFromNumber: Boolean(commsConfig.fromNumber) }
+    : null;
+  const channelStatus = {
+    SMS: resolveChannelStatus(chCfg, "SMS"),
+    WHATSAPP: resolveChannelStatus(chCfg, "WHATSAPP"),
+    EMAIL: resolveChannelStatus(chCfg, "EMAIL"),
+  };
 
   const metricChips = [
     { label: "Calls today", value: metrics.callsToday },
@@ -223,17 +245,16 @@ export default async function AcquireWorkspacePage({ searchParams }: { searchPar
                   <article className="card p-6">
                     <p className="eyebrow">Operator console</p>
 
-                    {/* Embedded browser softphone (Branch 2). Inert until a voice provider is configured. */}
+                    {/* Unified communications workspace (Branch 3) — Phone / SMS / WhatsApp / Email / History tabs. */}
                     <div className="mt-3">
-                      <SoftPhone toNumber={current.phone} />
-                      <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                        {current.phone ? (
-                          <a href={`sms:${current.phone}`} className="text-brand-700 hover:underline">Text (device)</a>
-                        ) : null}
-                        {current.email ? (
-                          <a href={`mailto:${current.email}`} className="text-brand-700 hover:underline">Email (device)</a>
-                        ) : null}
-                      </div>
+                      <ConversationWorkspace
+                        sellerId={current.id}
+                        phone={current.phone}
+                        email={current.email}
+                        messages={wsMessages}
+                        calls={wsCalls}
+                        channelStatus={channelStatus}
+                      />
                     </div>
 
                     {/* Disposition + follow-up: one tap logs the call, applies the outcome, advances */}

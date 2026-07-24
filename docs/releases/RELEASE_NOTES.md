@@ -4,6 +4,15 @@ Reverse chronological. User-visible changes only. Baseline reference: `Launch_Ba
 
 ## v1.4 — Communications Desk (in progress)
 
+### Enhancement — Unified communications workspace (Branch 3) — 2026-07-24
+
+The right side of the Acquisition Workspace is now a full operator communications workspace with tabs **Phone · SMS · WhatsApp · Email · History**:
+
+- **Phone** — the embedded softphone + recent-calls list.
+- **SMS / WhatsApp / Email** — message thread (inbound/outbound bubbles with timestamps + delivery state), a compose area with an attachments placeholder, per-channel **search**, scrolling, and an **unread** indicator on the tab.
+- **History** — every message and call for the seller in one chronological timeline.
+- Empty states throughout; **sending is configuration-gated** (the compose shows the channel's reason and disables until a provider is configured); inbound stays empty until providers exist. Composes over the Branch-1 comms models; only the transport remains to plug in.
+
 ### Enhancement — Embedded browser softphone (Branch 2) — 2026-07-24
 
 The Operator Console's phone is now an **embedded browser softphone**, not a device hand-off:
