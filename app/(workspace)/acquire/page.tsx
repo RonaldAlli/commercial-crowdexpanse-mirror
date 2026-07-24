@@ -41,6 +41,14 @@ function dateInputValue(date: Date | null): string {
 function dateShort(date: Date | null): string {
   return date ? date.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—";
 }
+function relativeDay(date: Date, ref: Date): string {
+  const midnight = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.floor((midnight(ref) - midnight(date)) / 86_400_000);
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days} days ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
 export default async function AcquireWorkspacePage({ searchParams }: { searchParams: { sellerId?: string } }) {
   const user = await requireUser();
@@ -60,7 +68,7 @@ export default async function AcquireWorkspacePage({ searchParams }: { searchPar
     ? await prisma.seller.findFirst({
         where: { id: currentId, organizationId: org },
         include: {
-          properties: { select: { id: true } },
+          properties: { select: { id: true, name: true, assetType: true, unitCount: true, squareFeet: true, acreage: true, yearBuilt: true, city: true, state: true } },
           owner: { select: { id: true, displayName: true } },
           touchHistory: { orderBy: { createdAt: "desc" }, take: 30, include: { createdBy: { select: { name: true } } } },
         },
@@ -127,9 +135,15 @@ export default async function AcquireWorkspacePage({ searchParams }: { searchPar
         </div>
       );
     }
+    const lastTouch = current.touchHistory[0] ?? null;
+    const lastContactLabel = lastTouch
+      ? `${lastTouch.summary ?? touchTypeLabel(lastTouch.type)} · ${relativeDay(lastTouch.createdAt, now)}`
+      : null;
     return (
       <AcquisitionCockpit
         current={current}
+        primaryProperty={current.properties[0] ?? null}
+        lastContactLabel={lastContactLabel}
         queue={queue}
         userRole={user.role}
         missionView={sessionView}

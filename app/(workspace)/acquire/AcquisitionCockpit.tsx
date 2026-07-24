@@ -38,13 +38,36 @@ type CockpitSeller = {
   properties: { id: string }[];
 };
 
+type PrimaryProperty = {
+  assetType: string;
+  unitCount: number | null;
+  squareFeet: number | null;
+  acreage: number | null;
+  yearBuilt: number | null;
+} | null;
+
 type QueueItem = { id: string; name: string; outreachStatus: ContactOutreachStatus };
+
+function titleCase(enumVal: string): string {
+  return enumVal.charAt(0) + enumVal.slice(1).toLowerCase().replace(/_/g, " ");
+}
+function propertyFacts(p: PrimaryProperty): string[] {
+  if (!p) return [];
+  const facts = [titleCase(p.assetType)];
+  if (p.unitCount) facts.push(`${p.unitCount} units`);
+  else if (p.squareFeet) facts.push(`${p.squareFeet.toLocaleString("en-US")} sq ft`);
+  else if (p.acreage) facts.push(`${p.acreage} acres`);
+  if (p.yearBuilt) facts.push(`Built ${p.yearBuilt}`);
+  return facts;
+}
 
 // The session cockpit body. Hierarchy: mission control → why-selling + essential context → operator
 // controls → calling script (placeholder this slice) → queue / next targets. The current seller is just
 // the target the session is handing the operator; the session is the dominant object.
 export function AcquisitionCockpit({
   current,
+  primaryProperty,
+  lastContactLabel,
   queue,
   userRole,
   missionView,
@@ -53,6 +76,8 @@ export function AcquisitionCockpit({
   timeline,
 }: {
   current: CockpitSeller;
+  primaryProperty: PrimaryProperty;
+  lastContactLabel: string | null;
   queue: QueueItem[];
   userRole: Parameters<typeof can>[0];
   missionView: MissionControlView;
@@ -82,29 +107,37 @@ export function AcquisitionCockpit({
       {/* 1 — Mission control (dominant) */}
       <SessionMissionControl view={missionView} />
 
+      {/* 2 — WHY SELLING — the biggest thing after mission control, visible without scrolling. */}
+      <article id="seller" className="scroll-mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Why selling · {current.name}</p>
+            <p className="mt-1 text-2xl font-bold leading-tight text-amber-950">{current.motivation ?? "No stated motivation — discover it on the call."}</p>
+          </div>
+          {dncFlags ? (
+            <div className="flex shrink-0 gap-1">
+              {current.doNotCall ? <Badge tone="danger">DNC</Badge> : null}
+              {current.doNotText ? <Badge tone="danger">No text</Badge> : null}
+              {current.doNotEmail ? <Badge tone="danger">No email</Badge> : null}
+            </div>
+          ) : null}
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
+          {propertyFacts(primaryProperty).map((f) => (
+            <span key={f} className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-900">{f}</span>
+          ))}
+          {(current.city || current.state) ? <span className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-900">{[current.city, current.state].filter(Boolean).join(", ")}</span> : null}
+          {current.acquisitionChannel ? <span className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-900">{channelLabel(current.acquisitionChannel)}</span> : null}
+          {current.company ? <span className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-900">{current.company}</span> : null}
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-amber-800">
+          <span><span className="font-semibold">Last contact:</span> {lastContactLabel ?? "Never contacted"}</span>
+          <Link href={`/sellers/${current.id}`} className="font-medium text-amber-900 underline">Full record →</Link>
+        </div>
+      </article>
+
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-4">
-          {/* 2 — Why selling, first. The one fact that matters on the call. */}
-          <article className="rounded-xl border border-amber-200 bg-amber-50 p-5">
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-700">Why selling</p>
-              {dncFlags ? (
-                <div className="flex gap-1">
-                  {current.doNotCall ? <Badge tone="danger">DNC</Badge> : null}
-                  {current.doNotText ? <Badge tone="danger">No text</Badge> : null}
-                  {current.doNotEmail ? <Badge tone="danger">No email</Badge> : null}
-                </div>
-              ) : null}
-            </div>
-            <p className="mt-1 text-lg font-semibold leading-snug text-amber-950">{current.motivation ?? "No stated motivation — discover it on the call."}</p>
-            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-amber-800">
-              {current.acquisitionChannel ? <span>Source: {channelLabel(current.acquisitionChannel)}</span> : null}
-              {current.company ? <span>{current.company}</span> : null}
-              {(current.city || current.state) ? <span>{[current.city, current.state].filter(Boolean).join(", ")}</span> : null}
-              <Link href={`/sellers/${current.id}`} className="font-medium text-amber-900 underline">Full record →</Link>
-            </div>
-          </article>
-
           {/* 3 — Operator control cluster */}
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <OperatorDock
@@ -144,19 +177,21 @@ export function AcquisitionCockpit({
           </article>
 
           {/* Conversation / timeline — secondary reference */}
-          <ConversationWorkspace
-            sellerId={current.id}
-            phone={current.phone}
-            email={current.email}
-            messages={messages}
-            channelStatus={channelStatus}
-            timeline={timeline}
-          />
+          <div id="timeline" className="scroll-mt-4">
+            <ConversationWorkspace
+              sellerId={current.id}
+              phone={current.phone}
+              email={current.email}
+              messages={messages}
+              channelStatus={channelStatus}
+              timeline={timeline}
+            />
+          </div>
         </div>
       </div>
 
       {/* 5 — Queue / next targets (plain this slice; personality lands later) */}
-      <article className="card overflow-hidden">
+      <article id="queue" className="card scroll-mt-4 overflow-hidden">
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
           <h2 className="text-sm font-semibold text-slate-900">Next targets</h2>
           <Badge tone="neutral">{queue.length}</Badge>
