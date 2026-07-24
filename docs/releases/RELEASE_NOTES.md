@@ -4,6 +4,17 @@ Reverse chronological. User-visible changes only. Baseline reference: `Launch_Ba
 
 ## v1.4 — Communications Desk (in progress)
 
+### Feature — Operator communications settings (Branch 4) — 2026-07-24
+
+A new **Settings → Communications** screen (admin-only) configures the org's **Telnyx** provider so the operator experience can be connected to a real provider without code changes:
+
+- Per-channel enable toggles — **SMS · Voice · WhatsApp · Email** — plus **From number** (E.164), **messaging profile ID**, **voice connection ID**, and the **Telnyx API key**.
+- The **API key is encrypted at rest** (AES-256-GCM) and is never shown again — the field displays only a masked `••••last4` hint, and saving with a blank key keeps the existing one.
+- A **per-channel readiness** panel shows what's ready vs. what's still missing, and a **Test connection** action reports exactly what remains to configure.
+- **Fail-closed:** storing an API key requires the server-side `COMMS_ENCRYPTION_KEY`; until it's set, the screen saves non-secret fields and shows a clear banner. Providers stay **inert** until real credentials and the Telnyx adapter are enabled (a later step).
+
+**Operator step (not code):** set `COMMS_ENCRYPTION_KEY` (`openssl rand -hex 32`) on the server, then enter Telnyx credentials here, before live calling/messaging is switched on.
+
 ### Enhancement — Operator workspace refinement: sticky dock + unified Timeline — 2026-07-24
 
 The Acquisition Workspace is restructured so an acquisition rep can work an entire shift from one screen without scrolling to find controls:
