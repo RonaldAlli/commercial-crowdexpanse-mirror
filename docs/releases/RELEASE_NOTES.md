@@ -4,6 +4,16 @@ Reverse chronological. User-visible changes only. Baseline reference: `Launch_Ba
 
 ## v1.4 — Communications Desk (in progress)
 
+### Feature — Session Mode: full cockpit takeover (Slice 1) — 2026-07-24
+
+Starting an acquisition session now **transforms the workspace into a calling cockpit** — the session becomes the thing you work, and the seller is just the current target it hands you:
+
+- **Full takeover:** while a session is running, the app sidebar / navigation / search disappear, replaced by a focused cockpit with three controls — **Pause · Exit · End**.
+- **Cockpit hierarchy:** mission control (big, glanceable Goal / Completed / Remaining / Elapsed / Appointments / Qualified) → **Why selling** (the seller's motivation surfaced first, beside the phone) + essential context → the operator control cluster (phone · dispositions · follow-up · status · next, one group) → calling-script area → next-targets queue. Notes and the full record/timeline stay reachable.
+- **Session states:** **Pause** stops the session and restores the normal workspace with a *Session paused* banner (Resume / End); **Exit** leaves to the workspace without ending (session preserved); **End** restores the workspace and keeps your results. No reliance on browser-back.
+
+Slice 1 of the cockpit. Still to come as separate slices: queue personality (scenario tags + due-times), session pacing (behind/ahead), the calling script content, and keyboard hotkeys.
+
 ### Feature — Acquisition Session mode — 2026-07-24
 
 The Acquisition Workspace now works as a **calling session**, not a list of records. A prominent bar at the top of `/acquire` lets an operator **start a session with a call goal** and then tracks the block live:
