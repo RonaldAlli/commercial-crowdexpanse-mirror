@@ -101,45 +101,50 @@ export function AcquisitionCockpit({
   const dncFlags = current.doNotCall || current.doNotText || current.doNotEmail;
 
   return (
-    <div className="space-y-5">
+    // FIXED multi-pane cockpit (Bloomberg / call-center style): a permanent region right of the rail. The
+    // operator pane (seller context + phone + dispositions) never moves; only the content and queue panes
+    // scroll, each inside its own region. The page itself does not scroll.
+    <div className="fixed inset-y-0 left-[76px] right-0 flex flex-col overflow-hidden bg-slate-50">
       <WorkspaceKeys prevHref={`/acquire?sellerId=${prevId}`} nextHref={`/acquire?sellerId=${nextId}`} />
 
-      {/* 1 — Mission control (dominant) */}
-      <SessionMissionControl view={missionView} />
+      {/* PANE — Mission control (fixed header) */}
+      <div className="shrink-0 border-b border-slate-200 p-3">
+        <SessionMissionControl view={missionView} />
+      </div>
 
-      {/* 2 — WHY SELLING — the biggest thing after mission control, visible without scrolling. */}
-      <article id="seller" className="scroll-mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-6">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Why selling · {current.name}</p>
-            <p className="mt-1 text-2xl font-bold leading-tight text-amber-950">{current.motivation ?? "No stated motivation — discover it on the call."}</p>
-          </div>
-          {dncFlags ? (
-            <div className="flex shrink-0 gap-1">
-              {current.doNotCall ? <Badge tone="danger">DNC</Badge> : null}
-              {current.doNotText ? <Badge tone="danger">No text</Badge> : null}
-              {current.doNotEmail ? <Badge tone="danger">No email</Badge> : null}
+      {/* PANES — operator (fixed) | content (scrolls) */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 p-3 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+        {/* Operator pane — the permanent dialer region. Seller context + controls stay put. */}
+        <div id="seller" className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-0.5">
+          <article className="shrink-0 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Why selling · {current.name}</p>
+                <p className="mt-1 text-xl font-bold leading-tight text-amber-950">{current.motivation ?? "No stated motivation — discover it on the call."}</p>
+              </div>
+              {dncFlags ? (
+                <div className="flex shrink-0 gap-1">
+                  {current.doNotCall ? <Badge tone="danger">DNC</Badge> : null}
+                  {current.doNotText ? <Badge tone="danger">No text</Badge> : null}
+                  {current.doNotEmail ? <Badge tone="danger">No email</Badge> : null}
+                </div>
+              ) : null}
             </div>
-          ) : null}
-        </div>
-        <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
-          {propertyFacts(primaryProperty).map((f) => (
-            <span key={f} className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-900">{f}</span>
-          ))}
-          {(current.city || current.state) ? <span className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-900">{[current.city, current.state].filter(Boolean).join(", ")}</span> : null}
-          {current.acquisitionChannel ? <span className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-900">{channelLabel(current.acquisitionChannel)}</span> : null}
-          {current.company ? <span className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-900">{current.company}</span> : null}
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-amber-800">
-          <span><span className="font-semibold">Last contact:</span> {lastContactLabel ?? "Never contacted"}</span>
-          <Link href={`/sellers/${current.id}`} className="font-medium text-amber-900 underline">Full record →</Link>
-        </div>
-      </article>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+              {propertyFacts(primaryProperty).map((f) => (
+                <span key={f} className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-900">{f}</span>
+              ))}
+              {(current.city || current.state) ? <span className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-900">{[current.city, current.state].filter(Boolean).join(", ")}</span> : null}
+              {current.acquisitionChannel ? <span className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-900">{channelLabel(current.acquisitionChannel)}</span> : null}
+              {current.company ? <span className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-900">{current.company}</span> : null}
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-amber-800">
+              <span><span className="font-semibold">Last contact:</span> {lastContactLabel ?? "Never contacted"}</span>
+              <Link href={`/sellers/${current.id}`} className="font-medium text-amber-900 underline">Full record →</Link>
+            </div>
+          </article>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="space-y-4">
-          {/* 3 — Operator control cluster */}
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="shrink-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <OperatorDock
               sellerId={current.id}
               sellerName={current.name}
@@ -154,8 +159,7 @@ export function AcquisitionCockpit({
             />
           </div>
 
-          {/* Emergency access — quick note (kept reachable during the call) */}
-          <details className="card p-4">
+          <details className="shrink-0 card p-4">
             <summary className="cursor-pointer text-sm font-medium text-slate-700">Log a note or objection</summary>
             <form action={logAction} className="mt-3 space-y-2">
               <input type="hidden" name="redirectTo" value={`/acquire?sellerId=${nextId}`} />
@@ -168,47 +172,44 @@ export function AcquisitionCockpit({
           </details>
         </div>
 
-        <div className="space-y-4">
-          {/* 4 — Calling script (placeholder — content + editing land in a later slice) */}
-          <article className="rounded-xl border border-dashed border-slate-300 bg-white p-5">
+        {/* Content pane — scrolls independently: script + timeline/messages */}
+        <div id="timeline" className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-0.5">
+          <article className="shrink-0 rounded-xl border border-dashed border-slate-300 bg-white p-5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Calling script</p>
             <p className="mt-2 text-sm text-slate-500">A guided script (Intro · Discovery · Motivation · Timeline · Decision maker · Price · Next step) will appear here beside the phone.</p>
             <p className="mt-1 text-xs text-slate-400">Coming in the next slice.</p>
           </article>
 
-          {/* Conversation / timeline — secondary reference */}
-          <div id="timeline" className="scroll-mt-4">
-            <ConversationWorkspace
-              sellerId={current.id}
-              phone={current.phone}
-              email={current.email}
-              messages={messages}
-              channelStatus={channelStatus}
-              timeline={timeline}
-            />
-          </div>
+          <ConversationWorkspace
+            sellerId={current.id}
+            phone={current.phone}
+            email={current.email}
+            messages={messages}
+            channelStatus={channelStatus}
+            timeline={timeline}
+          />
         </div>
       </div>
 
-      {/* 5 — Queue / next targets (plain this slice; personality lands later) */}
-      <article id="queue" className="card scroll-mt-4 overflow-hidden">
-        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
-          <h2 className="text-sm font-semibold text-slate-900">Next targets</h2>
+      {/* PANE — queue / next targets (fixed footer, scrolls horizontally) */}
+      <div id="queue" className="shrink-0 border-t border-slate-200 bg-white">
+        <div className="flex items-center gap-3 px-3 py-2">
+          <h2 className="shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-500">Next targets</h2>
           <Badge tone="neutral">{queue.length}</Badge>
+          <ul className="flex flex-1 gap-2 overflow-x-auto">
+            {queue.slice(0, 25).map((s) => {
+              const active = s.id === current.id;
+              return (
+                <li key={s.id} className="shrink-0">
+                  <Link href={`/acquire?sellerId=${s.id}`} className={`block rounded-lg border px-3 py-1.5 text-xs ${active ? "border-brand-400 bg-brand-50 text-brand-800" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
+                    <span className="block max-w-[140px] truncate font-medium">{s.name}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
         </div>
-        <ul className="flex gap-2 overflow-x-auto p-3">
-          {queue.slice(0, 20).map((s) => {
-            const active = s.id === current.id;
-            return (
-              <li key={s.id} className="shrink-0">
-                <Link href={`/acquire?sellerId=${s.id}`} className={`block rounded-lg border px-3 py-2 text-xs ${active ? "border-brand-400 bg-brand-50 text-brand-800" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
-                  <span className="block max-w-[140px] truncate font-medium">{s.name}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </article>
+      </div>
     </div>
   );
 }

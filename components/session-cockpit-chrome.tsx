@@ -61,9 +61,9 @@ export function SessionCockpitChrome({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main className="ml-[76px] min-h-screen px-4 py-5 lg:px-6">
-        <div className="mx-auto max-w-6xl">{children}</div>
-      </main>
+      {/* The cockpit page owns a fixed full-height multi-pane region (see AcquisitionCockpit); other routes
+          rendered while a session runs simply flow in this padded area. */}
+      <main className="ml-[76px]">{children}</main>
     </div>
   );
 }
