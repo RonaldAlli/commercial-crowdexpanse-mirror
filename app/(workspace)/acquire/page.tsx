@@ -18,7 +18,7 @@ import { setSellerOutreachStatus } from "../sellers/actions";
 import { DISPOSITIONS } from "@/lib/disposition";
 
 import { WorkspaceKeys } from "./WorkspaceKeys";
-import { Comms } from "./Comms";
+import { SoftPhone } from "./SoftPhone";
 import { recordDisposition } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -223,8 +223,17 @@ export default async function AcquireWorkspacePage({ searchParams }: { searchPar
                   <article className="card p-6">
                     <p className="eyebrow">Operator console</p>
 
+                    {/* Embedded browser softphone (Branch 2). Inert until a voice provider is configured. */}
                     <div className="mt-3">
-                      <Comms phone={current.phone} email={current.email} />
+                      <SoftPhone toNumber={current.phone} />
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                        {current.phone ? (
+                          <a href={`sms:${current.phone}`} className="text-brand-700 hover:underline">Text (device)</a>
+                        ) : null}
+                        {current.email ? (
+                          <a href={`mailto:${current.email}`} className="text-brand-700 hover:underline">Email (device)</a>
+                        ) : null}
+                      </div>
                     </div>
 
                     {/* Disposition + follow-up: one tap logs the call, applies the outcome, advances */}

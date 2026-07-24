@@ -2,6 +2,16 @@
 
 Reverse chronological. User-visible changes only. Baseline reference: `Launch_Baseline_v1.0.md`.
 
+## v1.4 — Communications Desk (in progress)
+
+### Enhancement — Embedded browser softphone (Branch 2) — 2026-07-24
+
+The Operator Console's phone is now an **embedded browser softphone**, not a device hand-off:
+
+- Dial pad + number display, call controls (**Call · Hang up · Mute · Hold**), an in-call **timer**, **microphone & speaker** selectors, and browser mic-permission handling.
+- Pure call state machine + a WebRTC token endpoint + a provider-adapter seam, wired to the Branch-1 comms domain.
+- **Inert until a voice provider is configured:** placing a call clearly shows **"Voice provider not configured"** instead of failing. Live calling activates once Telnyx credentials are set (a later step). Text/Email remain device links for now.
+
 ## v1.3 — 2026-07-23
 
 ### Enhancement — Acquisition Workspace becomes an Operator Console
