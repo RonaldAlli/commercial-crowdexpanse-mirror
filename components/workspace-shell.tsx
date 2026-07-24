@@ -35,6 +35,7 @@ const navigation: NavItem[] = [
   { href: "/documents", label: "Documents", icon: "files", section: "Workflow", title: "Documents" },
   { href: "/settings/team", label: "Team", icon: "buyers", section: "Settings", title: "Team" },
   { href: "/settings/organization", label: "Organization", icon: "properties", section: "Settings", title: "Organization" },
+  { href: "/settings/communications", label: "Communications", icon: "phone", section: "Settings", title: "Communications" },
   { href: "/settings/imports", label: "Imports", icon: "upload", section: "Settings", title: "Lead imports" },
   { href: "/settings/security", label: "Access denials", icon: "activity", section: "Settings", title: "Access denials" },
 ];
