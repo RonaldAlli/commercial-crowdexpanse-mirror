@@ -794,6 +794,10 @@ model AcquisitionSession {
   goalCalls      Int          @default(100)
   startedAt      DateTime     @default(now())
   endedAt        DateTime?
+  // Session state: running = endedAt null AND pausedAt null; paused = pausedAt set. pausedMs accumulates
+  // total paused time on each resume so a later pacing slice can measure working-time-excluding-paused.
+  pausedAt       DateTime?
+  pausedMs       Int          @default(0)
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 

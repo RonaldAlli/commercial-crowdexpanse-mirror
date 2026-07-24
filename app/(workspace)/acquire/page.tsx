@@ -7,7 +7,7 @@ import { Icon } from "@/components/icons";
 import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { OUTREACH_STATUS_OPTIONS, outreachStatusLabel, outreachStatusTone, touchTypeLabel } from "@/lib/contact-options";
+import { outreachStatusLabel, outreachStatusTone, touchTypeLabel } from "@/lib/contact-options";
 import { channelLabel } from "@/lib/acquisition-options";
 import { resolveSellerPromotion } from "@/lib/promote-seller";
 import { sellerQualificationChecklist, checklistProgress } from "@/lib/acquisition-checklist";
@@ -15,19 +15,21 @@ import { getAcquisitionQueue, getDailyAcquisitionMetrics } from "@/lib/acquisiti
 
 import { logContactTouchAction } from "../contacts/actions";
 import { setSellerOutreachStatus } from "../sellers/actions";
-import { DISPOSITIONS } from "@/lib/disposition";
 
 import { resolveChannelStatus } from "@/lib/comms/conversation-view";
 import { buildTimeline } from "@/lib/comms/timeline";
 
-import { getActiveSession, loadSessionFacts } from "@/lib/acquisition-session-store";
+import { getActiveSession, loadSessionFacts, isRunning } from "@/lib/acquisition-session-store";
 import { deriveSessionProgress } from "@/lib/acquisition-session";
 import { AcquisitionSessionBar, type ActiveSessionView } from "@/components/acquisition-session-bar";
+import { resumeAcquisitionSession, endAcquisitionSession } from "./session-actions";
 
 import { WorkspaceKeys } from "./WorkspaceKeys";
-import { SoftPhone } from "./SoftPhone";
 import { ConversationWorkspace } from "./ConversationWorkspace";
+import { OperatorDock } from "./OperatorDock";
+import { AcquisitionCockpit } from "./AcquisitionCockpit";
 import { recordDisposition } from "./actions";
+// SoftPhone/DISPOSITIONS now live in OperatorDock.
 
 export const dynamic = "force-dynamic";
 
@@ -113,6 +115,31 @@ export default async function AcquireWorkspacePage({ searchParams }: { searchPar
     sessionView = { ...p, startedAtMs: activeSession.startedAt.getTime() };
   }
 
+  const running = isRunning(activeSession);
+
+  // FULL COCKPIT TAKEOVER — while a session is running, /acquire IS the cockpit (the shell is already
+  // stripped by the layout). The session is the dominant object; the seller is the current target.
+  if (running && sessionView) {
+    if (!current) {
+      return (
+        <div className="card p-8 text-center">
+          <EmptyState icon="check" title="Queue clear for this session" description="No more sellers are due. End the session to see your results." />
+        </div>
+      );
+    }
+    return (
+      <AcquisitionCockpit
+        current={current}
+        queue={queue}
+        userRole={user.role}
+        missionView={sessionView}
+        messages={wsMessages}
+        channelStatus={channelStatus}
+        timeline={wsTimeline}
+      />
+    );
+  }
+
   const metricChips = [
     { label: "Calls today", value: metrics.callsToday },
     { label: "Touches today", value: metrics.touchesToday },
@@ -128,7 +155,25 @@ export default async function AcquireWorkspacePage({ searchParams }: { searchPar
         description="Work the lead queue: call, record the outcome, schedule follow-up, qualify, and promote — without leaving this screen. Press j / k to move through the queue."
       />
 
-      <AcquisitionSessionBar active={sessionView} />
+      {activeSession ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-white">
+            <span aria-hidden className="text-xs">❚❚</span>
+          </span>
+          <div className="mr-auto">
+            <p className="text-sm font-semibold text-slate-900">Session paused</p>
+            <p className="text-xs text-slate-500">Your calling session is preserved. Resume to re-enter the cockpit, or end it to see results.</p>
+          </div>
+          <form action={resumeAcquisitionSession}>
+            <button type="submit" className="btn-primary text-sm">Resume session</button>
+          </form>
+          <form action={endAcquisitionSession}>
+            <button type="submit" className="btn text-sm">End session</button>
+          </form>
+        </div>
+      ) : (
+        <AcquisitionSessionBar active={null} />
+      )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {metricChips.map((m) => (
@@ -214,53 +259,19 @@ export default async function AcquireWorkspacePage({ searchParams }: { searchPar
                   <WorkspaceKeys prevHref={`/acquire?sellerId=${prevId}`} nextHref={`/acquire?sellerId=${nextId}`} />
 
                   {/* STICKY operator dock — phone, disposition, follow-up, status, next: never scroll away */}
-                  <div className="sticky top-4 z-20 space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <div className="flex items-center justify-between gap-2">
-                      <Link href={`/sellers/${current.id}`} className="truncate text-base font-semibold text-slate-900 hover:text-brand-700">
-                        {current.name}
-                      </Link>
-                      <Badge tone={outreachStatusTone(current.outreachStatus)}>{outreachStatusLabel(current.outreachStatus)}</Badge>
-                    </div>
-
-                    <SoftPhone toNumber={current.phone} />
-
-                    {/* Disposition — immediately adjacent to the phone; one tap logs + advances */}
-                    <form action={dispoAction} className="space-y-2 border-t border-slate-100 pt-3">
-                      <input type="hidden" name="redirectTo" value={`/acquire?sellerId=${nextId}`} />
-                      <div className="grid grid-cols-3 gap-1.5">
-                        {DISPOSITIONS.map((d) => (
-                          <button key={d} type="submit" name="disposition" value={d} className="btn text-xs">
-                            {d}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input type="date" name="nextFollowUpAt" defaultValue={dateInputValue(current.nextFollowUpAt)} className="input h-8 flex-1 text-xs" title="Next follow-up" />
-                        <Link href={`/acquire?sellerId=${nextId}`} className="btn-primary whitespace-nowrap text-sm">Next →</Link>
-                      </div>
-                    </form>
-
-                    <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-                      {can(user.role, "UPDATE", "SELLER") ? (
-                        <form action={statusAction} className="flex items-center gap-2">
-                          <select name="outreachStatus" defaultValue={current.outreachStatus} className="input h-8 text-xs">
-                            {OUTREACH_STATUS_OPTIONS.map((s) => (
-                              <option key={s} value={s}>{outreachStatusLabel(s)}</option>
-                            ))}
-                          </select>
-                          <button type="submit" className="btn text-xs">Set status</button>
-                        </form>
-                      ) : null}
-                      {promote ? (
-                        <Link className="btn text-xs" href={promote.href}>
-                          <Icon name="pipeline" className="h-3.5 w-3.5" />
-                          {promote.label}
-                        </Link>
-                      ) : null}
-                      <span className="ml-auto text-[11px] text-slate-400">
-                        <kbd className="rounded bg-slate-100 px-1">j</kbd>/<kbd className="rounded bg-slate-100 px-1">k</kbd> next/prev
-                      </span>
-                    </div>
+                  <div className="sticky top-4 z-20 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <OperatorDock
+                      sellerId={current.id}
+                      sellerName={current.name}
+                      phone={current.phone}
+                      outreachStatus={current.outreachStatus}
+                      defaultFollowUp={dateInputValue(current.nextFollowUpAt)}
+                      nextId={nextId}
+                      dispoAction={dispoAction}
+                      statusAction={statusAction}
+                      canUpdateSeller={can(user.role, "UPDATE", "SELLER")}
+                      promote={promote}
+                    />
                   </div>
 
                   {/* Qualification checklist + promote */}

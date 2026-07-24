@@ -7,16 +7,21 @@ import type { SessionFacts } from "@/lib/acquisition-session";
 // the session bar derives from. All queries are org-scoped AND actor-scoped (this operator's own work),
 // counting authoritative facts — the same rows recordDisposition / setSellerOutreachStatus already write.
 
-export type ActiveSession = { id: string; goalCalls: number; startedAt: Date };
+export type ActiveSession = { id: string; goalCalls: number; startedAt: Date; pausedAt: Date | null };
 
-/** The operator's currently-open session (endedAt null), if any. One open session per user by construction. */
+/** The operator's currently-open session (endedAt null), if any — running OR paused. One per user. */
 export async function getActiveSession(organizationId: string, userId: string): Promise<ActiveSession | null> {
   const s = await prisma.acquisitionSession.findFirst({
     where: { organizationId, userId, endedAt: null },
     orderBy: { startedAt: "desc" },
-    select: { id: true, goalCalls: true, startedAt: true },
+    select: { id: true, goalCalls: true, startedAt: true, pausedAt: true },
   });
   return s;
+}
+
+/** Running = open and not paused. The cockpit takeover applies only while running. */
+export function isRunning(session: ActiveSession | null): boolean {
+  return session != null && session.pausedAt == null;
 }
 
 // The canonical fact signatures (kept in sync with the actions via the shared pure helpers, not hardcoded).
