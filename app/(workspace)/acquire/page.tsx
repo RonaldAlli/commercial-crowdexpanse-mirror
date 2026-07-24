@@ -20,6 +20,10 @@ import { DISPOSITIONS } from "@/lib/disposition";
 import { resolveChannelStatus } from "@/lib/comms/conversation-view";
 import { buildTimeline } from "@/lib/comms/timeline";
 
+import { getActiveSession, loadSessionFacts } from "@/lib/acquisition-session-store";
+import { deriveSessionProgress } from "@/lib/acquisition-session";
+import { AcquisitionSessionBar, type ActiveSessionView } from "@/components/acquisition-session-bar";
+
 import { WorkspaceKeys } from "./WorkspaceKeys";
 import { SoftPhone } from "./SoftPhone";
 import { ConversationWorkspace } from "./ConversationWorkspace";
@@ -100,6 +104,15 @@ export default async function AcquireWorkspacePage({ searchParams }: { searchPar
     }
   });
 
+  // Acquisition session (the operator's current calling block) — all counters derive from in-window facts.
+  const activeSession = await getActiveSession(org, user.id);
+  let sessionView: ActiveSessionView | null = null;
+  if (activeSession) {
+    const facts = await loadSessionFacts(org, user.id, activeSession, now);
+    const p = deriveSessionProgress(facts);
+    sessionView = { ...p, startedAtMs: activeSession.startedAt.getTime() };
+  }
+
   const metricChips = [
     { label: "Calls today", value: metrics.callsToday },
     { label: "Touches today", value: metrics.touchesToday },
@@ -114,6 +127,8 @@ export default async function AcquireWorkspacePage({ searchParams }: { searchPar
         title="Acquisition workspace"
         description="Work the lead queue: call, record the outcome, schedule follow-up, qualify, and promote — without leaving this screen. Press j / k to move through the queue."
       />
+
+      <AcquisitionSessionBar active={sessionView} />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {metricChips.map((m) => (

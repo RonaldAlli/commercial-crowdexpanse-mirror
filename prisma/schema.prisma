@@ -332,6 +332,7 @@ model User {
   assignedSellers         Seller[]           @relation("SellerAssignee")
   assignedBuyers          Buyer[]            @relation("BuyerAssignee")
   contactTouches          ContactTouch[]     @relation("ContactTouchActor")
+  acquisitionSessions     AcquisitionSession[]
 
   @@index([organizationId])
   @@index([organizationId, lifecycleState])
@@ -382,6 +383,7 @@ model Organization {
   assignmentRecords      AssignmentRecord[]
   automationJobs         AutomationJob[]
   automationExecutions   AutomationExecution[]
+  acquisitionSessions    AcquisitionSession[]
 
   @@map("organizations")
 }
@@ -780,6 +782,23 @@ model Conversation {
 
   @@index([organizationId])
   @@map("conversations")
+}
+
+// An operator's acquisition calling session: a goal + a time window. The session bar's live numbers
+// (completed / appointments / qualified) are DERIVED from facts logged in the window — this row only
+// stores the goal and the window. Exactly one open (endedAt null) session per user by construction.
+model AcquisitionSession {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String
+  goalCalls      Int          @default(100)
+  startedAt      DateTime     @default(now())
+  endedAt        DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, userId, endedAt])
+  @@map("acquisition_sessions")
 }
 
 // A messaging-channel message (SMS / Email / WhatsApp). Phone calls are CallRecord.
