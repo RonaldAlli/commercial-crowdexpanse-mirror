@@ -42,16 +42,14 @@ export default async function AiSettingsPage({ searchParams }: { searchParams: {
         <label className="block text-sm">Environment target<select name="envTarget" defaultValue={cfg?.envTarget ?? "VALIDATION"} className="input mt-1"><option value="VALIDATION">validation</option><option value="PRODUCTION">production</option></select></label>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="enabled" defaultChecked={cfg?.enabled ?? false} /> Enable AI for this organization</label>
         <hr className="border-slate-100" />
-        <label className="block text-sm">New API key (leave blank to keep existing)<input name="apiKey" type="password" autoComplete="new-password" placeholder="sk-ant-…" className="input mt-1" /></label>
-        <label className="block text-sm">Confirm your password (required to change the key)<input name="confirmPassword" type="password" autoComplete="current-password" className="input mt-1" /></label>
+        <label className="block text-sm">New API key (leave blank to keep existing)<input name="apiKey" type="password" autoComplete="off" placeholder="sk-ant-…" className="input mt-1" /></label>
         <button type="submit" className="btn-primary">Save AI settings</button>
       </form>
 
       <div className="card max-w-2xl space-y-3 p-6">
         <h2 className="text-sm font-semibold text-slate-800">Test &amp; revoke</h2>
         <form action={testAiConfigurationForm}><button type="submit" className="btn-secondary">Test configuration (sends a fixed prompt — no customer data)</button></form>
-        <form action={revokeAiKeyForm} className="flex items-end gap-2">
-          <label className="block text-sm flex-1">Confirm password to revoke<input name="confirmPassword" type="password" autoComplete="current-password" className="input mt-1" /></label>
+        <form action={revokeAiKeyForm}>
           <button type="submit" className="btn-danger">Revoke key &amp; disable</button>
         </form>
       </div>

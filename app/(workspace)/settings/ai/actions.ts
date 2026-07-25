@@ -7,27 +7,22 @@ import Anthropic from "@anthropic-ai/sdk";
 import { requireUser } from "@/lib/auth";
 import { checkAuthorized, GENERIC_DENIAL } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
-import { verifyPassword } from "@/lib/password";
 import { encryptSecret, decryptSecret, aiConfigKeyHex, aiEncryptionReady } from "@/lib/ai/config-secret";
 import { parseAiSettingsForm } from "@/lib/ai/settings-form";
 import { recordAiAudit } from "@/lib/ai/audit";
 
 export type AiActionState = { ok?: boolean; error?: string; message?: string } | undefined;
 
-// Server actions are CSRF-protected by Next.js (same-origin, action-id bound). Every
-// action below re-checks ADMIN authorization (MANAGE ORGANIZATION), is org-scoped
-// (Authority Rule 1), never returns a secret, and writes an immutable audit event.
+// Authorization model — identical to the sibling provider-secret screen
+// (saveCommsSettings): the ADMIN authorization gate (MANAGE ORGANIZATION) is the
+// control for storing a provider key. Server actions are CSRF-protected by Next.js
+// (same-origin, action-id bound) and session-authenticated (requireUser); every action
+// is org-scoped (Authority Rule 1), never returns a secret, and writes an immutable
+// audit event. (An earlier password re-entry step was removed: it was inconsistent
+// with the comms pattern and blocked legitimate admin saves — see save-path fix.)
 
 async function adminOr(actor: Awaited<ReturnType<typeof requireUser>>): Promise<string | null> {
   return (await checkAuthorized(actor, "MANAGE", "ORGANIZATION")) ? null : GENERIC_DENIAL;
-}
-
-// Session reauthentication before changing/deleting a secret: the admin must re-enter
-// their own password. Verified against their stored hash; never logged.
-async function reauth(actorId: string, password: string | null): Promise<boolean> {
-  if (!password) return false;
-  const u = await prisma.user.findUnique({ where: { id: actorId }, select: { hashedPassword: true } });
-  return Boolean(u && verifyPassword(password, u.hashedPassword));
 }
 
 // In-process rate limiter for the outbound Test action (per org). Best-effort; a
@@ -52,10 +47,6 @@ export async function saveAiSettings(formData: FormData): Promise<AiActionState>
   let apiKeyEnc: string | undefined;
   let apiKeyLast4: string | undefined;
   if (v.newApiKey) {
-    // Reauth required before storing a secret.
-    if (!(await reauth(actor.id, (formData.get("confirmPassword") as string) ?? null))) {
-      return { error: "Re-enter your password to store a new API key." };
-    }
     if (!aiEncryptionReady()) {
       return { error: "Set AI_CONFIG_ENCRYPTION_KEY on the server before storing an API key (openssl rand -hex 32)." };
     }
@@ -84,13 +75,10 @@ export async function saveAiSettings(formData: FormData): Promise<AiActionState>
   return { ok: true, message: "AI settings saved." };
 }
 
-export async function revokeAiKey(formData: FormData): Promise<AiActionState> {
+export async function revokeAiKey(): Promise<AiActionState> {
   const actor = await requireUser();
   const denied = await adminOr(actor);
   if (denied) return { error: denied };
-  if (!(await reauth(actor.id, (formData.get("confirmPassword") as string) ?? null))) {
-    return { error: "Re-enter your password to revoke the API key." };
-  }
   await prisma.aiProviderConfig.updateMany({
     where: { organizationId: actor.organizationId },
     data: { apiKeyEnc: null, apiKeyLast4: null, enabled: false },
@@ -140,5 +128,5 @@ export async function testAiConfiguration(): Promise<AiActionState> {
 // redirect back with a status message so the admin gets feedback without a client hook.
 const back = (base: string, r: AiActionState) => redirect(`${base}?msg=${encodeURIComponent(r?.error ?? r?.message ?? "")}`);
 export async function saveAiSettingsForm(fd: FormData): Promise<void> { back("/settings/ai", await saveAiSettings(fd)); }
-export async function revokeAiKeyForm(fd: FormData): Promise<void> { back("/settings/ai", await revokeAiKey(fd)); }
+export async function revokeAiKeyForm(): Promise<void> { back("/settings/ai", await revokeAiKey()); }
 export async function testAiConfigurationForm(): Promise<void> { back("/settings/ai", await testAiConfiguration()); }
