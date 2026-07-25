@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { AnthropicProvider, readApprovedModels } from "../../../lib/ai/llm/anthropic";
+import { AnthropicProvider } from "../../../lib/ai/llm/anthropic";
+import { getApprovedModels } from "../../../lib/ai/config";
 import { inertLlmProvider, resolveAiStatus } from "../../../lib/ai/llm/index";
 
 // resolveStatus reads env lazily on each call, so tests set/restore process.env
@@ -108,7 +109,7 @@ test("model is not hard-coded — the allowlist is config; any listed id (incl. 
 
 test("allowlist entries are trimmed and empties dropped; matching is exact", () => {
   withEnv({ AI_COPILOT_APPROVED_MODELS: " claude-opus-4-8 , , claude-sonnet-5 ,, " }, () => {
-    assert.deepEqual(readApprovedModels(), ["claude-opus-4-8", "claude-sonnet-5"]);
+    assert.deepEqual(getApprovedModels(), ["claude-opus-4-8", "claude-sonnet-5"]);
   });
   // Exact match — a padded selected model would be trimmed by readModel(), but a
   // different id (substring/near-miss) must not pass.
