@@ -1,0 +1,82 @@
+[
+  {
+    "n": "AI settings page loads",
+    "ok": true
+  },
+  {
+    "n": "config saved (model persisted)",
+    "ok": true
+  },
+  {
+    "n": "timeout persisted",
+    "ok": true
+  },
+  {
+    "n": "saving key WITHOUT password rejected (reauth)",
+    "ok": true
+  },
+  {
+    "n": "key stored, masked last4 shown",
+    "ok": true
+  },
+  {
+    "n": "full key NEVER in page",
+    "ok": true
+  },
+  {
+    "n": "audit shows ai.config.saved",
+    "ok": true
+  },
+  {
+    "n": "key replaced (last4 → 7654)",
+    "ok": true
+  },
+  {
+    "n": "test connection returns sanitized result",
+    "ok": true
+  },
+  {
+    "n": "test result never leaks key",
+    "ok": true
+  },
+  {
+    "n": "governance → PENDING_APPROVAL",
+    "ok": true
+  },
+  {
+    "n": "governance APPROVED",
+    "ok": true
+  },
+  {
+    "n": "AI eligible after APPROVED (configured via store)",
+    "ok": true
+  },
+  {
+    "n": "governance REVOKED",
+    "ok": true
+  },
+  {
+    "n": "AI disabled after REVOKE",
+    "ok": true
+  },
+  {
+    "n": "release dashboard real gate states (PASS + PENDING)",
+    "ok": true
+  },
+  {
+    "n": "production deploy BLOCKED",
+    "ok": true
+  },
+  {
+    "n": "validation runner records a run",
+    "ok": true
+  },
+  {
+    "n": "Deploy gated (blocked, not executed)",
+    "ok": true
+  },
+  {
+    "n": "key revoked in cleanup",
+    "ok": true
+  }
+]
