@@ -76,7 +76,7 @@ try {
       history: [],
       shortcutId: "summarize-seller",
     },
-    { llm: fakeLlm },
+    { llm: fakeLlm, signal: new AbortController().signal },
   );
 
   assert(res.sources.some((s) => s.key === "seller"), "sources include the seller anchor");
@@ -91,6 +91,8 @@ try {
   assert(captured?.system?.includes("Jane Seller"), "prompt is grounded in the seller's real data");
   assert(captured?.system?.includes("relocating out of state"), "prompt includes the real motivation");
   assert(captured?.messages?.at(-1)?.content === "Summarize this seller", "the user question is the last message");
+  // The route hands the provider an AbortSignal so a client disconnect cancels upstream.
+  assert(captured?.signal instanceof AbortSignal, "the abort signal is forwarded to the provider (upstream cancellation)");
 
   // PRIVACY (pilot policy enforced end-to-end): phone/email masked, internal notes excluded.
   assert(!captured.system.includes("555-0100-2000"), "raw phone is NOT in the prompt (masked)");

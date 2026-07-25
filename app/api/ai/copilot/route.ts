@@ -35,16 +35,23 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
+  // Cancel the upstream generation if the client disconnects — stop paying for tokens
+  // no one will read.
+  const upstream = new AbortController();
+
   let result;
   try {
-    result = await runCopilot({
-      consumer: "acquisition",
-      user,
-      subjectId: req.subjectId,
-      question: req.question,
-      history: req.history,
-      shortcutId: req.shortcutId,
-    });
+    result = await runCopilot(
+      {
+        consumer: "acquisition",
+        user,
+        subjectId: req.subjectId,
+        question: req.question,
+        history: req.history,
+        shortcutId: req.shortcutId,
+      },
+      { signal: upstream.signal },
+    );
   } catch (err) {
     if (err instanceof CopilotNotFoundError) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -67,10 +74,14 @@ export async function POST(request: Request): Promise<Response> {
         }
         controller.close();
       } catch (err) {
+        if (upstream.signal.aborted) return; // client disconnected — nothing to surface
         // mid-stream failure surfaces to the client for retry; log for ops (no PII).
         console.error("[ai-copilot] stream error:", err instanceof Error ? err.message : err);
         controller.error(err);
       }
+    },
+    cancel() {
+      upstream.abort(); // client went away → stop the upstream Anthropic generation
     },
   });
 

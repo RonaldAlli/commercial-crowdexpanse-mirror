@@ -32,12 +32,15 @@ export class AnthropicProvider implements LlmProvider {
     const model = getCopilotModel() as string;
 
     const client = new Anthropic({ apiKey });
-    const stream = client.messages.stream({
-      model,
-      max_tokens: params.maxTokens,
-      system: params.system,
-      messages: params.messages.map((m) => ({ role: m.role, content: m.content })),
-    });
+    const stream = client.messages.stream(
+      {
+        model,
+        max_tokens: params.maxTokens,
+        system: params.system,
+        messages: params.messages.map((m) => ({ role: m.role, content: m.content })),
+      },
+      { signal: params.signal }, // aborts the upstream request on client disconnect
+    );
 
     for await (const event of stream) {
       if (event.type === "content_block_delta" && event.delta.type === "text_delta") {

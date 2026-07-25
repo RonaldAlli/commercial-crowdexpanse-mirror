@@ -31,7 +31,10 @@ export type CopilotResult = {
 // `deps.llm` is a narrow test seam for injecting the external LLM boundary in
 // integration tests; production uses the configured provider. No logic moves out of
 // the Brain — this only makes the outbound provider injectable.
-export type RunCopilotDeps = { llm?: LlmProvider };
+export type RunCopilotDeps = {
+  llm?: LlmProvider;
+  signal?: AbortSignal; // forwarded to the provider so the route can cancel on disconnect
+};
 
 // Throws CopilotNotFoundError when the subject is not in the caller's org.
 export async function runCopilot(req: CopilotRequest, deps: RunCopilotDeps = {}): Promise<CopilotResult> {
@@ -43,7 +46,7 @@ export async function runCopilot(req: CopilotRequest, deps: RunCopilotDeps = {})
 
   const messages: LlmMessage[] = [...req.history, { role: "user", content: req.question }];
   const llm = deps.llm ?? getLlmProvider();
-  const stream = llm.stream({ system, messages, maxTokens: MAX_TOKENS });
+  const stream = llm.stream({ system, messages, maxTokens: MAX_TOKENS, signal: deps.signal });
 
   return { stream, sources };
 }

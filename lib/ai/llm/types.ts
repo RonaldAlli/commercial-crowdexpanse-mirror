@@ -13,6 +13,9 @@ export type LlmStreamParams = {
   system: string;
   messages: LlmMessage[];
   maxTokens: number;
+  // Optional: abort the upstream request (e.g. when the client disconnects) so the
+  // provider stops generating and we stop paying for tokens no one will read.
+  signal?: AbortSignal;
 };
 
 export interface LlmProvider {
