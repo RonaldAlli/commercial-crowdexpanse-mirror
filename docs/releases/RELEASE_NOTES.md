@@ -4,6 +4,17 @@ Reverse chronological. User-visible changes only. Baseline reference: `Launch_Ba
 
 ## v1.4 — Communications Desk (in progress)
 
+### Feature — Workspace AI Copilot (Slice 1: read-only + drafting) — 2026-07-25
+
+An AI Copilot for the Acquisition Workspace (`/acquire`) — a collapsible, reflowing side pane (in both the normal work panel and the session cockpit) that reads the current seller's context and helps the operator prepare and draft:
+
+- **Prepare, summarize, and draft:** one-click shortcuts (Summarize seller · Prepare me for this call · Draft SMS · Draft email · Write call opening · Handle objection · Explain motivation · Recommend next step · Generate call summary) plus free-text questions. Responses stream, and a **Sources** panel shows the workspace data each answer used.
+- **Read-only and safe by design:** the Copilot can read and draft, but never sends a message, changes a record, sets a status or disposition, schedules a follow-up, or creates a task. A generated draft only reaches a composer when the operator explicitly clicks **Insert** (or Copy); the original stays in the Copilot.
+- **Privacy enforced before data leaves the workspace (internal-pilot policy):** phone numbers and email addresses are masked and internal notes are excluded before any context reaches the AI; owner names and message bodies are included per the approved policy.
+- **Off unless configured, and never a dependency:** inert until `ANTHROPIC_API_KEY`, `AI_COPILOT_MODEL`, and `AI_COPILOT_APPROVED_MODELS` are set. The workspace is fully usable with the Copilot absent, and an AI slowdown or outage stays isolated to the pane.
+
+Internal pilot, read-only. Action-taking and organization-level AI policy/controls are deferred to a later slice, driven by pilot feedback.
+
 ### UI correction — Remove sticky auto dialer from the seller work panel — 2026-07-24
 
 The operator control cluster (auto dialer / dispositions / follow-up / status / next) in the non-session **current seller work panel** no longer uses `position: sticky` — it now scrolls naturally with the rest of the panel. This is a design correction, not a new feature: all dialer functionality is unchanged, and no replacement floating/sticky behavior was added. The session cockpit (Session Mode) already uses a fixed multi-pane layout and was intentionally left untouched. Deferred: the full cockpit-style fixed-pane redesign of this panel.

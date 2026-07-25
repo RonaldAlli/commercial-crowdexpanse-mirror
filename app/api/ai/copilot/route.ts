@@ -13,6 +13,7 @@ import { CopilotNotFoundError } from "@/lib/ai/brain/retrieve";
 import { parseBody } from "./validate";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs"; // the Anthropic SDK requires the Node.js runtime (not edge)
 
 export async function POST(request: Request): Promise<Response> {
   const user = await requireUser();
