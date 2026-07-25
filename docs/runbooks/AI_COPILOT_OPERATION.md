@@ -28,8 +28,14 @@ inert.
 | `ANTHROPIC_API_KEY` | Provider credential | **Yes — never print** |
 | `AI_COPILOT_MODEL` | The model the Copilot uses | No (model id) |
 | `AI_COPILOT_APPROVED_MODELS` | Comma-separated allowlist; `AI_COPILOT_MODEL` must appear here **exactly** | No |
+| `AI_COPILOT_REQUEST_TIMEOUT_MS` | **Optional.** Upstream request timeout in ms so a hung/slow API can't hold a request open. Positive integer; invalid/unset → built-in default (60000) | No |
 
-Confirm existence without revealing the key:
+Confirm configuration without revealing the key — prefer the read-only diagnostic,
+which reads through the same config layer the app uses and never prints the key value:
+```sh
+node --env-file-if-exists=.env --import tsx scripts/diag/ai-copilot-config.mjs
+```
+Or, without tsx, confirm mere existence:
 ```sh
 [ -n "${ANTHROPIC_API_KEY:-}" ] && echo "key: present" || echo "key: MISSING"
 echo "model: ${AI_COPILOT_MODEL:-MISSING}"
@@ -38,9 +44,14 @@ echo "approved: ${AI_COPILOT_APPROVED_MODELS:-MISSING}"
 Env is read at process start — after any change, restart: `pm2 restart crowdexpanse-commercial`.
 
 ## Health check
-There is no dedicated AI health endpoint (per-request AI logging/telemetry is deferred).
-Verify in this order:
-1. **Config present** — the three vars exist (above) and the model is in the approved list.
+The unauthenticated liveness probe `GET /api/health` includes a non-sensitive `ai`
+block — `{ configured, reason }` — computed SDK-free from the same config layer (it
+never contains the key). Use it to confirm at a glance whether the Copilot will
+activate; it does **not** affect the endpoint's overall `status` (the Copilot is never
+a liveness dependency). Per-request AI usage telemetry remains deferred. Verify in this
+order:
+1. **Config present** — `GET /api/health` shows `ai.configured: true` (or the three
+   vars exist and the model is in the approved list).
 2. **Inert check (safe)** — with the vars unset, load `/acquire`: the pane shows
    “AI Copilot not configured” and the workspace is fully usable. This confirms
    fail-closed behavior.
