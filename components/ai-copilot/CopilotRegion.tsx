@@ -5,19 +5,22 @@
 // rail) so the workspace reflows; this component just fills its box. Used by both the
 // normal work panel and the session cockpit.
 
-import { useState, type FormEvent, type KeyboardEvent } from "react";
+import { useMemo, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { COPILOT_SHORTCUTS } from "@/lib/ai/shortcuts";
+import { buildDisplaySources } from "@/lib/ai/sources";
 
 import { useCopilot } from "./CopilotProvider";
 
 export const COPILOT_RAIL_WIDTH = 44;
 
 export function CopilotRegion() {
-  const { aiConfigured, open, setOpen, messages, status, error, send, retry } = useCopilot();
+  const { aiConfigured, open, setOpen, messages, status, error, sources, send, retry } = useCopilot();
   const subjectId = useSearchParams().get("sellerId");
   const [draft, setDraft] = useState("");
+  // Authoritative, deduplicated Sources for the latest answer (structured, not text).
+  const displaySources = useMemo(() => buildDisplaySources(sources ?? []), [sources]);
 
   // Closed → a slim vertical rail with a toggle (a real, thin column — never an overlay).
   if (!open) {
@@ -108,6 +111,26 @@ export function CopilotRegion() {
             })}
           </ul>
         )}
+
+        {/* Sources — authoritative + deduplicated. Complete regardless of whether the
+            answer happened to include inline [S#] markers. */}
+        {displaySources.length > 0 ? (
+          <details className="mt-3 rounded-lg border border-slate-200 bg-white p-2 text-xs">
+            <summary className="cursor-pointer font-medium text-slate-600">
+              Sources ({displaySources.length})
+            </summary>
+            <ul className="mt-2 space-y-1.5">
+              {displaySources.map((d) => (
+                <li key={d.dedupeKey} className="flex gap-2">
+                  <span className="shrink-0 font-mono text-[10px] leading-5 text-slate-400">
+                    {d.citations.join(" ")}
+                  </span>
+                  <span className="min-w-0 text-slate-600">{d.label}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        ) : null}
       </div>
 
       {/* Error — isolated to the pane, with Retry. The workspace is untouched. */}
