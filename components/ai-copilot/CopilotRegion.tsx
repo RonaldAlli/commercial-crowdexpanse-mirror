@@ -8,6 +8,8 @@
 import { useState, type FormEvent, type KeyboardEvent } from "react";
 import { useSearchParams } from "next/navigation";
 
+import { COPILOT_SHORTCUTS } from "@/lib/ai/shortcuts";
+
 import { useCopilot } from "./CopilotProvider";
 
 export const COPILOT_RAIL_WIDTH = 44;
@@ -48,6 +50,10 @@ export function CopilotRegion() {
       e.preventDefault();
       submit();
     }
+  }
+  function runShortcut(s: (typeof COPILOT_SHORTCUTS)[number]) {
+    if (!subjectId) return;
+    send({ subjectId, question: s.prompt, shortcutId: s.id });
   }
 
   return (
@@ -116,6 +122,26 @@ export function CopilotRegion() {
             >
               Retry
             </button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Prompt shortcuts — rendered from the shared catalog (lib/ai/shortcuts.ts) */}
+      {canAsk ? (
+        <div className="shrink-0 border-t border-slate-100 px-2 pt-2">
+          <div className="flex flex-wrap gap-1.5">
+            {COPILOT_SHORTCUTS.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => runShortcut(s)}
+                disabled={status === "streaming"}
+                title={s.prompt}
+                className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 disabled:opacity-40"
+              >
+                {s.label}
+              </button>
+            ))}
           </div>
         </div>
       ) : null}

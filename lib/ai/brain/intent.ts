@@ -3,38 +3,22 @@
 // heuristics over a safe default. This is a lookup, not a planner: the Brain never
 // asks a model how to interpret the request.
 
-export const SHORTCUT_IDS = [
-  "summarize-seller",
-  "prepare-for-call",
-  "draft-sms",
-  "draft-email",
-  "write-opening",
-  "handle-objection",
-  "explain-motivation",
-  "recommend-next-step",
-  "generate-call-summary",
-] as const;
+import { COPILOT_SHORTCUTS, SHORTCUT_IDS, type ShortcutId } from "@/lib/ai/shortcuts";
 
-export type ShortcutId = (typeof SHORTCUT_IDS)[number];
+export { SHORTCUT_IDS };
+export type { ShortcutId };
 
 export type Intent = {
   id: ShortcutId | "freeform";
   providers: string[]; // provider keys to retrieve (always includes "seller", the anchor)
 };
 
-// The product's shortcut → provider retrieval map. Every entry includes "seller"
-// (the anchor whose absence means the subject is not in the caller's org → 404).
-export const SHORTCUT_PROVIDERS: Record<ShortcutId, string[]> = {
-  "summarize-seller": ["seller", "timeline"],
-  "prepare-for-call": ["seller", "property", "session", "timeline", "scoring"],
-  "draft-sms": ["seller", "communications"],
-  "draft-email": ["seller", "communications", "timeline"],
-  "write-opening": ["seller", "property", "scoring"],
-  "handle-objection": ["seller", "timeline", "scoring"],
-  "explain-motivation": ["seller", "timeline", "communications"],
-  "recommend-next-step": ["seller", "session", "timeline", "scoring"],
-  "generate-call-summary": ["seller", "timeline", "session", "communications"],
-};
+// The shortcut → provider retrieval map, DERIVED from the shortcut catalog so there
+// is one source of truth. Every entry includes "seller" (the anchor whose absence
+// means the subject is not in the caller's org → 404).
+export const SHORTCUT_PROVIDERS: Record<ShortcutId, string[]> = Object.fromEntries(
+  COPILOT_SHORTCUTS.map((s) => [s.id, [...s.providers]]),
+) as Record<ShortcutId, string[]>;
 
 export function isShortcutId(v: string): v is ShortcutId {
   return (SHORTCUT_IDS as readonly string[]).includes(v);
