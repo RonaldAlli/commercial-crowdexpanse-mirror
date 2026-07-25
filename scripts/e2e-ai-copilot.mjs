@@ -57,10 +57,13 @@ async function drain(stream) {
 try {
   const org = await mkOrg();
   const seller = await prisma.seller.create({
-    data: { organizationId: org.id, name: "Jane Seller", outreachStatus: "CONTACTED", motivation: "relocating out of state" },
+    data: {
+      organizationId: org.id, name: "Jane Seller", outreachStatus: "CONTACTED",
+      motivation: "relocating out of state", phone: "555-0100-2000", email: "jane@example.com",
+    },
   });
   await prisma.contactTouch.create({
-    data: { organizationId: org.id, sellerId: seller.id, type: "CALL", summary: "left a voicemail" },
+    data: { organizationId: org.id, sellerId: seller.id, type: "NOTE", summary: "SENSITIVE internal note — do not send" },
   });
 
   // ── FULL VERTICAL ────────────────────────────────────────────────────────
@@ -88,6 +91,12 @@ try {
   assert(captured?.system?.includes("Jane Seller"), "prompt is grounded in the seller's real data");
   assert(captured?.system?.includes("relocating out of state"), "prompt includes the real motivation");
   assert(captured?.messages?.at(-1)?.content === "Summarize this seller", "the user question is the last message");
+
+  // PRIVACY (pilot policy enforced end-to-end): phone/email masked, internal notes excluded.
+  assert(!captured.system.includes("555-0100-2000"), "raw phone is NOT in the prompt (masked)");
+  assert(!captured.system.includes("jane@example.com"), "raw email is NOT in the prompt (masked)");
+  assert(captured.system.includes("[redacted]"), "masked contact fields appear as [redacted]");
+  assert(!captured.system.includes("SENSITIVE internal note"), "internal note content is excluded from the prompt");
 
   // ── ORG BOUNDARY ─────────────────────────────────────────────────────────
   const org2 = await mkOrg();

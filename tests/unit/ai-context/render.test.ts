@@ -11,6 +11,14 @@ import {
   renderCommunications,
   renderScoring,
 } from "../../../lib/ai/context/render";
+import type { AiDataPolicy } from "../../../lib/ai/context/policy";
+
+// Formatting tests use an allow-all policy so they exercise raw rendering; the
+// pilot policy's masking/exclusion is covered separately in ai-policy.
+const ALLOW: AiDataPolicy = {
+  phone: "allow", email: "allow", ownerName: "allow",
+  smsBodies: "allow", emailBodies: "allow", internalNotes: "allow",
+};
 
 test("renderSeller: labeled fragment with name, motivation, restrictions + source refs", () => {
   const f = renderSeller({
@@ -107,6 +115,7 @@ test("renderTimeline: newest-first, capped, formats each kind", () => {
       statusEvents: [{ at: 4000, label: "New → Responded" }],
     },
     3,
+    ALLOW,
   );
   assert.ok(f);
   const lines = f!.text.split("\n");

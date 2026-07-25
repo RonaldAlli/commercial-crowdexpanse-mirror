@@ -12,6 +12,7 @@ import type { SessionProgress } from "@/lib/acquisition-session";
 import type { ContactOutreachStatus } from "@prisma/client";
 
 import type { ContextFragment, SourceRef } from "./types";
+import { PILOT_AI_POLICY, applyRule, type AiDataPolicy } from "./policy";
 
 function truncate(s: string, n = 120): string {
   return s.length > n ? `${s.slice(0, n)}…` : s;
@@ -35,7 +36,7 @@ export type SellerData = {
   ownerName: string | null;
 };
 
-export function renderSeller(s: SellerData): ContextFragment {
+export function renderSeller(s: SellerData, policy: AiDataPolicy = PILOT_AI_POLICY): ContextFragment {
   const loc = [s.city, s.state].filter(Boolean).join(", ");
   const dnc = [
     s.doNotCall ? "no calls" : null,
@@ -44,12 +45,21 @@ export function renderSeller(s: SellerData): ContextFragment {
   ]
     .filter(Boolean)
     .join("; ");
+  const phone = applyRule(policy.phone, s.phone);
+  const email = applyRule(policy.email, s.email);
+  const owner = applyRule(policy.ownerName, s.ownerName);
+  const contact = [
+    policy.phone !== "exclude" ? `Phone: ${phone ?? "none on file"}` : null,
+    policy.email !== "exclude" ? `Email: ${email ?? "none on file"}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const lines = [
     `Name: ${s.name}${s.company ? ` (${s.company})` : ""}`,
     `Outreach status: ${s.outreachStatus}`,
-    s.ownerName ? `Owner of record: ${s.ownerName}` : null,
+    owner ? `Owner of record: ${owner}` : null,
     loc ? `Location: ${loc}` : null,
-    `Phone: ${s.phone ?? "none on file"} · Email: ${s.email ?? "none on file"}`,
+    contact || null,
     s.acquisitionChannel ? `Acquisition source: ${s.acquisitionChannel}` : null,
     `Motivation: ${s.motivation ?? "not yet known — discover it on the call"}`,
     dnc ? `Contact restrictions: ${dnc}` : null,
@@ -126,21 +136,30 @@ export type TimelineInput = {
   statusEvents: { at: number; label: string }[];
 };
 
-function describeEntry(e: TimelineEntry): string {
+function describeEntry(e: TimelineEntry, policy: AiDataPolicy): string {
   switch (e.kind) {
     case "call":
       return `Call (${e.direction}, ${e.status}${e.disposition ? `, ${e.disposition}` : ""})`;
-    case "message":
-      return `${e.channel} ${e.direction}: ${truncate(e.body)}`;
-    case "touch":
-      return `${e.touchType}${e.summary ? `: ${truncate(e.summary)}` : ""}`;
+    case "message": {
+      const rule = e.channel === "EMAIL" ? policy.emailBodies : policy.smsBodies;
+      const body = applyRule(rule, e.body);
+      return `${e.channel} ${e.direction}: ${body == null ? "(content withheld)" : truncate(body)}`;
+    }
+    case "touch": {
+      const note = applyRule(policy.internalNotes, e.summary);
+      return `${e.touchType}${note ? `: ${truncate(note)}` : ""}`;
+    }
     case "status":
       return `Status: ${e.label}`;
   }
 }
 
 // Returns null when there is no activity yet (a dropped, non-anchor fragment).
-export function renderTimeline(input: TimelineInput, limit = 12): ContextFragment | null {
+export function renderTimeline(
+  input: TimelineInput,
+  limit = 12,
+  policy: AiDataPolicy = PILOT_AI_POLICY,
+): ContextFragment | null {
   const entries: TimelineEntry[] = [
     ...input.calls.map((c) => ({ kind: "call" as const, ...c })),
     ...input.messages.map((m) => ({ kind: "message" as const, ...m })),
@@ -152,12 +171,12 @@ export function renderTimeline(input: TimelineInput, limit = 12): ContextFragmen
   const sourceRefs: SourceRef[] = ordered.map((e, i) => ({
     kind: "timeline",
     anchor: `timeline-${i}`,
-    snippet: describeEntry(e),
+    snippet: describeEntry(e, policy),
   }));
   return {
     key: "timeline",
     label: "Recent timeline",
-    text: ordered.map(describeEntry).join("\n"),
+    text: ordered.map((e) => describeEntry(e, policy)).join("\n"),
     sourceRefs,
   };
 }
@@ -168,13 +187,19 @@ export type CommunicationsData = {
   lastCall: { at: number; direction: string; status: string; disposition: string | null } | null;
 };
 
-export function renderCommunications(d: CommunicationsData): ContextFragment | null {
+export function renderCommunications(
+  d: CommunicationsData,
+  policy: AiDataPolicy = PILOT_AI_POLICY,
+): ContextFragment | null {
   const parts: string[] = [];
   const sourceRefs: SourceRef[] = [];
   if (d.lastMessage) {
+    const rule = d.lastMessage.channel === "EMAIL" ? policy.emailBodies : policy.smsBodies;
+    const body = applyRule(rule, d.lastMessage.body);
+    const subject = d.lastMessage.subject ? applyRule(policy.emailBodies, d.lastMessage.subject) : null;
     const t = `Last ${d.lastMessage.channel} (${d.lastMessage.direction})${
-      d.lastMessage.subject ? ` — ${d.lastMessage.subject}` : ""
-    }: ${truncate(d.lastMessage.body, 300)}`;
+      subject ? ` — ${subject}` : ""
+    }: ${body == null ? "(content withheld)" : truncate(body, 300)}`;
     parts.push(t);
     sourceRefs.push({ kind: "communication", anchor: "last-message", snippet: t });
   }
