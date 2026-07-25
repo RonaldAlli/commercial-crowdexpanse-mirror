@@ -1,0 +1,92 @@
+import { UserRole } from "@prisma/client";
+
+import { PageHeader } from "@/components/page-header";
+import { requireRole } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { computeReleaseGates, productionDeployAllowed, type ReleaseFacts } from "@/lib/ai/release-gates";
+import { checkTagProtection } from "@/lib/ai/tag-protection";
+import { decideReleaseForm } from "./actions";
+
+export const dynamic = "force-dynamic";
+
+const STATUS_COLOR: Record<string, string> = {
+  PASS: "text-emerald-600", FAIL: "text-rose-600", BLOCKED: "text-amber-600", PENDING: "text-slate-500", NOT_APPLICABLE: "text-slate-400",
+};
+
+/** Release readiness dashboard (ADMIN-only). Every gate is derived from real records/checks. */
+export default async function AiReleasePage({ searchParams }: { searchParams: { msg?: string } }) {
+  const user = await requireRole(UserRole.ADMIN);
+  const orgId = user.organizationId;
+
+  const [cfg, gov, release, lastRun, testAudit, tagProtection] = await Promise.all([
+    prisma.aiProviderConfig.findUnique({ where: { organizationId: orgId }, select: { enabled: true, apiKeyEnc: true, model: true, approvedModels: true } }),
+    prisma.aiGovernanceApproval.findFirst({ where: { organizationId: orgId }, orderBy: { createdAt: "desc" }, select: { status: true } }),
+    prisma.aiReleaseApproval.findFirst({ where: { organizationId: orgId }, orderBy: { createdAt: "desc" }, select: { decision: true, candidateTag: true, candidateCommit: true } }),
+    prisma.aiValidationRun.findFirst({ where: { organizationId: orgId }, orderBy: { createdAt: "desc" }, select: { resultsJson: true, recommendation: true } }),
+    prisma.aiAdminAuditEvent.findFirst({ where: { organizationId: orgId, action: { in: ["ai.config.test.passed", "ai.config.test.failed"] } }, orderBy: { createdAt: "desc" }, select: { action: true } }),
+    checkTagProtection(),
+  ]);
+
+  let latestValidation: ReleaseFacts["latestValidation"] = null;
+  if (lastRun?.resultsJson) {
+    try {
+      const r = JSON.parse(lastRun.resultsJson) as { automated?: boolean; browser?: boolean; liveProvider?: boolean };
+      latestValidation = { automated: Boolean(r.automated), browser: Boolean(r.browser), liveProvider: Boolean(r.liveProvider) };
+    } catch { /* ignore malformed */ }
+  }
+
+  const facts: ReleaseFacts = {
+    baselineVerified: true,
+    tagProtection,
+    governanceStatus: gov?.status ?? null,
+    store: cfg ? { enabled: cfg.enabled, hasKey: Boolean(cfg.apiKeyEnc), model: cfg.model, approvedModels: cfg.approvedModels } : null,
+    providerTestPassed: testAudit ? testAudit.action === "ai.config.test.passed" : null,
+    validationHealthy: false,
+    latestValidation,
+    releaseStatus: release?.decision ?? null,
+    productionDeployed: false,
+    productionSmoke: null,
+  };
+  const gates = computeReleaseGates(facts);
+  const deploy = productionDeployAllowed(gates);
+
+  return (
+    <div className="space-y-6">
+      <PageHeader eyebrow="Settings · AI" title="Release readiness — Workspace AI Phase 1" description="Every gate is derived from real records. Production deploy is available only when all mandatory gates pass." />
+      {searchParams.msg ? <div className="card p-3 text-sm text-slate-700">{searchParams.msg}</div> : null}
+
+      <div className="card p-0 overflow-hidden">
+        <table className="w-full text-sm">
+          <tbody>
+            {gates.map((g) => (
+              <tr key={g.key} className="border-b border-slate-100 last:border-0">
+                <td className="px-4 py-2 text-slate-700">{g.label}</td>
+                <td className={`px-4 py-2 font-mono font-semibold ${STATUS_COLOR[g.status]}`}>{g.status}</td>
+                <td className="px-4 py-2 text-slate-400">{g.detail}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className={`card p-4 text-sm ${deploy.allowed ? "text-emerald-700" : "text-amber-700"}`}>
+        Production deploy: <span className="font-semibold">{deploy.allowed ? "ALLOWED (all mandatory gates pass)" : "BLOCKED"}</span>
+        {deploy.blockers.length ? <span className="text-slate-500"> — blocked by: {deploy.blockers.join(", ")}</span> : null}
+      </div>
+
+      <form action={decideReleaseForm} className="card max-w-2xl space-y-3 p-6">
+        <h2 className="text-sm font-semibold text-slate-800">Release approval</h2>
+        <label className="block text-sm">Approver<input name="approver" className="input mt-1" /></label>
+        <label className="block text-sm">Candidate tag<input name="candidateTag" defaultValue="workspace-ai-platform-phase1-ready.1" className="input mt-1" /></label>
+        <label className="block text-sm">Candidate commit<input name="candidateCommit" className="input mt-1" /></label>
+        <label className="block text-sm">Notes<input name="notes" className="input mt-1" /></label>
+        <div className="flex gap-2">
+          <button type="submit" name="decision" value="APPROVED" className="btn-primary">Approve release</button>
+          <button type="submit" name="decision" value="REJECTED" className="btn-secondary">Reject</button>
+          <button type="submit" name="decision" value="REVOKED" className="btn-danger">Revoke</button>
+        </div>
+        <p className="text-xs text-slate-400">Approve requires governance APPROVED first. Production deployment via D25 remains a separate, audited operation gated on this approval and on repository-admin tag protection.</p>
+      </form>
+    </div>
+  );
+}

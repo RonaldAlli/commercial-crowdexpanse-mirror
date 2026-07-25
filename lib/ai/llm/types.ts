@@ -16,6 +16,12 @@ export type LlmStreamParams = {
   // Optional: abort the upstream request (e.g. when the client disconnects) so the
   // provider stops generating and we stop paying for tokens no one will read.
   signal?: AbortSignal;
+  // Optional resolved credentials/config injected by the caller (the admin-managed
+  // encrypted store). When apiKey + model are provided the provider uses them and
+  // skips its own env-based status check; otherwise it falls back to env config.
+  apiKey?: string;
+  model?: string;
+  timeoutMs?: number;
 };
 
 export interface LlmProvider {

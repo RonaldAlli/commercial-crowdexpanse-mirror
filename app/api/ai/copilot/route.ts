@@ -6,7 +6,7 @@
 import { NextResponse } from "next/server";
 
 import { requireUser } from "@/lib/auth";
-import { resolveAiStatus } from "@/lib/ai/llm";
+import { resolveCopilotRuntime } from "@/lib/ai/runtime-config";
 import { runCopilot } from "@/lib/ai/copilot-service";
 import { CopilotNotFoundError } from "@/lib/ai/brain/retrieve";
 
@@ -18,10 +18,11 @@ export const runtime = "nodejs"; // the Anthropic SDK requires the Node.js runti
 export async function POST(request: Request): Promise<Response> {
   const user = await requireUser();
 
-  // Fail closed: with the provider unconfigured, report inert and never call the API.
-  const status = resolveAiStatus();
-  if (!status.configured) {
-    return NextResponse.json({ configured: false, reason: status.reason });
+  // Fail closed: resolve the org's effective config (env override, else the
+  // governance-gated encrypted store). Unconfigured ⇒ report inert, never call the API.
+  const runtime = await resolveCopilotRuntime(user.organizationId);
+  if (!runtime.configured) {
+    return NextResponse.json({ configured: false, reason: runtime.reason });
   }
 
   let json: unknown;
@@ -50,7 +51,7 @@ export async function POST(request: Request): Promise<Response> {
         history: req.history,
         shortcutId: req.shortcutId,
       },
-      { signal: upstream.signal },
+      { signal: upstream.signal, apiKey: runtime.apiKey ?? undefined, model: runtime.model ?? undefined, timeoutMs: runtime.timeoutMs },
     );
   } catch (err) {
     if (err instanceof CopilotNotFoundError) {

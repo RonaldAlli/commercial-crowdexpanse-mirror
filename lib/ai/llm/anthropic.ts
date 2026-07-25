@@ -23,18 +23,28 @@ export class AnthropicProvider implements LlmProvider {
   }
 
   async *stream(params: LlmStreamParams): AsyncIterable<string> {
-    const status = this.resolveStatus();
-    if (!status.configured) {
-      // Fail closed: no request is ever made without full configuration.
-      throw new Error(status.reason ?? "AI Copilot is not configured");
+    // Prefer caller-injected credentials (the admin-managed encrypted store, already
+    // governance-gated by the caller). Fall back to env config + the env status check
+    // only when nothing was injected — preserving the baseline's inert-until-env path.
+    let apiKey: string;
+    let model: string;
+    if (params.apiKey && params.model) {
+      apiKey = params.apiKey;
+      model = params.model;
+    } else {
+      const status = this.resolveStatus();
+      if (!status.configured) {
+        // Fail closed: no request is ever made without full configuration.
+        throw new Error(status.reason ?? "AI Copilot is not configured");
+      }
+      apiKey = getAnthropicApiKey() as string;
+      model = getCopilotModel() as string;
     }
-    const apiKey = getAnthropicApiKey() as string;
-    const model = getCopilotModel() as string;
 
     // Operational hardening: a bounded request timeout so a hung/slow upstream can't
     // hold the request open, and a single retry (SDK default is 2 — capped here to
     // keep worst-case latency predictable). Neither is model behavior.
-    const client = new Anthropic({ apiKey, timeout: getRequestTimeoutMs(), maxRetries: 1 });
+    const client = new Anthropic({ apiKey, timeout: params.timeoutMs ?? getRequestTimeoutMs(), maxRetries: 1 });
     const stream = client.messages.stream(
       {
         model,

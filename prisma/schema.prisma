@@ -384,6 +384,11 @@ model Organization {
   automationJobs         AutomationJob[]
   automationExecutions   AutomationExecution[]
   acquisitionSessions    AcquisitionSession[]
+  aiProviderConfig       AiProviderConfig?
+  aiGovernanceApprovals  AiGovernanceApproval[]
+  aiReleaseApprovals     AiReleaseApproval[]
+  aiValidationRuns       AiValidationRun[]
+  aiAdminAuditEvents     AiAdminAuditEvent[]
 
   @@map("organizations")
 }
@@ -2395,4 +2400,126 @@ model ApiIdempotencyRecord {
 
   @@unique([organizationId, requestId], map: "api_idempotency_org_request_key")
   @@map("api_idempotency_records")
+}
+
+// ── Workspace AI Platform — Phase 1 release controls ─────────────────────────
+// Admin-managed AI provider configuration, governance, release approval, and an
+// immutable audit trail. The provider API key is AES-256-GCM encrypted at rest
+// (lib/ai/config-secret + lib/comms/secret-box) and NEVER returned to the browser.
+
+enum AiEnvTarget {
+  VALIDATION
+  PRODUCTION
+}
+
+enum AiGovernanceStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  REVOKED
+}
+
+enum AiReleaseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REVOKED
+}
+
+// Org-scoped AI provider configuration. Encrypted key at rest; only apiKeyLast4 is
+// ever surfaced. `approvedModels` is the governance allowlist; `enabled` + a model
+// in the allowlist + a stored key are all required for the store to be "configured".
+model AiProviderConfig {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  provider       String       @default("anthropic")
+  model          String?
+  approvedModels String[]     @default([])
+  timeoutMs      Int?
+  enabled        Boolean      @default(false)
+  envTarget      AiEnvTarget  @default(VALIDATION)
+  apiKeyEnc      String? // AES-256-GCM ciphertext (iv||tag||ct, base64). NEVER returned to a client.
+  apiKeyLast4    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("ai_provider_configs")
+}
+
+// Live-provider governance authorization. Live traffic is permitted only when the
+// current record is APPROVED. History is retained (append per decision).
+model AiGovernanceApproval {
+  id                   String             @id @default(cuid())
+  organizationId       String
+  pilotScope           String?
+  approvedDataClasses  String?
+  excludedDataClasses  String?
+  maskingPolicyVersion String?
+  zdrDecision          String?
+  anthropicAccount     String?
+  approvedModel        String?
+  approver             String?
+  approvalDate         DateTime?
+  status               AiGovernanceStatus @default(DRAFT)
+  notes                String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  organization         Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@map("ai_governance_approvals")
+}
+
+// Release authorization for a candidate tag/commit. Production deploy is permitted
+// only when the current record is APPROVED.
+model AiReleaseApproval {
+  id                   String          @id @default(cuid())
+  organizationId       String
+  approver             String?
+  candidateTag         String?
+  candidateCommit      String?
+  validationRunId      String?
+  governanceApprovalId String?
+  decision             AiReleaseStatus @default(PENDING)
+  notes                String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  organization         Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@map("ai_release_approvals")
+}
+
+// A recorded validation run against the isolated validation environment. Results are
+// sanitized (no secrets, no customer data).
+model AiValidationRun {
+  id              String       @id @default(cuid())
+  organizationId  String
+  baselineCommit  String?
+  recommendation  String?
+  resultsJson     String? // sanitized JSON summary
+  createdByUserId String?
+  createdAt       DateTime     @default(now())
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@map("ai_validation_runs")
+}
+
+// Immutable audit trail for every admin action on AI config/governance/release.
+// Append-only: no updatedAt, never mutated. `detail` MUST NOT contain secret values.
+model AiAdminAuditEvent {
+  id             String       @id @default(cuid())
+  organizationId String
+  actorUserId    String?
+  action         String
+  target         String?
+  detail         String? // sanitized; never a secret value
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@map("ai_admin_audit_events")
 }

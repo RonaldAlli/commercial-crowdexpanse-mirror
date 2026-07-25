@@ -34,6 +34,11 @@ export type CopilotResult = {
 export type RunCopilotDeps = {
   llm?: LlmProvider;
   signal?: AbortSignal; // forwarded to the provider so the route can cancel on disconnect
+  // Resolved effective config (from env or the admin store). When present it drives
+  // the provider; the route resolves this per-org (governance-gated) before streaming.
+  apiKey?: string;
+  model?: string;
+  timeoutMs?: number;
 };
 
 // Throws CopilotNotFoundError when the subject is not in the caller's org.
@@ -46,7 +51,7 @@ export async function runCopilot(req: CopilotRequest, deps: RunCopilotDeps = {})
 
   const messages: LlmMessage[] = [...req.history, { role: "user", content: req.question }];
   const llm = deps.llm ?? getLlmProvider();
-  const stream = llm.stream({ system, messages, maxTokens: MAX_TOKENS, signal: deps.signal });
+  const stream = llm.stream({ system, messages, maxTokens: MAX_TOKENS, signal: deps.signal, apiKey: deps.apiKey, model: deps.model, timeoutMs: deps.timeoutMs });
 
   return { stream, sources };
 }
