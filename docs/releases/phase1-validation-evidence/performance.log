@@ -1,0 +1,9 @@
+### Startup latency (pm2 restart -> health 200)
+  startup_ready_ms=1699
+### Steady-state latencies (5 samples each)
+  health #1: 0.013831s
+  health #2: 0.010503s
+  health #3: 0.009063s
+  health #4: 0.012270s
+  health #5: 0.010192s
+### Model-dependent metrics (first-token / total-generation / live-cancellation / live-timeout): BLOCKED — no authorized provider; covered by unit (timeout accessor) + E2E (abort-signal forwarding).

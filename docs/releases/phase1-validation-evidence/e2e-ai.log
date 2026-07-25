@@ -1,0 +1,17 @@
+===== E2E AI COPILOT (privacy/read-only/cross-org) =====
+  ✓ sources include the seller anchor
+  ✓ sources include the timeline (a touch was logged)
+  ✓ stream starts and yields the provider's tokens
+  ✓ prompt carries the read-only guardrail
+  ✓ prompt labels context for citations
+  ✓ prompt is grounded in the seller's real data
+  ✓ prompt includes the real motivation
+  ✓ the user question is the last message
+  ✓ the abort signal is forwarded to the provider (upstream cancellation)
+  ✓ raw phone is NOT in the prompt (masked)
+  ✓ raw email is NOT in the prompt (masked)
+  ✓ masked contact fields appear as [redacted]
+  ✓ internal note content is excluded from the prompt
+  ✓ cross-org subjectId → CopilotNotFoundError (the route's 404 source)
+PASS — 14 assertions passed, 0 failed
+e2e-ai exit=0

@@ -1,0 +1,12 @@
+Workspace AI Platform Phase 1 — Validation Deployment Metadata
+generated: 2026-07-25
+validation host          : crowdexpanse-hub (localhost-bound; prod/staging untouched)
+pm2 process              : crowdexpanse-ai-phase1-validation (id 19)  pid=620419
+port                     : 127.0.0.1:3055
+deployment directory     : /opt/crowdexpanse/validation-ai-phase1 (git worktree, detached HEAD)
+deployed commit          : 4948b87  (== engineering baseline tag workspace-ai-platform-phase1-ready)
+build identifier         : iY-enY7AtTTeT8O4QEilf
+node / next              : v20.20.2 / 14.2.20
+database                 : commercial_crowdexpanse_test  schema=aival (isolated; 36 migrations applied)
+AI configuration         : intentionally ABSENT -> inert / fail-closed (no secrets provisioned or fabricated)
+logs                     : /opt/crowdexpanse/validation-ai-phase1/logs/{out,err}.log

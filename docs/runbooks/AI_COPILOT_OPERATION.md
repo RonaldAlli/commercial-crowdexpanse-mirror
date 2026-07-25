@@ -92,6 +92,23 @@ safeguards — keep all three:
 Ordinary release tags (e.g. `v1.4.0`) are not subject to this policy; it applies
 specifically to the AI-platform baseline line.
 
+## Isolated validation environment (reproducible)
+A dedicated, throwaway validation instance can be stood up **without** touching prod or staging
+(executed 2026-07-25; evidence in `docs/releases/phase1-validation-evidence/`, full account in the
+Phase-1 Validation Report Addendum A):
+1. `git worktree add --detach /opt/crowdexpanse/validation-ai-phase1 <baseline-commit>` — isolate the code.
+2. `npm ci` in the worktree (own `node_modules`).
+3. Isolated `.env`: `DATABASE_URL` = test DB with a **dedicated schema** (`...commercial_crowdexpanse_test?schema=aival`
+   — used because the app DB role lacks `CREATE DATABASE`; still isolated from the E2E `public` schema),
+   a throwaway `SESSION_SECRET`/admin, `UPLOAD_DIR`, and **no AI vars** (so it runs inert). Never put real
+   secrets here.
+4. `npx prisma migrate deploy` + `npx prisma generate` + `npx tsx prisma/seed.ts`, then `npm run build`.
+5. Start on a free localhost port via a PM2 config with a **distinct name** (e.g.
+   `crowdexpanse-ai-phase1-validation`, `-p 3055 -H 127.0.0.1`) and its own log files.
+6. Verify: `curl 127.0.0.1:3055/api/health` shows `ai.configured:false`; the AI route returns `{configured:false}`
+   when authenticated and `307 → /login` when not. Fail-closed variants and the automated suite are runnable here.
+- **Teardown:** `pm2 delete <name>` → `git worktree remove <dir> --force` → optionally `DROP SCHEMA aival CASCADE;`.
+
 ## Disable AI safely (kill switch — no deploy)
 The fastest, safest way to turn the Copilot off:
 1. Remove or blank **`ANTHROPIC_API_KEY`** (or `AI_COPILOT_MODEL`) in the secret store.

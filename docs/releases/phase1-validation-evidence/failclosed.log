@@ -1,0 +1,14 @@
+### Baseline: clean inert (no AI vars)
+  status=ok  ai={"configured":false,"reason":"AI Copilot not configured (missing API key)"}
+
+### Variant A — INVALID MODEL (fake key present, model NOT in approved list) → must fail closed, NO API call
+  status=ok  ai={"configured":false,"reason":"AI Copilot not configured (model \"claude-not-approved-test-model\" is not on the configured approved list)"}
+
+### Rollback / KILL SWITCH — remove AI vars + restart → back to clean inert
+  status=ok  ai={"configured":false,"reason":"AI Copilot not configured (missing API key)"}
+
+### PM2 restart resilience (crash-recovery proxy)
+│ status            │ [32m[1monline[22m[39m                                                                 │
+│ restarts          │ 2                                                                      │
+no ANTHROPIC/AI vars remain in .env:
+  matches=1

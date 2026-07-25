@@ -16,6 +16,8 @@ An AI Copilot for the Acquisition Workspace (`/acquire`) — a collapsible, refl
 
 Internal pilot, read-only. Action-taking and organization-level AI policy/controls are deferred to a later slice, driven by pilot feedback.
 
+**Validation status (2026-07-25):** the immutable baseline (`workspace-ai-platform-phase1-ready` → `4948b87`) was deployed to a dedicated **isolated** validation environment (localhost-bound; prod/staging untouched) and all engineering-executable validation passed — build, 36 migrations, live health (`ai` block), authenticated/unauthenticated AI route, live fail-closed (missing key **and** invalid model), kill-switch/rollback, and the full automated suite (typecheck, lint, unit, AI E2E 14/14, all 62 E2E scripts). No engineering defect. **Merge/production remain gated on owner actions** (human browser checklist, PII/ZDR governance sign-off, provisioned prod secrets, repo-admin tag protection). Details: `docs/releases/PHASE1_VALIDATION_REPORT.md` (Addendum A) + `docs/releases/phase1-validation-evidence/`.
+
 ### UI correction — Remove sticky auto dialer from the seller work panel — 2026-07-24
 
 The operator control cluster (auto dialer / dispositions / follow-up / status / next) in the non-session **current seller work panel** no longer uses `position: sticky` — it now scrolls naturally with the rest of the panel. This is a design correction, not a new feature: all dialer functionality is unchanged, and no replacement floating/sticky behavior was added. The session cockpit (Session Mode) already uses a fixed multi-pane layout and was intentionally left untouched. Deferred: the full cockpit-style fixed-pane redesign of this panel.

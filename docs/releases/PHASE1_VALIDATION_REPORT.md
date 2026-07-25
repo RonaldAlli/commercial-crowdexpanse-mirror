@@ -1,9 +1,17 @@
 # Workspace AI Platform – Phase 1 — Validation Report
 
-> **Final recommendation: BLOCKED.** Operational validation could not be completed.
-> Live-traffic governance authorization, provisioned AI secrets, and an available
-> validation environment are all absent. No engineering defect was found; the block is
-> entirely on operational/authorization prerequisites. Do **not** merge or deploy.
+> **Final recommendation: Approved with documented non-blocking items (engineering scope) — MERGE/PROD still BLOCKED on owner actions.**
+> **Updated 2026-07-25 (Addendum A):** a dedicated **isolated validation environment was built and
+> the immutable baseline `4948b87` deployed to it**, and **all engineering-executable validation
+> passed** — build, migrations, boot/health (with the live `ai` block), authenticated + unauthenticated
+> AI route, live fail-closed (missing key **and** invalid model), kill-switch/rollback, and the full
+> automated suite (typecheck, lint, unit, AI E2E 14/14, **all 62 E2E scripts**). **No engineering
+> defect was found.** What remains is **not** engineering: human browser checklist, governance
+> (PII/ZDR/account/approved-model), provisioned production secrets, and repo-admin tag protection.
+> Do **not** merge or deploy to production until those owner actions are complete. See **Addendum A**.
+>
+> _(Original 2026-07-25 recommendation, pre-environment: BLOCKED — no validation environment was
+> available. That specific blocker is now resolved; the remaining blockers below are unchanged.)_
 
 ## Header
 
@@ -116,3 +124,62 @@
 - Immutable baseline `4948b87` with green gates; read-only/privacy/security invariants proven by
   automated E2E; fail-closed configuration reporting verified live; operational docs + runbook +
   operator checklist in place. Engineering is complete and frozen; nothing above is an engineering gap.
+
+---
+
+## Addendum A — Isolated validation environment: BUILT & EXECUTED (2026-07-25)
+
+Blocker #4 (no available validation environment) was resolved by **building a dedicated, isolated
+environment** rather than disturbing the occupied staging instance. Evidence archived under
+`docs/releases/phase1-validation-evidence/`.
+
+### Environment (isolated — prod & staging untouched)
+| Property | Value |
+|---|---|
+| Host | `crowdexpanse-hub` (localhost-bound) |
+| PM2 process | `crowdexpanse-ai-phase1-validation` (id 19) — separate from prod (id 3) & staging (id 5) |
+| Port | `127.0.0.1:3055` |
+| Directory | `/opt/crowdexpanse/validation-ai-phase1` (git **worktree**, detached at the baseline) |
+| Deployed commit | **`4948b87`** (== tag `workspace-ai-platform-phase1-ready`; verified) |
+| Build ID | `iY-enY7AtTTeT8O4QEilf` |
+| Database | `commercial_crowdexpanse_test` **schema `aival`** (dedicated schema — role lacks CREATE DATABASE; isolated from E2E's `public`), **36 migrations applied** |
+| AI config | **intentionally absent → inert/fail-closed** (no secrets provisioned or fabricated) |
+| Logs | `/opt/crowdexpanse/validation-ai-phase1/logs/{out,err}.log` |
+
+### Results (all executed against the deployed baseline)
+- **Build:** ✅ compiled + typechecked + linted clean; AI route + health route present in the build.
+- **Migrations:** ✅ 36 applied to `aival`; seed created a validation admin (throwaway creds).
+- **Health (live):** ✅ `200` with the `ai` block — `{"configured":false,"reason":"...missing API key"}`, `dbMs≈4ms`.
+- **AI route (live):**
+  - unauthenticated → **307 → /login** (auth enforced before any logic);
+  - authenticated + inert → **200 `{configured:false}`** (fail-closed; no stream, no API call);
+  - oversized input while inert → short-circuits to `{configured:false}` (no processing when inert).
+- **Fail-closed variants (live):** missing key → `configured:false`; **invalid model (not in approved
+  list)** → `configured:false` with the approved-list reason (**provably no API call**). Fixtures were
+  obvious placeholders, then removed.
+- **Rollback / kill switch (live):** removing AI vars + `pm2 restart` returned the instance to clean
+  inert; PM2 restart recovery confirmed (status online).
+- **Automated suite (baseline worktree):** typecheck **0 errors**; lint **clean**; unit **PASS**
+  (101 files, branch 93%); AI E2E **14/14** (privacy: phone/email masked, notes excluded; read-only;
+  cross-org → 404; abort-signal forwarding); full integration **all 62 E2E scripts passed**.
+- **Performance (measured):** startup (restart→health 200) ≈ **1.7 s**; steady-state health ≈ **9–14 ms**;
+  inert AI route ≈ 100 ms. **Model-dependent metrics (first-token, total generation, live cancellation,
+  live timeout) are BLOCKED** — they need an authorized provider; they are covered by the unit test
+  (timeout accessor) and E2E (abort-signal forwarding).
+
+### Still blocked (owner/operator — unchanged)
+1. Repo-admin tag protection (`workspace-ai-platform-phase1-ready*`).
+2. Governance sign-off for live traffic (PII/ZDR/account/approved-model value).
+3. Provisioned AI secrets via the approved store (authorized values only).
+4. Human operator to run the **browser** checklist (Sections C/E/F visual behavior) with the above enabled.
+5. Release authority to approve merge + production deployment.
+
+**Net:** every engineering-executable item is now **done and green** against the real deployed baseline.
+The remaining items cannot be honestly completed by engineering — they require credentials, an
+organizational approval, or a human at a browser.
+
+### Teardown note
+The validation instance is transient. To remove it:
+`pm2 delete crowdexpanse-ai-phase1-validation`, then
+`git worktree remove /opt/crowdexpanse/validation-ai-phase1 --force`, and optionally
+`DROP SCHEMA aival CASCADE;` in the test DB. It touches no production or staging resource.

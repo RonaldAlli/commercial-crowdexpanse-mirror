@@ -1,0 +1,27 @@
+e2e-all exit=0
+PASS — 17 assertions passed, 0 failed
+PASS — 15 assertions passed, 0 failed
+PASS — 21 assertions passed, 0 failed
+PASS — 8 assertions passed, 0 failed
+PASS — 21 assertions passed, 0 failed
+PASS — 31 assertions passed, 0 failed
+prisma:error 
+Unique constraint failed on the fields: (`scenarioId`)
+prisma:error 
+An operation failed because it depends on one or more records that were required but not found. Expected a record, found none.
+  ✓ passing a null spec clears the analysis
+  ✓ an underwater deal (estimated value < all-in cost) → PASS on a decisive operating NEGATIVE_SPREAD finding
+[18b] Failure-safe file/DB model (OM-L — file-first, compensating cleanup, no overwrite):
+prisma:error 
+Unique constraint failed on the fields: (`sourceScenarioId`,`documentType`,`generationSequence`)
+prisma:error 
+Unique constraint failed on the fields: (`sourceScenarioId`,`documentType`,`generationSequence`)
+  ✓ OM-L: only successful generations committed a row (failed conflicts committed nothing)
+PASS — 166 assertions passed, 0 failed
+PASS — 9 assertions passed, 0 failed
+[6] AC-VM · validation presentation preserves the frozen ApiError fields (UI-INV-5):
+  ✓ ApiError → ValidationPresentation with category/httpStatus/subsystemCode preserved (no new code invented)
+  ✓ no error ⇒ validation panel absent
+PASS — 12 assertions passed, 0 failed
+✓ All 62 E2E scripts passed.
+✓ All 62 E2E scripts passed.
