@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { AnthropicProvider } from "../../../lib/ai/llm/anthropic";
-import { getApprovedModels } from "../../../lib/ai/config";
+import { getApprovedModels, getRequestTimeoutMs, DEFAULT_REQUEST_TIMEOUT_MS } from "../../../lib/ai/config";
 import { inertLlmProvider, resolveAiStatus } from "../../../lib/ai/llm/index";
 
 // resolveStatus reads env lazily on each call, so tests set/restore process.env
@@ -133,6 +133,24 @@ test("stream() fails closed when not configured (never calls the API)", async ()
       }
     }, /not configured/i);
   });
+});
+
+test("request timeout: safe default when unset, valid override honored, invalid ignored", () => {
+  const KEY = "AI_COPILOT_REQUEST_TIMEOUT_MS";
+  const saved = process.env[KEY];
+  const set = (v: string | undefined) => { if (v === undefined) delete process.env[KEY]; else process.env[KEY] = v; };
+  try {
+    set(undefined);
+    assert.equal(getRequestTimeoutMs(), DEFAULT_REQUEST_TIMEOUT_MS, "unset → default");
+    set("30000");
+    assert.equal(getRequestTimeoutMs(), 30000, "valid positive integer honored");
+    for (const bad of ["0", "-5", "abc", "10.5", "   "]) {
+      set(bad);
+      assert.equal(getRequestTimeoutMs(), DEFAULT_REQUEST_TIMEOUT_MS, `invalid ${JSON.stringify(bad)} → default`);
+    }
+  } finally {
+    set(saved);
+  }
 });
 
 test("inert provider is never configured and refuses to stream", async () => {

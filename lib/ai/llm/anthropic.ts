@@ -11,7 +11,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 
-import { getAnthropicApiKey, getCopilotModel, resolveAiConfigStatus } from "../config";
+import { getAnthropicApiKey, getCopilotModel, getRequestTimeoutMs, resolveAiConfigStatus } from "../config";
 import type { LlmProvider, LlmStatus, LlmStreamParams } from "./types";
 
 export class AnthropicProvider implements LlmProvider {
@@ -31,7 +31,10 @@ export class AnthropicProvider implements LlmProvider {
     const apiKey = getAnthropicApiKey() as string;
     const model = getCopilotModel() as string;
 
-    const client = new Anthropic({ apiKey });
+    // Operational hardening: a bounded request timeout so a hung/slow upstream can't
+    // hold the request open, and a single retry (SDK default is 2 — capped here to
+    // keep worst-case latency predictable). Neither is model behavior.
+    const client = new Anthropic({ apiKey, timeout: getRequestTimeoutMs(), maxRetries: 1 });
     const stream = client.messages.stream(
       {
         model,

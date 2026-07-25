@@ -32,6 +32,19 @@ export function getApprovedModels(): string[] {
     .filter((s) => s.length > 0);
 }
 
+// Upstream request timeout (ms) for the LLM provider. Operational hardening, NOT
+// model behavior: a hung or slow API must not hold a server request open forever.
+// Safe default (60s) so it is always in effect; overridable per environment via
+// AI_COPILOT_REQUEST_TIMEOUT_MS (a positive integer). Invalid/absent → the default.
+export const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
+
+export function getRequestTimeoutMs(): number {
+  const raw = process.env.AI_COPILOT_REQUEST_TIMEOUT_MS?.trim();
+  if (!raw) return DEFAULT_REQUEST_TIMEOUT_MS;
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : DEFAULT_REQUEST_TIMEOUT_MS;
+}
+
 export function resolveCopilotConfig(): CopilotConfig {
   return {
     apiKey: getAnthropicApiKey(),

@@ -58,7 +58,10 @@ export async function POST(request: Request): Promise<Response> {
     }
     // Server-side visibility for ops triage (pm2 logs). No prompt/PII — message only.
     console.error("[ai-copilot] request failed before streaming:", err instanceof Error ? err.message : err);
-    throw err;
+    // Return a structured JSON 500 rather than throwing (Next's default is an HTML
+    // error page the Copilot region's fetch parser can't read) — the client's inline
+    // error + Retry path depends on a predictable JSON body. No internals leaked.
+    return NextResponse.json({ error: "AI Copilot request failed" }, { status: 500 });
   }
 
   // Minimal wire protocol: one JSON `sources` line, then the streamed answer text,
