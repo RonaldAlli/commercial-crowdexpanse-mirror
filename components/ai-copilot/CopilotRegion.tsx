@@ -10,8 +10,9 @@ import { useSearchParams } from "next/navigation";
 
 import { COPILOT_SHORTCUTS } from "@/lib/ai/shortcuts";
 import { buildDisplaySources } from "@/lib/ai/sources";
+import { requestDraftInsert } from "@/lib/ai/draft-insert";
 
-import { useCopilot } from "./CopilotProvider";
+import { useCopilot, type CopilotMessage } from "./CopilotProvider";
 
 export const COPILOT_RAIL_WIDTH = 44;
 
@@ -21,6 +22,25 @@ export function CopilotRegion() {
   const [draft, setDraft] = useState("");
   // Authoritative, deduplicated Sources for the latest answer (structured, not text).
   const displaySources = useMemo(() => buildDisplaySources(sources ?? []), [sources]);
+  // Transient per-message feedback for Copy/Insert. Inserting never mutates history.
+  const [feedback, setFeedback] = useState<{ id: string; text: string } | null>(null);
+
+  function note(id: string, text: string) {
+    setFeedback({ id, text });
+    window.setTimeout(() => setFeedback((f) => (f && f.id === id ? null : f)), 1800);
+  }
+  function copyDraft(m: CopilotMessage) {
+    void navigator.clipboard?.writeText(m.content)?.then(() => note(m.id, "Copied"));
+  }
+  function insertDraft(m: CopilotMessage) {
+    // The Copilot only REQUESTS insertion; an editor decides. If none accepts, fall
+    // back to clipboard. Either way the original draft stays in Copilot history.
+    if (requestDraftInsert({ text: m.content })) {
+      note(m.id, "Inserted into composer");
+    } else {
+      void navigator.clipboard?.writeText(m.content)?.then(() => note(m.id, "Copied (no editor here)"));
+    }
+  }
 
   // Closed → a slim vertical rail with a toggle (a real, thin column — never an overlay).
   if (!open) {
@@ -94,8 +114,9 @@ export function CopilotRegion() {
           <ul className="space-y-3">
             {messages.map((m, i) => {
               const streaming = status === "streaming" && i === messages.length - 1 && m.role === "assistant";
+              const showActions = m.role === "assistant" && m.content !== "" && !streaming;
               return (
-                <li key={m.id} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
+                <li key={m.id} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
                   <div
                     className={
                       m.role === "user"
@@ -106,6 +127,17 @@ export function CopilotRegion() {
                     {m.content || (streaming ? "…" : "")}
                     {streaming && m.content ? <span className="ml-0.5 animate-pulse">▍</span> : null}
                   </div>
+                  {showActions ? (
+                    <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-400">
+                      <button type="button" onClick={() => copyDraft(m)} className="hover:text-slate-600">
+                        Copy
+                      </button>
+                      <button type="button" onClick={() => insertDraft(m)} className="hover:text-slate-600">
+                        Insert
+                      </button>
+                      {feedback?.id === m.id ? <span className="text-emerald-600">{feedback.text}</span> : null}
+                    </div>
+                  ) : null}
                 </li>
               );
             })}

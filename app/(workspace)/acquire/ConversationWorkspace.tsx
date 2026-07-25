@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { Icon } from "@/components/icons";
+import { onDraftInsert, mergeDraftText } from "@/lib/ai/draft-insert";
 import { sendCommsMessage } from "./comms-actions";
 
 export type WsMessage = {
@@ -90,6 +91,23 @@ export function ConversationWorkspace({
   const [tab, setTab] = useState<Tab>("Timeline");
   const [query, setQuery] = useState("");
 
+  // Opt in as a draft-insert target for the Copilot. The Copilot only DISPATCHES a
+  // request; this editor owns the decision — apply to the active/enabled composer
+  // (replace when empty, append otherwise) and accept, or reject (no accept) when
+  // there is no enabled composer, in which case the Copilot falls back to clipboard.
+  const composeRef = useRef<HTMLTextAreaElement | null>(null);
+  useEffect(
+    () =>
+      onDraftInsert((req, accept) => {
+        const el = composeRef.current;
+        if (!el || el.disabled) return;
+        el.value = mergeDraftText(el.value, req.text);
+        el.focus();
+        accept();
+      }),
+    [],
+  );
+
   const unread = useMemo(() => {
     const u: Record<"SMS" | "WHATSAPP" | "EMAIL", number> = { SMS: 0, WHATSAPP: 0, EMAIL: 0 };
     for (const m of messages) if (m.direction === "INBOUND") u[m.channel] += 1;
@@ -153,7 +171,7 @@ export function ConversationWorkspace({
                 ) : null}
                 <form action={sendCommsMessage.bind(null, sellerId, ch)} className="space-y-2">
                   {ch === "EMAIL" ? <input name="subject" className="input h-9 text-sm" placeholder="Subject" disabled={!st.configured} /> : null}
-                  <textarea name="body" disabled={!st.configured || !toAddr} className="input min-h-[70px] resize-y text-sm disabled:bg-slate-50" placeholder={!toAddr ? `No ${ch === "EMAIL" ? "email" : "number"} on file` : st.configured ? `Message ${tab}…` : st.reason ?? "Not configured"} />
+                  <textarea ref={composeRef} name="body" disabled={!st.configured || !toAddr} className="input min-h-[70px] resize-y text-sm disabled:bg-slate-50" placeholder={!toAddr ? `No ${ch === "EMAIL" ? "email" : "number"} on file` : st.configured ? `Message ${tab}…` : st.reason ?? "Not configured"} />
                   <div className="flex items-center justify-between">
                     <button type="button" disabled className="text-xs text-slate-400" title="Attachments coming soon">
                       <Icon name="upload" className="mr-1 inline h-3.5 w-3.5" />Attach
