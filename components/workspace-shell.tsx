@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ReactNode, useState } from "react";
+import { ReactNode, Suspense, useState } from "react";
 import type { UserRole } from "@prisma/client";
 
 import { logoutAction } from "@/app/actions";
 import { Icon, type IconName } from "@/components/icons";
+import { useCopilot } from "@/components/ai-copilot/CopilotProvider";
+import { CopilotRegion, COPILOT_RAIL_WIDTH } from "@/components/ai-copilot/CopilotRegion";
 
 type NavItem = {
   href: string;
@@ -67,8 +69,11 @@ export function WorkspaceShell({
   const current = navigation.find((item) => pathname.startsWith(item.href));
   const initials = userEmail.slice(0, 2).toUpperCase();
 
+  const { open: copilotOpen, width: copilotWidth } = useCopilot();
+
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
+    <div className="flex min-h-screen">
+      <div className="min-w-0 flex-1 lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
       {/* Mobile overlay */}
       {sidebarOpen ? (
         <div
@@ -208,6 +213,17 @@ export function WorkspaceShell({
         <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 sm:px-6 lg:px-8">
           {children}
         </main>
+        </div>
+      </div>
+      {/* Copilot pane — a real reflowing column (desktop). Never an overlay; the
+          workspace shrinks to make room and reclaims it on collapse. */}
+      <div
+        className="sticky top-0 hidden h-screen shrink-0 lg:block"
+        style={{ width: copilotOpen ? copilotWidth : COPILOT_RAIL_WIDTH }}
+      >
+        <Suspense fallback={null}>
+          <CopilotRegion />
+        </Suspense>
       </div>
     </div>
   );

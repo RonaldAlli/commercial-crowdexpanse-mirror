@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { parseBody } from "../../../app/api/ai/copilot/route";
+import { parseBody } from "../../../app/api/ai/copilot/validate";
 
 test("valid minimal request", () => {
   const r = parseBody({ subjectId: "s1", question: "summarize" });
