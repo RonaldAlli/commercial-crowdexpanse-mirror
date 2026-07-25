@@ -71,6 +71,27 @@ node scripts/deploy/deploy.mjs --app-dir <APP_DIR> --production --yes    # senti
 ```
 - Set/confirm the env vars, then `pm2 restart crowdexpanse-commercial`.
 
+## Baseline tag governance (why these tags are special)
+The `workspace-ai-platform-phase1-ready*` tags are **engineering baselines**, not
+ordinary release tags. Each marks an immutable, fully-gated launch candidate that every
+future AI capability is expected to build from. They are governed by three complementary
+safeguards — keep all three:
+1. **Engineering discipline** — a baseline tag is never moved, deleted, or reused. If
+   validation finds a defect, apply a narrowly-scoped fix on the branch, re-gate, and cut
+   a **new** follow-up baseline (`…-ready.1`, `.2`, …) on the corrected commit. Features
+   and redesign never touch a baseline line; they wait for the next phase.
+2. **Git history** — baselines are **annotated** tags, so each carries its own record
+   (status, gate results, verified invariants) and is a stable point to diff against.
+3. **Repository governance** — the `workspace-ai-platform-phase1-ready*` pattern should be
+   a **protected tag** in Gitea (Settings → Tags → Protected Tags), with creation/
+   modification limited to repository administrators. This prevents an accidental
+   `push --delete` or force-retag from destroying a baseline. This is a repo-admin action
+   (it cannot be set over SSH git) and is intentionally performed by someone with
+   administration authority, not implicitly through Git operations.
+
+Ordinary release tags (e.g. `v1.4.0`) are not subject to this policy; it applies
+specifically to the AI-platform baseline line.
+
 ## Disable AI safely (kill switch — no deploy)
 The fastest, safest way to turn the Copilot off:
 1. Remove or blank **`ANTHROPIC_API_KEY`** (or `AI_COPILOT_MODEL`) in the secret store.
