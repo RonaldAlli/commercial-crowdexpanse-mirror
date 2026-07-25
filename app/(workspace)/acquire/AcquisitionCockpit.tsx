@@ -8,6 +8,7 @@ import { resolveSellerPromotion } from "@/lib/promote-seller";
 import { touchTypeLabel } from "@/lib/contact-options";
 import { SessionMissionControl, type MissionControlView } from "@/components/session-mission-control";
 import { ConversationWorkspace, type WsMessage, type WsChannelStatus, type WsTimelineEntry } from "./ConversationWorkspace";
+import { CockpitFrame } from "@/components/ai-copilot/CockpitFrame";
 import { OperatorDock } from "./OperatorDock";
 import { WorkspaceKeys } from "./WorkspaceKeys";
 import { recordDisposition } from "./actions";
@@ -103,8 +104,9 @@ export function AcquisitionCockpit({
   return (
     // FIXED multi-pane cockpit (Bloomberg / call-center style): a permanent region right of the rail. The
     // operator pane (seller context + phone + dispositions) never moves; only the content and queue panes
-    // scroll, each inside its own region. The page itself does not scroll.
-    <div className="fixed inset-y-0 left-[76px] right-0 flex flex-col overflow-hidden bg-slate-50">
+    // scroll, each inside its own region. The page itself does not scroll. CockpitFrame yields the right
+    // edge to the Copilot column when it is open.
+    <CockpitFrame>
       <WorkspaceKeys prevHref={`/acquire?sellerId=${prevId}`} nextHref={`/acquire?sellerId=${nextId}`} />
 
       {/* PANE — Mission control (fixed header) */}
@@ -210,6 +212,6 @@ export function AcquisitionCockpit({
           </ul>
         </div>
       </div>
-    </div>
+    </CockpitFrame>
   );
 }

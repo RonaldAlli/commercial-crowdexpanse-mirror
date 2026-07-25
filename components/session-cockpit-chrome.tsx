@@ -1,10 +1,12 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useTransition } from "react";
+import { Suspense, useTransition } from "react";
 import Link from "next/link";
 
 import { Icon, type IconName } from "@/components/icons";
+import { useCopilot } from "@/components/ai-copilot/CopilotProvider";
+import { CopilotRegion, COPILOT_RAIL_WIDTH } from "@/components/ai-copilot/CopilotRegion";
 import { pauseAcquisitionSession, exitCockpit, endAcquisitionSession } from "@/app/(workspace)/acquire/session-actions";
 
 // Operator mode — the shell COLLAPSES (it isn't removed): a thin left rail keeps the operator oriented and
@@ -29,6 +31,8 @@ function RailLink({ href, label, icon }: { href: string; label: string; icon: Ic
 
 export function SessionCockpitChrome({ children }: { children: ReactNode }) {
   const [pending, start] = useTransition();
+  const { open, width } = useCopilot();
+  const copilotWidth = open ? width : COPILOT_RAIL_WIDTH;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -63,7 +67,17 @@ export function SessionCockpitChrome({ children }: { children: ReactNode }) {
 
       {/* The cockpit page owns a fixed full-height multi-pane region (see AcquisitionCockpit); other routes
           rendered while a session runs simply flow in this padded area. */}
-      <main className="ml-[76px]">{children}</main>
+      <main className="ml-[76px]" style={{ marginRight: copilotWidth }}>
+        {children}
+      </main>
+
+      {/* Copilot pane — a fixed right column in cockpit mode; CockpitFrame yields the
+          cockpit's right edge to it so it never overlaps the panes. */}
+      <div className="fixed inset-y-0 right-0 z-40" style={{ width: copilotWidth }}>
+        <Suspense fallback={null}>
+          <CopilotRegion />
+        </Suspense>
+      </div>
     </div>
   );
 }
