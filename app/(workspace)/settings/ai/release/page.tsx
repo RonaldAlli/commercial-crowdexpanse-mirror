@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computeReleaseGates, productionDeployAllowed, type ReleaseFacts } from "@/lib/ai/release-gates";
 import { checkTagProtection } from "@/lib/ai/tag-protection";
-import { decideReleaseForm } from "./actions";
+import { decideReleaseForm, runValidationForm, deploymentDeployForm, deploymentRollbackForm } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +49,7 @@ export default async function AiReleasePage({ searchParams }: { searchParams: { 
   };
   const gates = computeReleaseGates(facts);
   const deploy = productionDeployAllowed(gates);
+  const runs = await prisma.aiValidationRun.findMany({ where: { organizationId: orgId }, orderBy: { createdAt: "desc" }, take: 5, select: { recommendation: true, createdAt: true } });
 
   return (
     <div className="space-y-6">
@@ -72,6 +73,22 @@ export default async function AiReleasePage({ searchParams }: { searchParams: { 
       <div className={`card p-4 text-sm ${deploy.allowed ? "text-emerald-700" : "text-amber-700"}`}>
         Production deploy: <span className="font-semibold">{deploy.allowed ? "ALLOWED (all mandatory gates pass)" : "BLOCKED"}</span>
         {deploy.blockers.length ? <span className="text-slate-500"> — blocked by: {deploy.blockers.join(", ")}</span> : null}
+      </div>
+
+      <div className="card max-w-2xl space-y-3 p-6">
+        <h2 className="text-sm font-semibold text-slate-800">Deployment control (predefined actions only)</h2>
+        <div className="flex flex-wrap gap-2">
+          <form action={runValidationForm}><button type="submit" className="btn-secondary">Validate (run pipeline)</button></form>
+          <form action={deploymentDeployForm}><button type="submit" className="btn-primary">Deploy (gated)</button></form>
+          <form action={deploymentRollbackForm}><button type="submit" className="btn-danger">Rollback</button></form>
+        </div>
+        <p className="text-xs text-slate-400">Deploy is gated on all mandatory gates + release APPROVED; it audits intent and surfaces the exact D25 command — it never auto-deploys to the sentinel-marked production instance. Rollback surfaces the kill switch + D25 recover command. No arbitrary shell execution.</p>
+        {runs.length ? (
+          <div className="pt-2 text-xs text-slate-500">
+            <div className="mb-1 font-medium text-slate-600">Recent validation runs</div>
+            <ul className="space-y-0.5">{runs.map((r, i) => (<li key={i} className="flex justify-between"><span className={r.recommendation === "PASS" ? "text-emerald-600" : "text-rose-600"}>{r.recommendation}</span><span>{r.createdAt.toISOString().slice(0, 16).replace("T", " ")}</span></li>))}</ul>
+          </div>
+        ) : null}
       </div>
 
       <form action={decideReleaseForm} className="card max-w-2xl space-y-3 p-6">
