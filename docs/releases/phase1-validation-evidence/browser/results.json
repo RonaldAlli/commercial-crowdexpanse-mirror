@@ -1,0 +1,51 @@
+{
+  "when": "1784958015136",
+  "results": [
+    {
+      "name": "workspace /acquire loads authenticated (no redirect to /login)",
+      "pass": true,
+      "detail": "http://127.0.0.1:3055/acquire?sellerId=cmrzxvlxi000111wenzv9qktv"
+    },
+    {
+      "name": "Copilot starts collapsed (rail visible)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Copilot opens into its own pane (collapse control present)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Inert 'not configured yet' state shown (fail-closed UI)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Composer disabled while inert",
+      "pass": true,
+      "detail": "disabled=true"
+    },
+    {
+      "name": "Workspace reflows (main narrower when Copilot open)",
+      "pass": true,
+      "detail": "closed=1136 open=800"
+    },
+    {
+      "name": "Open state persists across reload (localStorage)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Collapse returns the space (rail visible again)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "No browser console errors during layout pass",
+      "pass": true,
+      "detail": ""
+    }
+  ],
+  "consoleErrors": []
+}

@@ -183,3 +183,70 @@ The validation instance is transient. To remove it:
 `pm2 delete crowdexpanse-ai-phase1-validation`, then
 `git worktree remove /opt/crowdexpanse/validation-ai-phase1 --force`, and optionally
 `DROP SCHEMA aival CASCADE;` in the test DB. It touches no production or staging resource.
+
+---
+
+## Addendum B — Credential/approval search + browser pass (2026-07-25)
+
+### Authorized-source search (Step 1) — reported present/absent, no values printed
+| Item | Result | Authorized source |
+|---|---|---|
+| Gitea repo-admin token / `tea` config | **ABSENT** (env, `~/.config/tea`, `~/.netrc`, `~/.git-credentials`) | none provisioned |
+| Anthropic API key (for this pilot) | **ABSENT** | none provisioned |
+| Approved model / allowlist (this pilot) | **ABSENT** | none provisioned |
+| Governance / ZDR / Anthropic account record | **ABSENT** | none (only this report referenced) |
+| Secret-store tooling (vault/sops/age/pass/doppler) | **ABSENT** | none installed |
+| Release / deployment authorization | **ABSENT** | none |
+
+> Note: an `ANTHROPIC_API_KEY` name exists in a **different application's** env
+> (`/opt/crowdexpanse/dealflow/.env`). It is **not authorized** for the Commercial copilot pilot (separate
+> product/account, no governance record, no ZDR/PII decision tying it here). Repurposing it would
+> manufacture the missing authorization, so it was **not** used.
+
+### Tag protection (Step 2) — **BLOCKED** (no repo-admin credential). Rule not weakened; policy documented.
+
+### Governance (Step 3) — no live-traffic approval exists. A **decision-ready form** was created:
+`docs/releases/PHASE1_AI_GOVERNANCE_APPROVAL.md` — verified technical facts populated, all approval
+fields left **PENDING**, unsigned. This is separate from the already-signed masking policy.
+
+### AI configuration (Step 4) — **BLOCKED** (no authorized values). Instance remains inert/fail-closed.
+
+### Browser validation (Step 5) — **PARTIAL: all non-AI-dependent sections PASS in a real browser**
+Playwright 1.61.1 (chromium) driving the deployed instance at `127.0.0.1:3055`, authenticated via a
+minted session cookie, against an isolated `aival` seller fixture. **9/9 automatable checks passed**
+(evidence + screenshots in `docs/releases/phase1-validation-evidence/browser/`):
+
+| Section | Result |
+|---|---|
+| Workspace loads authenticated (no /login redirect) | ✅ |
+| Copilot open / collapse | ✅ |
+| Own reflowing column — **main 1136→800px when open** | ✅ |
+| Open-state persistence across reload (localStorage) | ✅ |
+| Collapse returns the space | ✅ |
+| Inert "not configured yet" state shown (fail-closed UI) | ✅ |
+| Composer disabled while inert | ✅ |
+| No browser console errors | ✅ |
+
+**Blocked (require configured AI + governance):** summary / call-prep / SMS + email draft / free-form /
+streaming / no-duplication / source display + dedup (visual) / phone-email masking in output /
+internal-note exclusion (visual) / copy / insert-empty / append / no-composer fallback / retry /
+live cancellation / live timeout / provider-error isolation. These cannot run while inert. Note: the
+underlying invariants are already **proven by automated tests** (privacy masking, read-only, cross-org
+404, abort-signal — AI E2E 14/14); what remains genuinely unautomatable-without-a-key is the *visible
+browser* confirmation of the generation-path UI.
+
+### Live-provider validation (Step 6) — **BLOCKED** (no authorized key). Covered structurally by unit + E2E.
+
+### Defects — **none** (no defect found in any executed check).
+
+### Final merge recommendation (updated)
+**Approved — engineering & automatable-validation scope (no defects).** **Merge/production remain
+BLOCKED** on the exact, genuinely-unavailable items below — each is a specific credential, approval, or
+human/authority action, not further engineering:
+1. **Repo-admin credential** → enable protected tag `workspace-ai-platform-phase1-ready*`.
+2. **Signed governance** (`PHASE1_AI_GOVERNANCE_APPROVAL.md`): ZDR + authorized Anthropic account +
+   approved model/allowlist + approving authority.
+3. **Provisioned AI secrets** (approved values via the secret store).
+4. **The AI-dependent browser sections + live-provider tests**, which unlock automatically once (2)+(3)
+   are in place — re-run the same tooling; no new engineering.
+5. **Release authority** for merge + production D25 deploy to the sentinel-confirmed instance.
