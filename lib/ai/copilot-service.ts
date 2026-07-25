@@ -6,7 +6,7 @@
 import type { CurrentUser } from "@/lib/auth";
 import type { ProviderCtx } from "@/lib/ai/context/types";
 import { getLlmProvider } from "@/lib/ai/llm";
-import type { LlmMessage } from "@/lib/ai/llm";
+import type { LlmMessage, LlmProvider } from "@/lib/ai/llm";
 
 import { resolveIntent } from "./brain/intent";
 import { retrieve } from "./brain/retrieve";
@@ -28,8 +28,13 @@ export type CopilotResult = {
   sources: SourceListEntry[];
 };
 
+// `deps.llm` is a narrow test seam for injecting the external LLM boundary in
+// integration tests; production uses the configured provider. No logic moves out of
+// the Brain — this only makes the outbound provider injectable.
+export type RunCopilotDeps = { llm?: LlmProvider };
+
 // Throws CopilotNotFoundError when the subject is not in the caller's org.
-export async function runCopilot(req: CopilotRequest): Promise<CopilotResult> {
+export async function runCopilot(req: CopilotRequest, deps: RunCopilotDeps = {}): Promise<CopilotResult> {
   const intent = resolveIntent({ shortcutId: req.shortcutId, question: req.question });
   const ctx: ProviderCtx = { user: req.user, subjectId: req.subjectId };
 
@@ -37,7 +42,8 @@ export async function runCopilot(req: CopilotRequest): Promise<CopilotResult> {
   const { system, sources } = buildSystemPrompt(req.consumer, intent, fragments);
 
   const messages: LlmMessage[] = [...req.history, { role: "user", content: req.question }];
-  const stream = getLlmProvider().stream({ system, messages, maxTokens: MAX_TOKENS });
+  const llm = deps.llm ?? getLlmProvider();
+  const stream = llm.stream({ system, messages, maxTokens: MAX_TOKENS });
 
   return { stream, sources };
 }
