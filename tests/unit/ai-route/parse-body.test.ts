@@ -42,3 +42,14 @@ test("rejects non-object bodies", () => {
   assert.equal(parseBody("x"), null);
   assert.equal(parseBody(42), null);
 });
+
+test("rejects oversized subjectId, question, or history content (size caps)", () => {
+  assert.equal(parseBody({ subjectId: "x".repeat(201), question: "ok" }), null);
+  assert.equal(parseBody({ subjectId: "s1", question: "q".repeat(8001) }), null);
+  assert.equal(
+    parseBody({ subjectId: "s1", question: "ok", history: [{ role: "user", content: "c".repeat(8001) }] }),
+    null,
+  );
+  // just under the caps is accepted
+  assert.ok(parseBody({ subjectId: "s1", question: "q".repeat(8000) }));
+});

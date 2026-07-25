@@ -11,32 +11,15 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 
-import { getAnthropicApiKey, getApprovedModels, getCopilotModel } from "../config";
+import { getAnthropicApiKey, getCopilotModel, resolveAiConfigStatus } from "../config";
 import type { LlmProvider, LlmStatus, LlmStreamParams } from "./types";
 
 export class AnthropicProvider implements LlmProvider {
   readonly name = "anthropic";
 
   resolveStatus(): LlmStatus {
-    const apiKey = getAnthropicApiKey();
-    if (!apiKey) {
-      return { configured: false, reason: "AI Copilot not configured (missing API key)" };
-    }
-    const model = getCopilotModel();
-    if (!model) {
-      return { configured: false, reason: "AI Copilot not configured (no model configured)" };
-    }
-    const approved = getApprovedModels();
-    if (approved.length === 0) {
-      return { configured: false, reason: "AI Copilot not configured (no approved models configured)" };
-    }
-    if (!approved.includes(model)) {
-      return {
-        configured: false,
-        reason: `AI Copilot not configured (model "${model}" is not on the configured approved list)`,
-      };
-    }
-    return { configured: true, reason: null };
+    // Single source of truth lives in the (SDK-free) config layer.
+    return resolveAiConfigStatus();
   }
 
   async *stream(params: LlmStreamParams): AsyncIterable<string> {

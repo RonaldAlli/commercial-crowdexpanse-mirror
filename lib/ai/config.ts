@@ -39,3 +39,29 @@ export function resolveCopilotConfig(): CopilotConfig {
     approvedModels: getApprovedModels(),
   };
 }
+
+// Pure configuration status — SDK-free, so it can be read from lightweight surfaces
+// (e.g. the liveness health probe) without importing the provider SDK. Configured
+// only when the key, a model, a non-empty approved list, and a listed model are all
+// present. Never returns the key or any secret. The provider delegates to this.
+export function resolveAiConfigStatus(): { configured: boolean; reason: string | null } {
+  const apiKey = getAnthropicApiKey();
+  if (!apiKey) {
+    return { configured: false, reason: "AI Copilot not configured (missing API key)" };
+  }
+  const model = getCopilotModel();
+  if (!model) {
+    return { configured: false, reason: "AI Copilot not configured (no model configured)" };
+  }
+  const approved = getApprovedModels();
+  if (approved.length === 0) {
+    return { configured: false, reason: "AI Copilot not configured (no approved models configured)" };
+  }
+  if (!approved.includes(model)) {
+    return {
+      configured: false,
+      reason: `AI Copilot not configured (model "${model}" is not on the configured approved list)`,
+    };
+  }
+  return { configured: true, reason: null };
+}

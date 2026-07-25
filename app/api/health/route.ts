@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { resolveAiConfigStatus } from "@/lib/ai/config";
 
 // Unauthenticated liveness probe (excluded from auth in middleware). Returns only
 // non-sensitive operational signals — no configuration, env, or secrets. The DB
@@ -22,5 +23,8 @@ export async function GET() {
     dbMs,
     uptime: Math.round(process.uptime()),
     commit: process.env.GIT_COMMIT ?? process.env.SOURCE_COMMIT ?? null,
+    // AI Copilot config status — booleans/reason only, never the key. Inert AI is
+    // NOT a liveness degradation, so it does not affect `status`.
+    ai: resolveAiConfigStatus(),
   });
 }

@@ -3,6 +3,12 @@
 
 import type { LlmMessage } from "@/lib/ai/llm";
 
+// Defensive request-size caps: a huge pasted payload would balloon the prompt
+// (cost/latency) or exceed the model context. Oversized input is rejected (400).
+const MAX_SUBJECT_ID_CHARS = 200;
+const MAX_QUESTION_CHARS = 8000;
+const MAX_MESSAGE_CHARS = 8000;
+
 export type ValidRequest = {
   subjectId: string;
   question: string;
@@ -13,8 +19,8 @@ export type ValidRequest = {
 export function parseBody(raw: unknown): ValidRequest | null {
   if (!raw || typeof raw !== "object") return null;
   const b = raw as Record<string, unknown>;
-  if (typeof b.subjectId !== "string" || b.subjectId.trim() === "") return null;
-  if (typeof b.question !== "string" || b.question.trim() === "") return null;
+  if (typeof b.subjectId !== "string" || b.subjectId.trim() === "" || b.subjectId.length > MAX_SUBJECT_ID_CHARS) return null;
+  if (typeof b.question !== "string" || b.question.trim() === "" || b.question.length > MAX_QUESTION_CHARS) return null;
   if (b.shortcutId !== undefined && typeof b.shortcutId !== "string") return null;
 
   const history: LlmMessage[] = [];
@@ -24,7 +30,7 @@ export function parseBody(raw: unknown): ValidRequest | null {
       if (!m || typeof m !== "object") return null;
       const role = (m as Record<string, unknown>).role;
       const content = (m as Record<string, unknown>).content;
-      if ((role !== "user" && role !== "assistant") || typeof content !== "string") return null;
+      if ((role !== "user" && role !== "assistant") || typeof content !== "string" || content.length > MAX_MESSAGE_CHARS) return null;
       history.push({ role, content });
     }
   }

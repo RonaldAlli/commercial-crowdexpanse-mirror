@@ -49,6 +49,8 @@ export async function POST(request: Request): Promise<Response> {
     if (err instanceof CopilotNotFoundError) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
+    // Server-side visibility for ops triage (pm2 logs). No prompt/PII — message only.
+    console.error("[ai-copilot] request failed before streaming:", err instanceof Error ? err.message : err);
     throw err;
   }
 
@@ -65,7 +67,9 @@ export async function POST(request: Request): Promise<Response> {
         }
         controller.close();
       } catch (err) {
-        controller.error(err); // mid-stream failure surfaces to the client for retry
+        // mid-stream failure surfaces to the client for retry; log for ops (no PII).
+        console.error("[ai-copilot] stream error:", err instanceof Error ? err.message : err);
+        controller.error(err);
       }
     },
   });
