@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 
 const STATUS_COLOR: Record<string, string> = {
   PASS: "text-emerald-600", FAIL: "text-rose-600", BLOCKED: "text-amber-600", PENDING: "text-slate-500", NOT_APPLICABLE: "text-slate-400",
+  RECOMMENDED: "text-sky-600", // advisory (governance best practice) — never a blocker
 };
 
 /** Release readiness dashboard (ADMIN-only). Every gate is derived from real records/checks. */

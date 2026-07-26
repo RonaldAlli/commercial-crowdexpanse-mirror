@@ -1,8 +1,10 @@
 // Pure derivation of the Phase-1 release gates from real records. No I/O — the page
 // gathers facts and calls this, so the dashboard can never show a hard-coded checkmark.
 
-export type GateStatus = "PASS" | "FAIL" | "BLOCKED" | "PENDING" | "NOT_APPLICABLE";
-export type Gate = { key: string; label: string; status: GateStatus; detail: string };
+export type GateStatus = "PASS" | "FAIL" | "BLOCKED" | "PENDING" | "NOT_APPLICABLE" | "RECOMMENDED";
+// `advisory` gates are repository-governance best practices — visible, verified, but
+// NOT part of the deployment decision (they never block production).
+export type Gate = { key: string; label: string; status: GateStatus; detail: string; advisory?: boolean };
 
 export type TagProtection = "protected" | "not_protected" | "unable_to_verify" | "credential_unavailable";
 
@@ -27,11 +29,12 @@ export function computeReleaseGates(f: ReleaseFacts): Gate[] {
   const add = (key: string, label: string, s: { status: GateStatus; detail: string }) => g.push({ key, label, ...s });
 
   add("baseline", "Engineering baseline verified", bool(f.baselineVerified, "Baseline commit verified", "FAIL", "Baseline not verified"));
-  add("tag_protection", "Tag protection verified",
-    f.tagProtection === "protected" ? { status: "PASS", detail: "Protected tag pattern active" }
-      : f.tagProtection === "credential_unavailable" ? { status: "BLOCKED", detail: "No repo-admin credential — repository-admin action" }
-      : f.tagProtection === "unable_to_verify" ? { status: "BLOCKED", detail: "Unable to verify via API" }
-      : { status: "FAIL", detail: "Tag pattern not protected" });
+  // Advisory: repository-governance safeguard, not a runtime/security/deployment dependency.
+  // Always RECOMMENDED; still verified (configured vs not). Never blocks deployment.
+  g.push({ key: "tag_protection", label: "Tag protection", status: "RECOMMENDED", advisory: true,
+    detail: f.tagProtection === "protected" ? "✓ Configured. Repository governance only; does not affect application runtime."
+      : f.tagProtection === "unable_to_verify" ? "Unable to verify via API. Repository governance only; does not affect runtime."
+      : "Not configured. Repository administrator may enable later. Repository governance only; does not affect application runtime." });
 
   const govApproved = f.governanceStatus === "APPROVED";
   add("governance", "Governance approved",
@@ -71,9 +74,26 @@ export function computeReleaseGates(f: ReleaseFacts): Gate[] {
   return g;
 }
 
-/** Are all MANDATORY gates for production deployment satisfied? */
+// The gates that MUST pass before production. Tag protection is deliberately excluded
+// (administrative governance, not a deployment prerequisite); the post-deploy outcome
+// gates (prod_deployed, prod_smoke) are results of deploying, not preconditions.
+export const MANDATORY_GATES = [
+  "baseline",
+  "governance",
+  "api_key",
+  "model",
+  "model_allowlisted",
+  "provider_test",
+  "validation_env",
+  "automated_tests",
+  "browser_validation",
+  "live_provider",
+  "release_approved",
+] as const;
+
+/** Are all MANDATORY gates satisfied? Advisory gates (e.g. tag protection) never block. */
 export function productionDeployAllowed(gates: Gate[]): { allowed: boolean; blockers: string[] } {
-  const mandatory = new Set(["governance", "api_key", "model", "model_allowlisted", "release_approved"]);
-  const blockers = gates.filter((g) => mandatory.has(g.key) && g.status !== "PASS").map((g) => g.label);
+  const mandatory = new Set<string>(MANDATORY_GATES);
+  const blockers = gates.filter((g) => mandatory.has(g.key) && !g.advisory && g.status !== "PASS").map((g) => g.label);
   return { allowed: blockers.length === 0, blockers };
 }

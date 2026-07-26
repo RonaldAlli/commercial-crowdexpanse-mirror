@@ -66,16 +66,21 @@ test("release gates derive from facts; production blocked until mandatory gates 
     releaseStatus: null, productionDeployed: false, productionSmoke: null,
   };
   const g0 = computeReleaseGates(base);
-  assert.equal(g0.find((g) => g.key === "tag_protection")?.status, "BLOCKED");
-  assert.equal(productionDeployAllowed(g0).allowed, false);
+  const tp0 = g0.find((g) => g.key === "tag_protection");
+  assert.equal(tp0?.status, "RECOMMENDED", "tag protection is advisory RECOMMENDED, never BLOCKED");
+  assert.equal(tp0?.advisory, true);
+  assert.equal(productionDeployAllowed(g0).allowed, false, "blocked while mandatory gates pending");
+  assert.ok(!productionDeployAllowed(g0).blockers.includes("Tag protection"), "tag protection never appears as a blocker");
 
+  // All mandatory gates PASS but tag protection NOT configured → deployment still ALLOWED.
   const ready: ReleaseFacts = {
-    ...base, tagProtection: "protected", governanceStatus: "APPROVED",
+    ...base, tagProtection: "credential_unavailable", governanceStatus: "APPROVED",
     store: { enabled: true, hasKey: true, model: "m", approvedModels: ["m"] },
     providerTestPassed: true, validationHealthy: true,
     latestValidation: { automated: true, browser: true, liveProvider: true }, releaseStatus: "APPROVED",
   };
   const g1 = computeReleaseGates(ready);
-  assert.equal(productionDeployAllowed(g1).allowed, true);
+  assert.equal(productionDeployAllowed(g1).allowed, true, "tag protection does not block deployment");
+  assert.equal(g1.find((g) => g.key === "tag_protection")?.status, "RECOMMENDED");
   assert.equal(g1.find((g) => g.key === "governance")?.status, "PASS");
 });

@@ -203,7 +203,13 @@ The validation instance is transient. To remove it:
 > product/account, no governance record, no ZDR/PII decision tying it here). Repurposing it would
 > manufacture the missing authorization, so it was **not** used.
 
-### Tag protection (Step 2) — **BLOCKED** (no repo-admin credential). Rule not weakened; policy documented.
+### Tag protection (Step 2) — **ADVISORY (RECOMMENDED), not a deployment gate.**
+Protected Git tags are a repository-governance safeguard that preserves release history.
+They are recommended for multi-developer environments but are **not required for
+application security or runtime correctness**, and do **not** block production deployment.
+Still verified (configured / not configured / unable-to-verify) and queried against Gitea
+only when a repo-admin token is present; currently not configured (no `GITEA_ADMIN_TOKEN`).
+The dashboard shows it as `RECOMMENDED`, separate from the mandatory gates.
 
 ### Governance (Step 3) — no live-traffic approval exists. A **decision-ready form** was created:
 `docs/releases/PHASE1_AI_GOVERNANCE_APPROVAL.md` — verified technical facts populated, all approval

@@ -89,6 +89,13 @@ safeguards — keep all three:
    (it cannot be set over SSH git) and is intentionally performed by someone with
    administration authority, not implicitly through Git operations.
 
+**Classification — advisory, not a deployment gate.** Protected Git tags are a
+repository-governance safeguard that preserves release history. They are **recommended**
+for multi-developer environments but are **not required for application security or
+runtime correctness**, and they are **not a production-deployment prerequisite**. The
+release dashboard shows tag protection as `RECOMMENDED` (advisory), never as a blocker;
+`productionDeployAllowed()` excludes it from the deployment decision.
+
 Ordinary release tags (e.g. `v1.4.0`) are not subject to this policy; it applies
 specifically to the AI-platform baseline line.
 
