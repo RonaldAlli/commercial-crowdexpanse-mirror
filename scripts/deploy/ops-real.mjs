@@ -196,8 +196,7 @@ export function makeRealOps(config) {
 
     async retain() {
       journalPhase("COMPLETE");
-      const dirs = fs.readdirSync(releasesDir).filter((d) => fs.existsSync(path.join(releasesDir, d, "BUILD_ID")))
-        .sort().reverse(); // newest stamp first (stamps are sortable timestamps)
+      const dirs = completedReleasesByMtimeDesc(releasesDir); // newest first by mtime (see helper: name sort is unsafe)
       for (const old of dirs.slice(keepReleases)) fs.rmSync(path.join(releasesDir, old), { recursive: true, force: true });
     },
 
@@ -255,7 +254,7 @@ export function makeRecoverOps(config) {
     },
     async finalize(meta) {
       try {
-        const dirs = fs.readdirSync(releasesDir).filter((d) => fs.existsSync(path.join(releasesDir, d, "BUILD_ID"))).sort().reverse();
+        const dirs = completedReleasesByMtimeDesc(releasesDir); // newest first by mtime (name sort is unsafe across id digit-count changes)
         for (const old of dirs.slice(keepReleases)) fs.rmSync(path.join(releasesDir, old), { recursive: true, force: true });
       } catch { /* ignore */ }
       rmDeployTsconfig(); dropLock();
@@ -351,6 +350,21 @@ async function gitHead(cwd, format) {
       ? (await sh("git", ["log", "-1", `--format=${format}`], { cwd })).stdout.trim()
       : (await sh("git", ["rev-parse", "--short=12", "HEAD"], { cwd })).stdout.trim();
   } catch { return null; }
+}
+
+/**
+ * Completed release dirs (those with a BUILD_ID), NEWEST FIRST — ordered by mtime, NOT
+ * by name. Release stamps are NOT lexicographically ordered once the id counter changes
+ * digit-count (e.g. `r9…` → `r10…`): a name sort then places the newest release last,
+ * and retention would delete the just-deployed (active) release, dangling the symlink.
+ * mtime is monotonic with deploy order and immune to the id format.
+ */
+function completedReleasesByMtimeDesc(releasesDir) {
+  return fs.readdirSync(releasesDir)
+    .filter((d) => fs.existsSync(path.join(releasesDir, d, "BUILD_ID")))
+    .map((d) => ({ d, m: fs.statSync(path.join(releasesDir, d)).mtimeMs }))
+    .sort((a, b) => b.m - a.m)
+    .map((x) => x.d);
 }
 
 /** Latest applied migration name (lexically last dir under prisma/migrations) — a schema-version proxy. */
