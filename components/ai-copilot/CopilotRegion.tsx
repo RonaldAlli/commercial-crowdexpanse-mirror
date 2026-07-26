@@ -17,8 +17,11 @@ import { useCopilot, type CopilotMessage } from "./CopilotProvider";
 export const COPILOT_RAIL_WIDTH = 44;
 
 export function CopilotRegion() {
-  const { aiConfigured, open, setOpen, messages, status, error, sources, send, retry } = useCopilot();
-  const subjectId = useSearchParams().get("sellerId");
+  const { aiConfigured, subjectId: ctxSubjectId, open, setOpen, messages, status, error, sources, send, retry } = useCopilot();
+  // Prefer the active seller the workspace published (searchParams.sellerId ?? queue[0]);
+  // fall back to the raw URL param so a direct /acquire?sellerId=… link works immediately.
+  const urlSeller = useSearchParams().get("sellerId");
+  const subjectId = ctxSubjectId ?? urlSeller;
   const [draft, setDraft] = useState("");
   // Authoritative, deduplicated Sources for the latest answer (structured, not text).
   const displaySources = useMemo(() => buildDisplaySources(sources ?? []), [sources]);

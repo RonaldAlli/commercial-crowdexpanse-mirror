@@ -17,6 +17,12 @@ export type CopilotSendArgs = { subjectId: string; question: string; shortcutId?
 
 type CopilotContextValue = {
   aiConfigured: boolean;
+  // The active seller the WORKSPACE is showing, published by the acquisition page
+  // (which resolves it as searchParams.sellerId ?? queue[0]). The Copilot consumes
+  // this so it always sees the same seller as the dialer/timeline/panel — not just
+  // the URL param. null when no seller is in context (e.g. other pages, empty queue).
+  subjectId: string | null;
+  setSubjectId: (id: string | null) => void;
   open: boolean;
   width: number;
   setOpen: (v: boolean) => void;
@@ -56,6 +62,7 @@ export function CopilotProvider({
   aiConfigured: boolean;
   children: ReactNode;
 }) {
+  const [subjectId, setSubjectId] = useState<string | null>(null);
   const [open, setOpenState] = useState(false);
   const [width, setWidthState] = useState(DEFAULT_WIDTH);
   const [messages, setMessages] = useState<CopilotMessage[]>([]);
@@ -227,6 +234,8 @@ export function CopilotProvider({
 
   const value: CopilotContextValue = {
     aiConfigured,
+    subjectId,
+    setSubjectId,
     open,
     width,
     setOpen,

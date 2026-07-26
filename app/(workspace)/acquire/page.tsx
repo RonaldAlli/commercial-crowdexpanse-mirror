@@ -28,6 +28,7 @@ import { WorkspaceKeys } from "./WorkspaceKeys";
 import { ConversationWorkspace } from "./ConversationWorkspace";
 import { OperatorDock } from "./OperatorDock";
 import { AcquisitionCockpit } from "./AcquisitionCockpit";
+import { CopilotSubjectSync } from "@/components/ai-copilot/CopilotSubjectSync";
 import { recordDisposition } from "./actions";
 // SoftPhone/DISPOSITIONS now live in OperatorDock.
 
@@ -140,9 +141,11 @@ export default async function AcquireWorkspacePage({ searchParams }: { searchPar
       ? `${lastTouch.summary ?? touchTypeLabel(lastTouch.type)} · ${relativeDay(lastTouch.createdAt, now)}`
       : null;
     return (
-      <AcquisitionCockpit
-        current={current}
-        primaryProperty={current.properties[0] ?? null}
+      <>
+        <CopilotSubjectSync subjectId={current.id} />
+        <AcquisitionCockpit
+          current={current}
+          primaryProperty={current.properties[0] ?? null}
         lastContactLabel={lastContactLabel}
         queue={queue}
         userRole={user.role}
@@ -150,7 +153,8 @@ export default async function AcquireWorkspacePage({ searchParams }: { searchPar
         messages={wsMessages}
         channelStatus={channelStatus}
         timeline={wsTimeline}
-      />
+        />
+      </>
     );
   }
 
@@ -163,6 +167,7 @@ export default async function AcquireWorkspacePage({ searchParams }: { searchPar
 
   return (
     <div className="space-y-6">
+      <CopilotSubjectSync subjectId={current?.id ?? null} />
       <PageHeader
         eyebrow="Seller acquisition"
         title="Acquisition workspace"
