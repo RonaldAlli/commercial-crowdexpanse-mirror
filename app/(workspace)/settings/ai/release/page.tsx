@@ -18,11 +18,13 @@ export default async function AiReleasePage({ searchParams }: { searchParams: { 
   const user = await requireRole(UserRole.ADMIN);
   const orgId = user.organizationId;
 
-  const [cfg, gov, release, lastRun, testAudit, tagProtection] = await Promise.all([
+  const [cfg, gov, release, lastRun, prodRun, testAudit, tagProtection] = await Promise.all([
     prisma.aiProviderConfig.findUnique({ where: { organizationId: orgId }, select: { enabled: true, apiKeyEnc: true, model: true, approvedModels: true } }),
     prisma.aiGovernanceApproval.findFirst({ where: { organizationId: orgId }, orderBy: { createdAt: "desc" }, select: { status: true } }),
     prisma.aiReleaseApproval.findFirst({ where: { organizationId: orgId }, orderBy: { createdAt: "desc" }, select: { decision: true, candidateTag: true, candidateCommit: true } }),
     prisma.aiValidationRun.findFirst({ where: { organizationId: orgId }, orderBy: { createdAt: "desc" }, select: { resultsJson: true, recommendation: true } }),
+    // Latest run carrying a production-deployment record — drives the prod gates (not hard-coded).
+    prisma.aiValidationRun.findFirst({ where: { organizationId: orgId, resultsJson: { contains: "\"production\"" } }, orderBy: { createdAt: "desc" }, select: { resultsJson: true } }),
     prisma.aiAdminAuditEvent.findFirst({ where: { organizationId: orgId, action: { in: ["ai.config.test.passed", "ai.config.test.failed"] } }, orderBy: { createdAt: "desc" }, select: { action: true } }),
     checkTagProtection(),
   ]);
@@ -34,6 +36,11 @@ export default async function AiReleasePage({ searchParams }: { searchParams: { 
       latestValidation = { automated: Boolean(r.automated), browser: Boolean(r.browser), liveProvider: Boolean(r.liveProvider) };
     } catch { /* ignore malformed */ }
   }
+  // Production deployment/smoke gates sourced from a persisted release record.
+  let prod: { deployed?: boolean; smoke?: "PASS" | "FAIL"; build?: string; tag?: string; date?: string; validationHealthy?: boolean } = {};
+  if (prodRun?.resultsJson) {
+    try { prod = (JSON.parse(prodRun.resultsJson) as { production?: typeof prod }).production ?? {}; } catch { /* ignore */ }
+  }
 
   const facts: ReleaseFacts = {
     baselineVerified: true,
@@ -41,11 +48,11 @@ export default async function AiReleasePage({ searchParams }: { searchParams: { 
     governanceStatus: gov?.status ?? null,
     store: cfg ? { enabled: cfg.enabled, hasKey: Boolean(cfg.apiKeyEnc), model: cfg.model, approvedModels: cfg.approvedModels } : null,
     providerTestPassed: testAudit ? testAudit.action === "ai.config.test.passed" : null,
-    validationHealthy: false,
+    validationHealthy: Boolean(prod.validationHealthy),
     latestValidation,
     releaseStatus: release?.decision ?? null,
-    productionDeployed: false,
-    productionSmoke: null,
+    productionDeployed: Boolean(prod.deployed),
+    productionSmoke: prod.smoke ?? null,
   };
   const gates = computeReleaseGates(facts);
   const deploy = productionDeployAllowed(gates);
@@ -73,6 +80,7 @@ export default async function AiReleasePage({ searchParams }: { searchParams: { 
       <div className={`card p-4 text-sm ${deploy.allowed ? "text-emerald-700" : "text-amber-700"}`}>
         Production deploy: <span className="font-semibold">{deploy.allowed ? "ALLOWED (all mandatory gates pass)" : "BLOCKED"}</span>
         {deploy.blockers.length ? <span className="text-slate-500"> — blocked by: {deploy.blockers.join(", ")}</span> : null}
+        {prod.deployed ? <div className="mt-1 text-xs text-slate-500">Production: candidate {prod.tag ?? "?"} · build {prod.build ?? "?"} · deployed {prod.date ?? "?"} · smoke {prod.smoke ?? "?"}</div> : null}
       </div>
 
       <div className="card max-w-2xl space-y-3 p-6">
