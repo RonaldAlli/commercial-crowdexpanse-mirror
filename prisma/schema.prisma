@@ -350,6 +350,7 @@ model Organization {
   buyers                 Buyer[]
   properties             Property[]
   opportunities          Opportunity[]
+  deals                  Deal[]
   analyses               DealAnalysis[]
   tasks                  Task[]
   notes                  Note[]
@@ -1183,6 +1184,7 @@ model Opportunity {
   escrow           EscrowRecord?
   financing        FinancingRecord?
   assignment       AssignmentRecord?
+  deal             Deal?
   diligenceItems   OpportunityDiligenceItem[]
   tasks            Task[]
   notes            Note[]
@@ -1194,6 +1196,36 @@ model Opportunity {
   @@index([propertyId])
   @@index([sellerId])
   @@map("opportunities")
+}
+
+// BE-2 (Deal first-class). A Deal is an Opportunity over which we have obtained CONTRACTUAL or
+// LEGAL control — where the business holds enforceable rights and obligations and is paid
+// (Business Domain Model, Invariant 4: a Deal originates from exactly one Opportunity). It is born
+// from the canonical business event "Deal Controlled", whose current implementation is the
+// CONTRACT_EXECUTED decision fact (see docs/architecture/BUSINESS_SEMANTICS_SPECIFICATION.md and
+// docs/business/evolution/be-2/DECISIONS.md). ADDITIVE & INERT in Step 1: nothing is wired to a
+// live path, no re-parenting, no backfill. Per the frozen Deal↔Transaction boundary, execution
+// records (escrow / financing / assignment / closing / settlement / revenue) belong to
+// TRANSACTION (BE-5), NOT to Deal.
+model Deal {
+  id                          String   @id @default(cuid())
+  organizationId              String
+  opportunityId               String   @unique
+  // The canonical control fact that established this Deal (a CONTRACT_EXECUTED PipelineFact.id).
+  // Scalar reference (no FK) per the house cross-aggregate idiom. No Deal exists without it.
+  controlFactId               String
+  controlledAt                DateTime
+  controlInstrumentType       String?
+  controlInstrumentReference  String?
+  // The frozen Business Architecture baseline under which this Deal was created (audit/migration).
+  businessArchitectureVersion String?
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+  organization                Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity                 Opportunity  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("deals")
 }
 
 model OpportunityDiligenceItem {

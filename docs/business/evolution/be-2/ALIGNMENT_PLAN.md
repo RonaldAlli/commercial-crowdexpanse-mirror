@@ -38,9 +38,12 @@ and the dashboard agrees — never before.
 2. **Compatibility layer + historical backfill.** Where an Opportunity is at/after `UNDER_CONTRACT`,
    a corresponding Deal exists; backfill Deals for historical under-contract Opportunities
    (**additive — preserves all history**). Existing Opportunity reads keep working unchanged.
-3. **Re-parent execution records additively.** Add a nullable `dealId` to `EscrowRecord`,
-   `FinancingRecord`, `AssignmentRecord`, `ClosingChecklist`; backfill from opportunity→deal; **keep
-   `opportunityId` during the transition** (dual-parent, no data loss).
+3. **Re-parent execution records — to TRANSACTION, not Deal** *(corrected per the ratified
+   Deal↔Transaction boundary — see `DECISIONS.md` D-2)*. Escrow, financing, assignment, closing,
+   settlement, and revenue realization belong to **Transaction (BE-5)**, which is created *from* a
+   Deal. Deal itself owns legal control (contract · negotiation history · purchase terms ·
+   amendments · control instrument) and takes **no** execution-record children. This step therefore
+   moves to **BE-5**; BE-2 does not re-parent any execution record.
 4. **Align reporting.** Point BI (`dealCount`, revenue) at Deal/Transaction facts; **validate the
    numbers match the old computation before switching the display source.** *(reports agree)*
 5. **Align workflows/UI.** Add a **Deal Workspace** (additive nav) serving the Deal lifecycle and the
