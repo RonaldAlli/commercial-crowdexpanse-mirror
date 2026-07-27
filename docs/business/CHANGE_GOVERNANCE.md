@@ -134,3 +134,19 @@ fact-based pipeline, which already reconstruct state from immutable facts.)
 > model and the implementation can each evolve on their own cadence without drifting apart.
 > Without it, the architecture drifts from reality the first time someone edits a word in a
 > hurry.
+
+---
+
+## Governance history
+
+### One-time exception — moving a published tag (2026-07-27)
+
+The annotated tag `business-architecture-v1.0` was force-moved **once**, from the initial freeze
+commit to the finalized baseline commit, to fold in founding material (BORA framing · inviolable
+ordering · the "preserve understanding" closing statement). **This is an explicit exception, not a
+precedent.** It was defensible only because the baseline had **not yet merged and had not been
+operationally consumed**, and the corrections were **founding intent.**
+
+**Standing immutable-tag rule:** once a baseline is merged or operationally consumed, its tag is
+**never** moved — corrections advance the version (v1.1, v2.0). No one should treat moving published
+tags as normal practice. This entry exists so the exception is remembered *as* an exception.

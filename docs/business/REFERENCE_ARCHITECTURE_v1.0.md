@@ -37,3 +37,13 @@ The next phase is **Business Alignment**, not development. Every change — whet
 schema, UI, reports, workflows, training, documentation, APIs, or code — is judged by one question:
 **does it make the platform a more faithful representation of this frozen architecture?** Progress is
 measured on the Business Alignment Dashboard, not on a feature backlog.
+
+## Tag history (one-time governed exception)
+
+The annotated tag `business-architecture-v1.0` was moved **once** — from the initial freeze commit to
+the finalized baseline commit that carries the founding material (the BORA framing, the inviolable
+layer ordering, and the closing statement on preserving understanding), so the tag points at the
+*complete* v1.0. This was permitted **only** because the baseline had **not yet merged to `main` and
+had not been operationally consumed**, and the additions were **founding intent, not a later
+evolution.** **Moving a published tag is not normal practice** (see `CHANGE_GOVERNANCE.md`). From the
+moment v1.0 merges, its tag is immutable; every subsequent change advances the version (v1.1, v2.0).
