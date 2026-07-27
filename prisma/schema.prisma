@@ -1198,15 +1198,10 @@ model Opportunity {
   @@map("opportunities")
 }
 
-// BE-2 (Deal first-class). A Deal is an Opportunity over which we have obtained CONTRACTUAL or
-// LEGAL control — where the business holds enforceable rights and obligations and is paid
-// (Business Domain Model, Invariant 4: a Deal originates from exactly one Opportunity). It is born
-// from the canonical business event "Deal Controlled", whose current implementation is the
-// CONTRACT_EXECUTED decision fact (see docs/architecture/BUSINESS_SEMANTICS_SPECIFICATION.md and
-// docs/business/evolution/be-2/DECISIONS.md). ADDITIVE & INERT in Step 1: nothing is wired to a
-// live path, no re-parenting, no backfill. Per the frozen Deal↔Transaction boundary, execution
-// records (escrow / financing / assignment / closing / settlement / revenue) belong to
-// TRANSACTION (BE-5), NOT to Deal.
+// BE-2 (Deal first-class). A Deal is an Opportunity over which we have obtained contractual/legal
+// control. ADDITIVE & INERT in Step 1 (wired to no live path; no re-parenting; no backfill).
+// Business rules are NOT restated here — authority: docs/business/2_DOMAIN_MODEL.md and
+// docs/business/evolution/be-2/DECISIONS.md (D-1 control event, D-2 Deal↔Transaction boundary).
 model Deal {
   id                          String   @id @default(cuid())
   organizationId              String

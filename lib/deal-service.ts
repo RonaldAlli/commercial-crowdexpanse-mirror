@@ -1,12 +1,8 @@
-// BE-2 Step 1 — Deal aggregate DB orchestration (ADDITIVE, INERT). A Deal is an Opportunity over
-// which we hold CONTRACTUAL/LEGAL control (Business Domain Model, Invariant 4). It is DERIVED from
-// the canonical business event "Deal Controlled", whose current implementation is the
-// CONTRACT_EXECUTED decision fact (BUSINESS_SEMANTICS_SPECIFICATION §2.4; see
-// docs/business/evolution/be-2/DECISIONS.md). Creation is org-scoped, idempotent (opportunityId
-// @unique + P2002 race-safe), and REFUSED without an active control fact — "no Deal without the
-// canonical Deal Controlled event". Nothing here is wired to a live path in Step 1. Per the frozen
-// Deal↔Transaction boundary, execution records (escrow/financing/assignment/closing/settlement/
-// revenue) belong to Transaction (BE-5), never to Deal.
+// BE-2 Step 1 — Deal aggregate DB orchestration (ADDITIVE, INERT). A Deal is DERIVED from the
+// canonical "Deal Controlled" event (current implementation: the CONTRACT_EXECUTED decision fact).
+// Creation is org-scoped, idempotent (opportunityId @unique + P2002 race-safe), and REFUSED without
+// an active control fact. Wired to no live path in Step 1. Business rules / the Deal↔Transaction
+// boundary are authoritative in docs/business/evolution/be-2/DECISIONS.md — not restated here.
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
