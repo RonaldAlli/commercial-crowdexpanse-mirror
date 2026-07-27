@@ -113,6 +113,20 @@ The double line marks the **seam between the business and its software.** Everyt
 is what is true. Everything below it is how that truth is served. When the two disagree, the
 layer above is authoritative and the layer below is corrected.
 
+### Three authorities
+
+The stack establishes three distinct authorities, and keeping them separate is what prevents chaos —
+no layer may quietly assume another's:
+
+- **Business Authority** — `Reality → Business`: the business defines what is true.
+- **Architectural Authority** — `Business → Reference Architecture`: the architecture is the
+  authoritative *description* of the business.
+- **Engineering Authority** — `Reference Architecture → Implementation`: engineering *represents* the
+  architecture faithfully.
+
+Hence the burden-of-proof rule (`CHANGE_GOVERNANCE.md`): when implementation and the architecture
+disagree, implementation is assumed incorrect until proven otherwise.
+
 ---
 
 ## The three intelligences (the moat, mapped through the stack)

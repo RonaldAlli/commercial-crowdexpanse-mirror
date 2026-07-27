@@ -40,10 +40,12 @@ measured on the Business Alignment Dashboard, not on a feature backlog.
 
 ## Tag history (one-time governed exception)
 
-The annotated tag `business-architecture-v1.0` was moved **once** — from the initial freeze commit to
-the finalized baseline commit that carries the founding material (the BORA framing, the inviolable
-layer ordering, and the closing statement on preserving understanding), so the tag points at the
-*complete* v1.0. This was permitted **only** because the baseline had **not yet merged to `main` and
-had not been operationally consumed**, and the additions were **founding intent, not a later
-evolution.** **Moving a published tag is not normal practice** (see `CHANGE_GOVERNANCE.md`). From the
-moment v1.0 merges, its tag is immutable; every subsequent change advances the version (v1.1, v2.0).
+The annotated tag `business-architecture-v1.0` is **re-pointed to track the branch tip during a
+single, bounded pre-merge finalization window** — the interval before this baseline's first merge, in
+which the founding material was completed (BORA framing · the inviolable layer ordering · the
+Preservation and Continuity principles · the closing statement on preserving understanding). This is
+permitted **only** because the baseline has **not yet merged to `main` and has not been operationally
+consumed.** **The window closes at merge.** From the moment v1.0 merges, its tag is **immutable**, and
+every subsequent change advances the version (v1.1, v2.0). **Re-pointing a published tag is not normal
+practice** (see `CHANGE_GOVERNANCE.md`); it is confined to this one pre-merge window and recorded here
+so it is never mistaken for a precedent.

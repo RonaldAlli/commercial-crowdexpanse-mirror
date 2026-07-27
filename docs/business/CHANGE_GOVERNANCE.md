@@ -139,14 +139,26 @@ fact-based pipeline, which already reconstruct state from immutable facts.)
 
 ## Governance history
 
-### One-time exception — moving a published tag (2026-07-27)
+### Bounded exception — pre-merge tag finalization (2026-07-27)
 
-The annotated tag `business-architecture-v1.0` was force-moved **once**, from the initial freeze
-commit to the finalized baseline commit, to fold in founding material (BORA framing · inviolable
-ordering · the "preserve understanding" closing statement). **This is an explicit exception, not a
-precedent.** It was defensible only because the baseline had **not yet merged and had not been
-operationally consumed**, and the corrections were **founding intent.**
+The annotated tag `business-architecture-v1.0` is re-pointed to the branch tip within a **single,
+bounded pre-merge finalization window** (before the baseline's first merge) to fold in founding
+material — the BORA framing, the inviolable ordering, the closing statement, and the **Preservation
+and Continuity principles.** **This is an explicit, bounded exception, not a precedent.** It is
+defensible only because the baseline has **not yet merged and has not been operationally consumed**,
+and the additions are **founding intent.** **The window closes at merge.**
 
 **Standing immutable-tag rule:** once a baseline is merged or operationally consumed, its tag is
-**never** moved — corrections advance the version (v1.1, v2.0). No one should treat moving published
-tags as normal practice. This entry exists so the exception is remembered *as* an exception.
+**never** moved — corrections advance the version (v1.1, v2.0). No one should treat re-pointing
+published tags as normal practice. This entry exists so the exception is remembered *as* an exception.
+
+## Burden of proof
+
+> **When implementation and the Business Architecture disagree, implementation is assumed incorrect
+> until proven otherwise.**
+
+Not because engineering is wrong — because engineering is *representing something else*, and the
+architecture is the authoritative description of the business. Placing the burden of proof on the
+implementation is what keeps authority flowing in the correct direction (Reality → Business →
+Architecture → Implementation). This rule belongs in the PR template, the onboarding guide, and the
+engineering handbook.

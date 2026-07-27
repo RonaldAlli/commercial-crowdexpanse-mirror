@@ -87,6 +87,12 @@ These are the rules that almost never change. Every lower artifact must obey the
    Business Evolution Initiatives (BE-1…BE-5) as **alignment, not demolition**, and mirrors the
    event-sourcing philosophy the platform already embodies: history is preserved, never overwritten.
 
+6. **Continuity.** CrowdExpanse is built to **outlive any individual, technology, vendor,
+   implementation, or generation of software.** Business knowledge must remain **portable,
+   understandable, and executable independent of the tools** used to represent it. Where
+   Preservation protects the past, Continuity protects the future — together they preserve
+   **history, understanding, and portability.**
+
 ### The Constitution leads implementation
 
 **A constitution leads implementation; it does not merely describe it.** The business model
