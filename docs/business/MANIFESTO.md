@@ -24,6 +24,11 @@ comes first, we can train people from it, audit operations against it, measure o
 it, evaluate AI against it, and build — or replace — software beneath it, **without changing the
 business itself.**
 
+This model is a **Business Operating Reference Architecture** — and CrowdExpanse is its *first
+implementation.* The same architecture could govern a web app, a mobile app, an AI assistant, a
+training program, an operations manual, a reporting system, a future rewrite — even another company
+— because it models the **business**, not the software.
+
 ### What we believe
 
 - **Reality before representation.** We observe the business as it truly is; we do not invent it. The software represents reality — it never dictates it.

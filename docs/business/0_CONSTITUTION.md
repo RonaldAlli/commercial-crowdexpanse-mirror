@@ -147,6 +147,10 @@ business, never the reverse.**
 12. AI            — intelligent assistance (reads the layers above; never defines them)
 ```
 
+> **This ordering is inviolable.** Everything built here came from keeping these layers in this
+> order — reality first, software last. Reverse them — let implementation define meaning — and the
+> architecture decays. **Protect the order before any artifact within it.**
+
 ---
 
 ## The Constitution and the Reference Architecture
@@ -193,3 +197,16 @@ workflows, training, SOPs, APIs, database models, automations, and AI prompts �
 the language changes the business itself.** Nothing enters the software until it exists in
 the Specification; UI labels, API names, database models, reports, documentation, and AI
 prompts must all use its terms.
+
+---
+
+## The purpose of this architecture
+
+> **The purpose of this architecture is not to preserve software. It is to preserve
+> understanding.** Software will evolve. Technology will change. Teams will change. AI will change.
+> But if the business continues to understand itself, every future implementation can faithfully
+> represent that understanding.
+
+This is the most valuable asset CrowdExpanse has — not the code, not the database, but the
+accumulated understanding of how a commercial acquisition company operates. Everything above exists
+to keep that understanding true, shared, and independent of any one tool, team, or technology.
