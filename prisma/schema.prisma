@@ -350,6 +350,7 @@ model Organization {
   buyers                 Buyer[]
   properties             Property[]
   opportunities          Opportunity[]
+  deals                  Deal[]
   analyses               DealAnalysis[]
   tasks                  Task[]
   notes                  Note[]
@@ -1183,6 +1184,7 @@ model Opportunity {
   escrow           EscrowRecord?
   financing        FinancingRecord?
   assignment       AssignmentRecord?
+  deal             Deal?
   diligenceItems   OpportunityDiligenceItem[]
   tasks            Task[]
   notes            Note[]
@@ -1194,6 +1196,31 @@ model Opportunity {
   @@index([propertyId])
   @@index([sellerId])
   @@map("opportunities")
+}
+
+// BE-2 (Deal first-class). A Deal is an Opportunity over which we have obtained contractual/legal
+// control. ADDITIVE & INERT in Step 1 (wired to no live path; no re-parenting; no backfill).
+// Business rules are NOT restated here — authority: docs/business/2_DOMAIN_MODEL.md and
+// docs/business/evolution/be-2/DECISIONS.md (D-1 control event, D-2 Deal↔Transaction boundary).
+model Deal {
+  id                          String   @id @default(cuid())
+  organizationId              String
+  opportunityId               String   @unique
+  // The canonical control fact that established this Deal (a CONTRACT_EXECUTED PipelineFact.id).
+  // Scalar reference (no FK) per the house cross-aggregate idiom. No Deal exists without it.
+  controlFactId               String
+  controlledAt                DateTime
+  controlInstrumentType       String?
+  controlInstrumentReference  String?
+  // The frozen Business Architecture baseline under which this Deal was created (audit/migration).
+  businessArchitectureVersion String?
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+  organization                Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity                 Opportunity  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("deals")
 }
 
 model OpportunityDiligenceItem {

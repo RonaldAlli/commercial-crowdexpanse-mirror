@@ -29,7 +29,7 @@ Alignment % is a judgment of how completely the platform represents the architec
 | Lifecycles | ✅ | ❌ | 40% | BE-4 |
 | Workflows | ✅ | 🟡 | 60% | BE-4 |
 | **Market** | ✅ | ❌ | 0% | **BE-1** |
-| **Deal** | ✅ | ❌ | 10% | **BE-2** |
+| **Deal** | ✅ | 🟡 | ~25% | **BE-2** (Step 1: additive aggregate, inert — see `evolution/be-2/DASHBOARD_DELTA.md`) |
 | **Transaction** | ✅ | 🟡 | 25% | **BE-5** |
 
 *(Percentages are directional judgments to make progress visible, not precise metrics. They move as
