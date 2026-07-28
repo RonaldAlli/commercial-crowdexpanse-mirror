@@ -32,7 +32,8 @@
     "playwright:install": "playwright install chromium",
     "test:visual": "npm run build:isolated && playwright test",
     "test:visual:closing": "playwright test tests/visual/closing-center.behavior.spec.ts",
-    "test:visual:screens": "playwright test tests/visual/closing-center.screens.spec.ts"
+    "test:visual:screens": "playwright test tests/visual/closing-center.screens.spec.ts",
+    "diag:be3-language": "node --import tsx scripts/diag/be3-language-detector.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

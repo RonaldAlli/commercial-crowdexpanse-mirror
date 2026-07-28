@@ -1,0 +1,113 @@
+{
+  "includeExtensions": [".ts", ".tsx", ".prisma"],
+  "ignoredPathFragments": ["/node_modules/", "/.next", "/.next-isolated", "/dist/", "/coverage/", "/docs/"],
+  "scanners": [
+    {
+      "ruleId": "R-HOM-001",
+      "mode": "quoted",
+      "pattern": "\\bPipeline\\b",
+      "flags": "g",
+      "includePaths": ["app/"],
+      "allowList": [
+        "Acquisitions pipeline",
+        "13-stage pipeline",
+        "13 stages from lead to paid",
+        "pipeline handoff",
+        "pipeline tabs",
+        "pipeline stage",
+        "pipeline board",
+        "pipeline screen",
+        "pipeline coverage",
+        "run pipeline",
+        "validation pipeline",
+        "ingestion pipeline",
+        "Opportunity Pipeline Migration Initiative",
+        "Pipeline \\u00b7"
+      ]
+    },
+    {
+      "ruleId": "R-HOM-001",
+      "mode": "jsx",
+      "pattern": "\\bPipeline\\b",
+      "flags": "g",
+      "includePaths": ["app/"],
+      "allowList": [
+        "Pipeline handoff",
+        "Pipeline \\u00b7"
+      ]
+    },
+    {
+      "ruleId": "R-SYN-002",
+      "mode": "line",
+      "pattern": "deal contact",
+      "flags": "gi",
+      "includePaths": ["prisma/schema.prisma"],
+      "prismaModel": "Seller"
+    },
+    {
+      "ruleId": "R-SYN-002",
+      "mode": "line",
+      "pattern": "\\bcurrent target\\b|\\bnext targets?\\b|\\btarget the session\\b",
+      "flags": "gi",
+      "includePaths": ["app/(workspace)/acquire/", "app/(workspace)/opportunities/"],
+      "allowList": ["targetAssetTypes", "targetStates", "targetId", "targetCloseDate", "TARGET_LTV_PCT", "event\\.target"]
+    },
+    {
+      "ruleId": "R-SYN-003",
+      "mode": "line",
+      "pattern": "^\\s*source\\s+String\\?",
+      "flags": "g",
+      "includePaths": ["prisma/schema.prisma"],
+      "prismaModel": "Opportunity"
+    },
+    {
+      "ruleId": "R-SYN-003",
+      "mode": "line",
+      "pattern": "\\bsource\\b",
+      "flags": "g",
+      "includePaths": ["app/(workspace)/opportunities/"],
+      "allowList": ["Acquisition source", "sourceCategory", "source_system"]
+    },
+    {
+      "ruleId": "R-SYN-004",
+      "mode": "line",
+      "pattern": "closed-won",
+      "flags": "gi",
+      "includePaths": ["app/", "lib/", "prisma/", "scripts/", "tests/"]
+    },
+    {
+      "ruleId": "R-HOM-002",
+      "mode": "line",
+      "pattern": "OwnerMatchDecision|PropertyMatchDecision|owner-match|property-match|matchKey|exact-match-key|alias-match",
+      "flags": "g",
+      "includePaths": ["app/(workspace)/owners/", "app/(workspace)/properties/", "lib/intelligence/", "lib/owner-match", "lib/property-match", "prisma/schema.prisma"],
+      "allowList": ["BuyerMatch", "buyer match", "buyer_matches", "match against", "matching buyers", "match status", "MATCH_STATUS_OPTIONS"]
+    },
+    {
+      "ruleId": "R-HOM-003",
+      "mode": "line",
+      "pattern": "\\bownerId\\b|\\bowner\\b",
+      "flags": "g",
+      "includePaths": ["app/(workspace)/tasks/", "prisma/schema.prisma"],
+      "prismaModel": "Task"
+    },
+    {
+      "ruleId": "R-RET-001",
+      "mode": "quoted",
+      "pattern": "\\blead\\b",
+      "flags": "gi",
+      "includePaths": ["app/", "scripts/"],
+      "allowList": ["dealautomator\\.com/commercial-lead", "lead-import", "Lead ID", "lead file", "lead records", "Lead Imported"]
+    },
+    {
+      "ruleId": "R-RET-001",
+      "mode": "jsx",
+      "pattern": "\\blead\\b",
+      "flags": "gi",
+      "includePaths": ["app/"]
+    }
+  ],
+  "glossaryTermOverrides": {
+    "L0": "Seller"
+  }
+}
