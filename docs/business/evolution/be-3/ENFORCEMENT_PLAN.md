@@ -32,7 +32,8 @@ Changing a canonical word is a **Doc-3 change** via `../../CHANGE_GOVERNANCE.md`
 ## Phase 1 (Detect) — the only phase authorized to build after this branch merges
 
 Build **only**: the detector (evaluates the `LANGUAGE_RULES.md` predicates over code/schema/surfaces),
-its scoring input, and its report. **No** renames, aliases, schema, persistence, UI, reports, prompts,
+its scoring input, and its report — to the contract in **`DETECTOR_SPEC.md`** (inputs · outputs ·
+determinism · performance · read-only boundary · `BE3-DET-*` work breakdown). **No** renames, aliases, schema, persistence, UI, reports, prompts,
 or migrations. **Exit criterion (single):** the detector can answer, with evidence, *"exactly where does
 every L0–L6 deviation exist?"* — nothing more. The detector output is then reviewed as BE-3's first
 evidence package **before** Measure (Phase 2) begins.
