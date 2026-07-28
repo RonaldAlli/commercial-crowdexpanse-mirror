@@ -1,0 +1,141 @@
+BE3-DET · Phase 1 detector report
+Source commit: 3b71401c633a59d387e7f890825ae4c84a8c4f06
+Error findings: 117
+Info findings: 0
+
+By rule:
+- R-HOM-001 (L1, error) · 2
+- R-HOM-002 (L5, error) · 70
+- R-HOM-003 (L6, error) · 21
+- R-RET-001 (L0, error) · 8
+- R-SYN-002 (L2, error) · 6
+- R-SYN-003 (L3, error) · 8
+- R-SYN-004 (L4, error) · 2
+
+By L-ID:
+- L0 · 8
+- L1 · 2
+- L2 · 6
+- L3 · 8
+- L4 · 2
+- L5 · 70
+- L6 · 21
+
+Findings:
+- [error] R-SYN-002 L2 app/(workspace)/acquire/AcquisitionCockpit.tsx:66 → next targets
+- [error] R-SYN-002 L2 app/(workspace)/acquire/AcquisitionCockpit.tsx:67 → target the session
+- [error] R-SYN-002 L2 app/(workspace)/acquire/AcquisitionCockpit.tsx:196 → next targets
+- [error] R-SYN-002 L2 app/(workspace)/acquire/AcquisitionCockpit.tsx:199 → Next targets
+- [error] R-SYN-002 L2 app/(workspace)/acquire/page.tsx:130 → current target
+- [error] R-RET-001 L0 app/(workspace)/acquire/page.tsx:174 → lead
+- [error] R-HOM-001 L1 app/(workspace)/dashboard/page.tsx:158 → Pipeline
+- [error] R-SYN-004 L4 app/(workspace)/insights/page.tsx:94 → Closed-won
+- [error] R-SYN-003 L3 app/(workspace)/opportunities/[id]/edit/page.tsx:58 → source
+- [error] R-SYN-003 L3 app/(workspace)/opportunities/[id]/page.tsx:416 → source
+- [error] R-RET-001 L0 app/(workspace)/opportunities/[id]/page.tsx:579 → lead
+- [error] R-HOM-001 L1 app/(workspace)/opportunities/[id]/page.tsx:728 → Pipeline
+- [error] R-SYN-003 L3 app/(workspace)/opportunities/actions.ts:43 → source
+- [error] R-SYN-003 L3 app/(workspace)/opportunities/actions.ts:93 → source
+- [error] R-RET-001 L0 app/(workspace)/opportunities/actions.ts:112 → lead
+- [error] R-SYN-003 L3 app/(workspace)/opportunities/actions.ts:187 → source
+- [error] R-RET-001 L0 app/(workspace)/opportunities/page.tsx:112 → lead
+- [error] R-SYN-003 L3 app/(workspace)/opportunities/page.tsx:173 → source
+- [error] R-SYN-003 L3 app/(workspace)/opportunities/page.tsx:214 → source
+- [error] R-HOM-002 L5 app/(workspace)/owners/[id]/page.tsx:53 → matchKey
+- [error] R-HOM-002 L5 app/(workspace)/owners/[id]/page.tsx:67 → matchKey
+- [error] R-HOM-002 L5 app/(workspace)/owners/actions.ts:16 → matchKey
+- [error] R-HOM-002 L5 app/(workspace)/owners/candidates/actions.ts:10 → owner-match
+- [error] R-HOM-002 L5 app/(workspace)/owners/candidates/actions.ts:13 → OwnerMatchDecision
+- [error] R-HOM-002 L5 app/(workspace)/owners/candidates/page.tsx:10 → owner-match
+- [error] R-HOM-002 L5 app/(workspace)/owners/candidates/page.tsx:16 → alias-match
+- [error] R-HOM-002 L5 app/(workspace)/owners/candidates/page.tsx:16 → exact-match-key
+- [error] R-HOM-002 L5 app/(workspace)/owners/merges/page.tsx:10 → owner-match
+- [error] R-HOM-002 L5 app/(workspace)/owners/page.tsx:42 → matchKey
+- [error] R-HOM-002 L5 app/(workspace)/owners/page.tsx:53 → matchKey
+- [error] R-HOM-002 L5 app/(workspace)/owners/page.tsx:136 → matchKey
+- [error] R-HOM-002 L5 app/(workspace)/properties/[id]/link-owner/page.tsx:29 → matchKey
+- [error] R-HOM-002 L5 app/(workspace)/properties/candidates/actions.ts:10 → property-match
+- [error] R-HOM-002 L5 app/(workspace)/properties/candidates/actions.ts:10 → PropertyMatchDecision
+- [error] R-HOM-002 L5 app/(workspace)/properties/candidates/actions.ts:13 → PropertyMatchDecision
+- [error] R-HOM-002 L5 app/(workspace)/properties/candidates/actions.ts:23 → PropertyMatchDecision
+- [error] R-HOM-002 L5 app/(workspace)/properties/candidates/actions.ts:53 → PropertyMatchDecision
+- [error] R-HOM-002 L5 app/(workspace)/properties/candidates/page.tsx:10 → property-match
+- [error] R-RET-001 L0 app/(workspace)/settings/imports/page.tsx:30 → lead
+- [error] R-RET-001 L0 app/(workspace)/settings/imports/page.tsx:50 → lead
+- [error] R-HOM-003 L6 app/(workspace)/tasks/[id]/edit/page.tsx:30 → ownerId
+- [error] R-HOM-003 L6 app/(workspace)/tasks/[id]/edit/page.tsx:32 → ownerId
+- [error] R-HOM-003 L6 app/(workspace)/tasks/[id]/edit/page.tsx:54 → ownerId
+- [error] R-HOM-003 L6 app/(workspace)/tasks/[id]/page.tsx:22 → owner
+- [error] R-HOM-003 L6 app/(workspace)/tasks/[id]/page.tsx:34 → owner
+- [error] R-HOM-003 L6 app/(workspace)/tasks/actions.ts:26 → owner
+- [error] R-HOM-003 L6 app/(workspace)/tasks/actions.ts:54 → ownerId
+- [error] R-HOM-003 L6 app/(workspace)/tasks/actions.ts:55 → ownerId
+- [error] R-HOM-003 L6 app/(workspace)/tasks/actions.ts:56 → owner
+- [error] R-HOM-003 L6 app/(workspace)/tasks/actions.ts:57 → ownerId
+- [error] R-HOM-003 L6 app/(workspace)/tasks/actions.ts:60 → owner
+- [error] R-HOM-003 L6 app/(workspace)/tasks/actions.ts:61 → owner
+- [error] R-HOM-003 L6 app/(workspace)/tasks/actions.ts:61 → ownerId
+- [error] R-HOM-003 L6 app/(workspace)/tasks/actions.ts:71 → ownerId
+- [error] R-HOM-003 L6 app/(workspace)/tasks/actions.ts:127 → ownerId
+- [error] R-HOM-003 L6 app/(workspace)/tasks/page.tsx:45 → owner
+- [error] R-HOM-003 L6 app/(workspace)/tasks/page.tsx:142 → owner
+- [error] R-RET-001 L0 app/login/page.tsx:8 → lead
+- [error] R-SYN-004 L4 lib/business-intelligence/queries.ts:67 → Closed-won
+- [error] R-HOM-002 L5 lib/intelligence/owner-duplicates.ts:5 → matchKey
+- [error] R-HOM-002 L5 lib/intelligence/owner-duplicates.ts:11 → matchKey
+- [error] R-HOM-002 L5 lib/intelligence/owner-duplicates.ts:15 → alias-match
+- [error] R-HOM-002 L5 lib/intelligence/owner-duplicates.ts:15 → exact-match-key
+- [error] R-HOM-002 L5 lib/intelligence/owner-duplicates.ts:30 → matchKey
+- [error] R-HOM-002 L5 lib/intelligence/owner-duplicates.ts:36 → matchKey
+- [error] R-HOM-002 L5 lib/intelligence/owner-duplicates.ts:37 → matchKey
+- [error] R-HOM-002 L5 lib/intelligence/owner-duplicates.ts:39 → matchKey
+- [error] R-HOM-002 L5 lib/intelligence/owner-duplicates.ts:46 → exact-match-key
+- [error] R-HOM-002 L5 lib/intelligence/owner-duplicates.ts:46 → matchKey
+- [error] R-HOM-002 L5 lib/intelligence/owner-duplicates.ts:47 → alias-match
+- [error] R-HOM-002 L5 lib/intelligence/owner-duplicates.ts:47 → matchKey
+- [error] R-HOM-002 L5 lib/intelligence/owner-duplicates.ts:63 → matchKey
+- [error] R-HOM-002 L5 lib/intelligence/owner-duplicates.ts:66 → matchKey
+- [error] R-HOM-002 L5 lib/intelligence/owner-duplicates.ts:68 → matchKey
+- [error] R-HOM-002 L5 lib/intelligence/owner-duplicates.ts:72 → exact-match-key
+- [error] R-HOM-002 L5 lib/intelligence/owner-duplicates.ts:76 → matchKey
+- [error] R-HOM-002 L5 lib/intelligence/owner-duplicates.ts:83 → matchKey
+- [error] R-HOM-002 L5 lib/intelligence/owner-duplicates.ts:85 → alias-match
+- [error] R-HOM-002 L5 lib/intelligence/owner-duplicates.ts:85 → matchKey
+- [error] R-HOM-002 L5 lib/intelligence/owner-identity.ts:19 → alias-match
+- [error] R-HOM-002 L5 lib/intelligence/owner-identity.ts:19 → exact-match-key
+- [error] R-HOM-002 L5 lib/intelligence/owner-identity.ts:31 → matchKey
+- [error] R-HOM-002 L5 lib/intelligence/owner-identity.ts:88 → matchKey
+- [error] R-HOM-002 L5 lib/intelligence/owner-identity.ts:89 → exact-match-key
+- [error] R-HOM-002 L5 lib/intelligence/owner-identity.ts:91 → alias-match
+- [error] R-HOM-002 L5 lib/intelligence/projection.ts:5 → matchKey
+- [error] R-HOM-002 L5 lib/intelligence/projection.ts:34 → matchKey
+- [error] R-HOM-002 L5 lib/intelligence/projection.ts:44 → matchKey
+- [error] R-HOM-002 L5 lib/intelligence/property-resolver.ts:21 → property-match
+- [error] R-HOM-002 L5 lib/intelligence/provenance.ts:178 → matchKey
+- [error] R-HOM-002 L5 lib/intelligence/provenance.ts:183 → matchKey
+- [error] R-HOM-002 L5 lib/owner-match.ts:4 → OwnerMatchDecision
+- [error] R-HOM-002 L5 lib/owner-match.ts:17 → matchKey
+- [error] R-HOM-002 L5 lib/owner-match.ts:19 → matchKey
+- [error] R-HOM-002 L5 lib/owner-match.ts:89 → matchKey
+- [error] R-HOM-002 L5 lib/owner-match.ts:92 → matchKey
+- [error] R-HOM-002 L5 lib/property-match.ts:6 → owner-match
+- [error] R-HOM-002 L5 lib/property-match.ts:103 → PropertyMatchDecision
+- [error] R-HOM-002 L5 lib/property-match.ts:125 → PropertyMatchDecision
+- [error] R-HOM-002 L5 prisma/schema.prisma:375 → OwnerMatchDecision
+- [error] R-HOM-002 L5 prisma/schema.prisma:377 → PropertyMatchDecision
+- [error] R-HOM-002 L5 prisma/schema.prisma:509 → matchKey
+- [error] R-HOM-002 L5 prisma/schema.prisma:511 → OwnerMatchDecision
+- [error] R-HOM-002 L5 prisma/schema.prisma:517 → alias-match
+- [error] R-HOM-002 L5 prisma/schema.prisma:517 → exact-match-key
+- [error] R-HOM-002 L5 prisma/schema.prisma:549 → matchKey
+- [error] R-HOM-002 L5 prisma/schema.prisma:564 → matchKey
+- [error] R-SYN-002 L2 prisma/schema.prisma:900 → deal contact
+- [error] R-HOM-002 L5 prisma/schema.prisma:1100 → OwnerMatchDecision
+- [error] R-HOM-002 L5 prisma/schema.prisma:1135 → OwnerMatchDecision
+- [error] R-HOM-002 L5 prisma/schema.prisma:1136 → PropertyMatchDecision
+- [error] R-SYN-003 L3 prisma/schema.prisma:1165 →   source           String?
+- [error] R-HOM-003 L6 prisma/schema.prisma:1768 → ownerId
+- [error] R-HOM-003 L6 prisma/schema.prisma:1777 → owner
+- [error] R-HOM-003 L6 prisma/schema.prisma:1777 → ownerId
+- [error] R-HOM-003 L6 prisma/schema.prisma:1781 → ownerId
+- [error] R-RET-001 L0 scripts/import-dealautomator-commercial-leads.ts:257 → lead
