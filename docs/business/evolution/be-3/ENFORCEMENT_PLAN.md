@@ -42,18 +42,21 @@ evidence package **before** Measure (Phase 2) begins.
 Every detector finding is one record with exactly these fields, so reports are reproducible and stable
 even if rule *text* changes (`LANGUAGE_RULES.md` rule IDs are permanent):
 
-| Field | Meaning |
-|---|---|
-| `ruleId` | stable `R-<CLASS>-<NNN>` from `LANGUAGE_RULES.md` |
-| `glossaryTerm` | canonical word from `CANONICAL_GLOSSARY.md` the rule protects |
-| `lId` | remediation item (`L0`–`L6`) — the Compatibility-Strategy entry that fixes it |
-| `file` / `line` | exact location in the live tree |
-| `severity` | `error` (in-scope L-ID) or `info` (boundary / report-only) |
-| `matched` | the offending text (the deprecated word as used) |
+| Field | Req? | Meaning |
+|---|---|---|
+| `findingId` | opt | stable finding-instance ID `F-<NNNNNN>` (assigned if findings need to be referenced individually across runs) |
+| `ruleId` | **req** | stable `R-<CLASS>-<NNN>` from `LANGUAGE_RULES.md` |
+| `glossaryTerm` | **req** | canonical word from `CANONICAL_GLOSSARY.md` the rule protects |
+| `lId` | **req** | remediation item (`L0`–`L6`) — the Compatibility-Strategy entry that fixes it |
+| `file` / `line` | **req** | exact location in the live tree |
+| `severity` | **req** | `error` (in-scope L-ID) or `info` (boundary / report-only) |
+| `matched` | **req** | the offending text (the deprecated word as used) |
+| `confidence` | opt | 0.0–1.0; **defaults to 1.0** for the deterministic pattern matches of Phase 1. Reserved so a later version can carry semantic / AI-assisted confidence without a schema break |
 
 Findings are grouped by `ruleId` then `lId`; the count of `error` findings per L-ID is the raw input to
 the Phase-2 alignment score. Phase 3's "block new only" baseline is the set of `(ruleId, file, line)`
-tuples present at Phase-1 exit — anything outside that set is *new* drift.
+tuples present at Phase-1 exit — anything outside that set is *new* drift. (Phase 1 emits `confidence:
+1.0` for every finding — the field exists only to future-proof the schema.)
 
 ## Phases (each a separately gated change; only Phases 1–2 are non-destructive and plannable now)
 

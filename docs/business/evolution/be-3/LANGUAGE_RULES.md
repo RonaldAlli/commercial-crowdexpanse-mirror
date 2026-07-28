@@ -25,6 +25,21 @@ may be refined without breaking references (findings, baselines, dashboards key 
 **Severity:** `error` = an in-scope BE-3 violation (an L-ID, must be closed in Phase 4); `info` =
 report-only (boundary / owned by another BE — detected and counted, never actioned by BE-3).
 
+### Reserved identifier namespaces (governance-wide)
+
+Standardized early to avoid collisions as the governance tooling grows across future BEs. IDs are
+**permanent**; text may change.
+
+| Namespace | Form | Names | Scope |
+|---|---|---|---|
+| Rule | `R-<CLASS>-<NNN>` | a usage rule (this doc) | glossary/governance-wide; class-scoped |
+| Remediation | `L<n>` | a BE-3 remediation item (`CANONICAL_GLOSSARY.md`) | **per-BE** (BE-3 owns `L0`–`L6`; other BEs get their own series) |
+| Finding | `F-<NNNNNN>` | a single detector finding instance | per detector run/report |
+| Detector task/section | `BE<n>-DET-<NNN>` | a Phase-1 detector implementation task or report section | per-BE (BE-3 → `BE3-DET-…`) |
+
+> Convention: prefix per-BE identifiers with the BE number where collision is possible (`L…` and
+> `BE<n>-DET-…`); `R-…` rules are shared vocabulary and are *not* BE-prefixed (they outlive any one BE).
+
 ## Global rules
 
 | Rule ID | Rule | Severity |
