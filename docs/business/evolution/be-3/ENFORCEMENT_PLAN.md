@@ -1,63 +1,63 @@
 # BE-3 — Language Enforcement Plan (planning)
 
-> **Status: PLANNING — for review.** Proposes *how* canonical language will be enforced. **Detect-only
-> first; no renames, schema, API, UI, report, prompt, or migration changes are proposed or made now.**
-> Every phase past detection is gated on approval and on the Compatibility Strategy.
+> **Status: PLANNING — for review.** Proposes *how* the ratified canonical language is enforced.
+> **Observability first; detect-and-measure before any change.** No renames, schema, API, UI, report,
+> prompt, or migration changes are proposed or made now. Oracle = `CANONICAL_GLOSSARY.md` →
+> `../../3_LANGUAGE_SPECIFICATION.md`. Scope = the six mappings L1–L6 + Lead-surface (L0).
 
-## Principle
+## Principle — BE-3 is an observability project first
 
-Enforcement is **evidence-first and additive before subtractive**: first make divergence *visible and
-measurable* against a frozen glossary; only then, and only with an approved compatibility path, change
-anything. This mirrors the BE-2 discipline (decide → freeze → model → acceptance → implement → verify)
-and reuses the governance tooling now on `main`.
+```
+Phase 1  DETECT    — find every deviation (L1–L6/L0) in the live tree      (read-only)
+Phase 2  MEASURE   — score alignment (65% → target); publish the metric     (read-only)
+Phase 3  PREVENT   — fail CI on NEW deviations only (baseline the existing)  (non-destructive)
+Phase 4  REDUCE    — close existing deviations, per Compatibility Strategy    (destructive — gated)
+```
 
-## The oracle
+Everything through Phase 3 is non-destructive. **Phase 4 does not begin until
+`COMPATIBILITY_STRATEGY.md` is approved.** Existing divergence is *reduced last*, deliberately.
 
-A single **canonical glossary** extracted from Business Architecture v1.0 is the source of truth:
-`term → {canonical form, definition, layer, allowed synonyms/aliases, surface-visible?}`. It is
-**frozen** before enforcement begins. Nothing is enforced that the glossary does not define
-(prevents enforcing an unratified opinion).
+## The oracle (already exists — not rebuilt)
 
-## Phased approach (each phase is its own gated change; only Phase 0 is in scope to *plan* now)
+The canonical words are frozen in Doc 3 §2; `CANONICAL_GLOSSARY.md` is their BE-3-scoped projection
+with the deprecated→canonical pairs and evidence. Enforcement validates representations *against* this
+frozen set. Nothing is enforced that the glossary/Doc 3 does not define (no enforcing an unratified
+opinion). Changing a canonical word is a **Doc-3 change** via `../../CHANGE_GOVERNANCE.md`, not BE-3.
+
+## Phases (each a separately gated change; only Phases 1–2 are non-destructive and plannable now)
 
 | Phase | What | Destructive? | Gate |
 |---|---|---|---|
-| **0. Glossary** | Extract + freeze the canonical glossary from Architecture v1.0 | No | Review sign-off |
-| **1. Detect** | A **read-only linter/report** that scores language alignment and lists divergences (feeds a "Language %" metric) | No | Runs in CI as **advisory**, non-blocking |
-| **2. Guard new code** | Fail CI on **newly introduced** non-canonical terms (allow-list the existing backlog) | No (prevents *new* drift only) | Approval; must not retro-break existing code |
-| **3. Align internal** | Rename *internal* identifiers to canonical, behavior-preserving | Yes (internal) | **Compatibility Strategy** approved |
-| **4. Align persistence** | Enum/`@map`/stored-string alignment | Yes (high-risk) | Compatibility Strategy + **guarded migration** (`migrate-deploy-guarded.sh`) |
-| **5. Align surfaces** | UI/report/prompt/external copy | Yes (user-visible) | Product sign-off (user-facing change) |
+| **1 · Detect** | Read-only linter: scan code/schema/surfaces for L1–L6/L0, attach each hit to its L-ID, emit a report | No | Review sign-off of the detector rules |
+| **2 · Measure** | Turn the report into a **Language-alignment score** (baseline 65%; per-term breakdown); publish it as **advisory CI** | No | Advisory only — must **not** become a blocking, permanently-red check (cf. OPS-3 CI-hygiene lesson) |
+| **3 · Prevent** | Escalate a subset to **blocking on NEW code only**, via an allow-listed baseline of existing hits | No (blocks *new* drift; existing untouched) | Approval; zero retro-breakage |
+| **4 · Reduce** | Close L1–L6/L0, one L-ID at a time, ascending blast radius | Yes | **Compatibility Strategy approved**, per-item tier + reversible path |
 
-**Only Phases 0–1 are non-destructive.** Phases 3–5 do not begin until the Compatibility Strategy is
-approved. Persistence and surface phases are the most sensitive and are sequenced last.
+## Mechanism (for review — not built here)
 
-## Proposed mechanism (for review — not built here)
+- A **glossary rules file** derived from `CANONICAL_GLOSSARY.md` (canonical words + deprecated
+  patterns + the §7 Platform-Vocabulary allow-list so "Pipeline"-as-view is not flagged).
+- A **read-only detector** that classifies each hit exactly as the inventory does (L-ID + class) and
+  scores alignment. **Advisory in CI first** — trustworthy signal before any gate.
+- Only after the detector is trusted does Phase 3 make a scoped subset blocking, baselined to today's
+  known hits so only *new* deviations fail.
 
-- A **glossary file** (canonical terms + aliases) checked into the repo.
-- A **detector** script (read-only) that scans code/schema/surfaces and emits an alignment report +
-  score. It classifies each hit exactly as the inventory does. **Advisory in CI first** — deliberately
-  *not* a hard gate, so it does not become another permanently-red check (see the CI-hygiene lesson;
-  cf. `../../../roadmap/OPS_BACKLOG.md` OPS-3).
-- Only after detection is trusted does the guard (Phase 2) escalate a *subset* to blocking, scoped to
-  **new** code via an allow-listed baseline of known existing divergences.
+## Reuse of governance tooling (inherited)
 
-## Reuse of governance tooling (inherited, not rebuilt)
-
-- **`verify-merge.sh`** — verify each enforcement PR truly lands on `main`.
-- **`migrate-deploy-guarded.sh`** — any persistence-language migration (Phase 4) goes through the
-  guarded, fail-closed path (expected DB, allow-list, backup evidence, prod confirm).
+- **`verify-merge.sh`** — verify each enforcement PR truly lands on `main` (authoritative gate =
+  Gitea/origin; mirror = observability only, per OPS-4).
+- **`migrate-deploy-guarded.sh`** — any Phase-4 persistence change (L3 `source`, L6 `Task.ownerId`)
+  goes through the guarded, fail-closed migration path.
 - **`post-deploy-monitor.sh`** — watch health/restarts/errors after any surface/persistence change.
 
 ## Success criteria (draft)
 
-- Language alignment metric defined and **rising** (65% → target set at review).
-- **Zero new** non-canonical terms merged after Phase 2.
+- Alignment metric defined and **rising** from 65% (target set at review).
+- **Zero new** deprecated-term usages merged after Phase 3.
 - No behavior change attributable to language alignment (pure refactors verified green).
-- Every destructive step traceable to an approved glossary entry + compatibility record.
+- Every Phase-4 change traceable to an L-ID + an approved compatibility path.
 
 ## Non-goals
 
-No collapsing of intentionally-distinct terms (Opportunity≠Deal, Owner≠Seller, Deal≠Transaction). No
-invention of missing terms (e.g. Settlement) — those are later-BE work. No blocking CI before detection
-is trusted.
+No collapsing intentionally-distinct terms (Opportunity≠Deal, Owner≠Seller, Deal≠Transaction, "Match"
+= Buyer↔Deal only). No touching BE-4/BE-5 vocabulary. No blocking CI before the detector is trusted.

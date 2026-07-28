@@ -1,62 +1,46 @@
 # BE-3 — Language Conflict Inventory (planning)
 
-> **Status: PLANNING — for review.** A structured, *indicative* inventory of where the codebase
-> vocabulary diverges from the canonical Business Architecture language, plus the **method** for the
-> exhaustive pass. Frequencies below are from a single bounded read-only scan (`app/ lib/ prisma/`,
-> word-boundary matches) and are **evidence to review, not a decision or a change**. No renames.
+> **Status: PLANNING — for review.** This inventory does **not** discover vocabulary from scratch — the
+> authoritative harvest already exists in `../../LANGUAGE_CONFLICT_REPORT.md` (Passes 2–4) and is
+> resolved in `../../3_LANGUAGE_SPECIFICATION.md`. This document is the **BE-3-scoped filter** of that
+> report: the deviations BE-3 is chartered to close, measured against `CANONICAL_GLOSSARY.md`. No
+> renames, no code/schema/surface changes.
 
-## Method for the exhaustive inventory (to run during the review phase)
+## Relationship to existing records
 
-1. **Extract the oracle** — enumerate the canonical terms from Architecture v1.0 (the ubiquitous
-   language) into a machine-readable glossary. This is the reference every conflict is measured against.
-2. **Three read-only passes** (mirroring BE-2's discipline): (a) schema/persistence vocabulary
-   (`prisma/schema.prisma`, enums, `@map`), (b) code identifiers (models, functions, variables,
-   types), (c) **surface** language (UI strings, report labels, prompt text, external-facing copy).
-3. **Classify every hit**: `aligned` / `synonym-drift` / `overloaded` / `missing` / `wrong-layer`;
-   and `this-BE` vs `defer-to-BE-n`; and `internal` vs `surface-visible` (compatibility weight).
-4. **No change** is made during inventory — output is this table, fully populated and classified.
+- **Oracle:** `CANONICAL_GLOSSARY.md` → `3_LANGUAGE_SPECIFICATION.md §2` (frozen canonical words).
+- **Full deviation harvest:** `LANGUAGE_CONFLICT_REPORT.md` (all nine concepts, aliases + homonyms,
+  every `file:line`). BE-3 does not re-run this; it **selects** the "Retire via BE-3" subset.
+- This inventory is therefore a *narrowing view*, not a new source of truth.
 
-## Indicative findings (bounded scan — to be confirmed, not acted on)
+## BE-3 deviation register (the six + Lead-surface)
 
-Code-frequency snapshot (files containing the term, `*.ts/*.tsx`, `app/ lib/ prisma/`):
+Each entry is a deviation from the frozen vocabulary that BE-3 must close. Evidence is carried from the
+Conflict Report / Spec §3; it is **indicative and to be re-confirmed at implementation**, not acted on here.
 
-| Term | Files | Canonical? | Preliminary tension (hypothesis) |
-|---|---:|---|---|
-| Property | 37 | ✅ core | Property vs PropertyIdentity boundary is intentional (crosswalk) — verify not conflated in prose |
-| Opportunity | 34 | ✅ core | **Overloaded with Deal** — must preserve Opportunity≠Deal (BE-2), not merge |
-| Owner | 29 | ✅ core | Owner≠Seller is distinct in code (BE-2 ✅) — confirm surfaces don't say "Seller" for Owner |
-| Closing | 27 | ✅ | Closing (process) vs Transaction/Settlement ownership — clarify layer |
-| Seller | 26 | ✅ core | Seller vs **Lead** synonym-drift (see below) |
-| Buyer | 19 | ✅ core | — |
-| Financing | 15 | ✅ | Belongs to Transaction lifecycle (BE-5) — confirm vocabulary home |
-| Assignment | 11 | ✅ | Same — Transaction-owned per BE-2 D-2 |
-| Transaction | 10 | ✅ | Present but **Settlement absent** (below) |
-| Escrow | 9 | ✅ | Transaction-owned (BE-5) |
-| Deal | 8 | ✅ (new) | Newly first-class (BE-2); low spread vs Opportunity — enforce the boundary, not parity |
-| Lead | 3 | ⚠️ | **Synonym-drift with Seller** — is "Lead" a distinct canonical term or legacy for a pre-qualified Seller? Decision needed |
-| Settlement | 0 | ❌ missing | Canonical term has **no code presence** — expected; **defer to BE-5** (Transaction owns settlement/revenue per BE-2 D-2) |
+| ID | Deviation (as it appears) | Canonical target | Class | Evidence | Compat tier (see strategy) |
+|---|---|---|---|---|---|
+| **L1** | "Pipeline" naming the Opportunity **object** in nav | **Opportunity** (object); keep "Pipeline" only as a §7 *view* | homonym (object vs view) | `workspace-shell.tsx:24` | E (surface) |
+| **L2** | "deal contact" / "target" / "contact" for the acquisition party | **Seller** | synonym | `schema.prisma:899`; `acquire/page.tsx:130` | B/D (code + schema) + E |
+| **L3** | `Opportunity.source` free-text origin | **Acquisition Channel** (structured) | synonym | `schema.prisma:1164` | D (persistence) |
+| **L4** | BI "closed-won" | **Transaction Closed** | synonym (CRM-ism) | `queries.ts:70` | E (report label) |
+| **L5** | "match" meaning identity de-duplication | **Resolution / Merge** ("Match" stays for Buyer↔Deal only) | homonym | `OwnerMatchDecision`, `PropertyMatchDecision` | B (code identifiers) |
+| **L6** | `Task.ownerId` "owner" = the task **assignee** | **assignee** | homonym | `schema.prisma:1741` | D (schema) |
+| **L0** | "Lead" as a stage/prospect word | *(retired — `Owner → Seller`)* | retirement | `acquire/page.tsx:174`; imports | E surface now; **code = BE-4** |
 
-Persistence-vocabulary signals (schema): models include `Owner`, `Seller`, `Buyer`, `Property`,
-`PropertyIdentity`, `Opportunity`, `Deal`, `Underwriting*`, `Financing*`; conventions are
-snake_case-plural tables via `@@map` with camelCase columns. Enum-like tokens observed:
-`INTERESTED_SELLER`, `CONTRACT_EXECUTED`, `DECISION`. **Persisted language (enum values / `@map` /
-stored strings) is the highest-compatibility-risk category** and must be handled by the Compatibility
-Strategy, not renamed inline.
+## Conflict classes (already resolved by Doc 3 — restated for enforcement)
 
-## Candidate conflict classes (for the review to confirm and populate exhaustively)
+1. **Synonyms** (No-Synonyms Rule): L2, L3, L4 — several words for one concept → keep the canonical, deprecate the rest.
+2. **Homonyms** (No-Homonyms Rule): L1, L5, L6 — one word for several concepts → reserve the canonical meaning, rename the off-meaning.
+3. **Retirement**: L0 — a non-business word ("Lead") removed from surfaces now; code enum removed in BE-4.
 
-1. **Overloaded terms** — one word, two canonical meanings (e.g. Opportunity vs Deal). *Preserve the
-   distinction.*
-2. **Synonym drift** — two words, one meaning (e.g. Lead vs Seller; possibly Closing vs Settlement in
-   prose). *Pick the canonical one, alias the other.*
-3. **Missing canonical terms** — architecture term with no code presence (e.g. Settlement). *Usually a
-   later-BE concern; record, don't invent.*
-4. **Wrong-layer language** — a term used where a different layer's vocabulary belongs (e.g.
-   Transaction lifecycle words appearing on Deal surfaces). *Relocate vocabulary, not behavior.*
-5. **Surface-visible vs internal** — user-facing strings vs internal identifiers; compatibility and
-   change-visibility differ sharply.
+## Deliberately excluded (owned elsewhere — do not touch in BE-3)
 
-## Explicitly out of scope for this document
+`Deal`(=Opportunity)→BE-2 (done) · `OpportunityStage`-as-authority & *Lead* code→BE-4 · first-class
+`Transaction` object (Closing dashboard / `AssignmentRecord` / money)→BE-5. Including any of these in
+BE-3 would exceed the ratified "Retire via BE-3" charter.
 
-No term is renamed, aliased, deprecated, or changed here. Settlement/Transaction-family vocabulary is
-flagged as **BE-5 territory**. This inventory feeds the Enforcement Plan and Compatibility Strategy.
+## What the implementation phase adds (not now)
+
+Re-confirm each `file:line` against the live tree, attach every hit to its L-ID, and produce the
+alignment-score baseline. That is a **read-only detector** run (Enforcement Plan Phase 1), not a change.
