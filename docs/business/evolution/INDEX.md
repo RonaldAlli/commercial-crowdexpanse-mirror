@@ -18,4 +18,8 @@ Architecture-Guided Implementation = BE-2 Step 1 merged (PR #2, `ca76c0f`). **M3
 = BE-2 Step 1 deployed + verified + monitored (2026-07-28, release `r1137725878952438`). **M3.5** — Governance
 Operational Tooling (2026-07-28, PR #4 `7c1ad35`): the manual controls from BE-2 codified into reusable, fail-closed
 operational tooling (verify-merge / guarded-migrate / post-deploy monitor) — an organizational milestone, distinct
-from deployment; the standing "Governance Tooling" step now sits permanently between each BE-n and BE-(n+1). M4/M5 pending.
+from deployment; the standing "Governance Tooling" step now sits permanently between each BE-n and BE-(n+1). **M3.6** —
+Evidence-Governed Implementation Proven (2026-07-28): BE-3 Phase 1 produced deterministic evidence (detector `BE3-DET`),
+that evidence underwent formal acceptance (`BE3-EVIDENCE-BASELINE-v1.0` — ACCEPTED WITH OBSERVATIONS), and implementation
+stopped at the review gate before any remediation — anchored by annotated tags `be3-detector-v1.0` (→ `d038957`) and
+`be3-evidence-baseline-v1.0` (→ verified evidence merge `794c647`). M4/M5 pending.

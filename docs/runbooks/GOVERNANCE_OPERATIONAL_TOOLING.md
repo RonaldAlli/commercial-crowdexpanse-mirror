@@ -29,7 +29,7 @@ Confirms, for a branch that should be merged:
 
 1. a Gitea PR exists for the branch → base, and it is **merged**;
 2. the expected commit is an **ancestor of `origin/<base>`**;
-3. Gitea (`origin`), the GitHub mirror (`github`), and the local base ref **all agree**;
+3. the GitHub mirror agrees with authoritative `origin/<base>` per `--mirror-mode` (authority rule below);
 4. the Gitea API's live head of `<base>` matches `origin/<base>` (fetch not stale);
 5. required files / content markers are **present on `<base>`**;
 6. the working tree has **no tracked modifications**;
@@ -54,6 +54,17 @@ Notes:
 - `--prod-state-cmd '<read-only cmd>' --prod-state-expect '<value>'` (repeatable pair) compares a
   command's trimmed stdout to an expected value — use it to assert e.g. a health status or a PM2
   state is unchanged. Supply only read-only commands.
+- **Authority rule (mirror).** **Gitea/origin is authoritative.**
+  - `--mirror-mode exact` (default) — **strict synchronization**: the GitHub mirror must **equal**
+    `origin/<base>`.
+  - `--mirror-mode ancestor` — **observability**: passes when the mirror **equals or is a clean
+    ancestor** of `origin/<base>` (benign lag), and **fails on divergence, mirror-ahead, a missing
+    mirror ref, or an ancestry error**. Only clean lag is tolerated; **divergence never is**.
+  - The selected mode and the exact relationship found (`equal` / `mirror-behind` / `mirror-ahead` /
+    `diverged` / `ancestry-error`) are printed. Default stays `exact` for backward compatibility.
+- `--require-file` values are **normalized** — carriage returns and surrounding whitespace are
+  stripped, and an argument that normalizes to empty is **rejected** (usage error). This prevents
+  CRLF/whitespace contamination from silently becoming a phantom missing-file failure.
 
 ## 2. `migrate-deploy-guarded.sh` — guarded migration deploy
 

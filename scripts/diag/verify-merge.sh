@@ -28,13 +28,19 @@
 #   --owner <o>               Gitea owner (default: env GITEA_OWNER or "ronald").
 #   --repo <r>                Gitea repo  (default: env GITEA_REPO or "commercial-crowdexpanse").
 #   --pr <n>                  target a specific PR number instead of auto-discovering by head.
-#   --require-file <path>     file that MUST exist on the base branch (repeatable).
+#   --require-file <path>     file that MUST exist on the base branch (repeatable). The value is
+#                             normalized (CR + surrounding whitespace stripped); empty is rejected.
 #   --require-marker <path:re> file on base whose contents MUST match extended-regex <re> (repeatable).
 #   --prod-state-cmd <cmd>    OPTIONAL read-only command whose trimmed stdout is compared to
 #   --prod-state-expect <s>   ...<s>; use to assert "production state unchanged" (repeatable pair).
 #   --skip-gitea-api          downgrade: skip PR/branch API checks (git-only). Emits a WARN.
 #   --strict-untracked        treat untracked working-tree files as a clean-tree failure.
 #   --no-fetch                do not run `git fetch` (use already-fetched refs).
+#   --mirror-mode <m>         exact|ancestor (default: exact). exact = mirror must EQUAL origin/<base>
+#                             (strict synchronization). ancestor = mirror may EQUAL or be a clean
+#                             ANCESTOR of origin/<base> (benign lag = observability); divergence,
+#                             mirror-ahead, missing ref, and ancestry errors all FAIL. Gitea/origin
+#                             is always the authority.
 #   -h|--help                 this help.
 #
 # Testability seams (env overrides; used by the shell tests, safe in prod):
@@ -57,6 +63,7 @@ PR_NUM=""
 SKIP_API=0
 STRICT_UNTRACKED=0
 DO_FETCH=1
+MIRROR_MODE="exact"
 REQUIRE_FILES=()
 REQUIRE_MARKERS=()
 PROD_CMDS=()
@@ -66,6 +73,15 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 log()  { echo "[verify-merge] $(ts) $*" >&2; }
 warn() { echo "[verify-merge] $(ts) WARN: $*" >&2; }
 usage_err() { echo "[verify-merge] usage error: $*" >&2; exit 2; }
+
+# Normalize a path argument: strip ALL carriage returns and surrounding whitespace.
+normalize_path_arg() {
+  local v="${1-}"
+  v="${v//$'\r'/}"
+  v="${v#"${v%%[![:space:]]*}"}"
+  v="${v%"${v##*[![:space:]]}"}"
+  printf '%s' "$v"
+}
 
 FAIL_NAMES=()
 FAIL_DETAILS=()
@@ -81,13 +97,20 @@ while [ $# -gt 0 ]; do
     --owner)             OWNER="${2:-}"; shift 2 ;;
     --repo)              REPO="${2:-}"; shift 2 ;;
     --pr)                PR_NUM="${2:-}"; shift 2 ;;
-    --require-file)      REQUIRE_FILES+=("${2:-}"); shift 2 ;;
+    --require-file)
+      rf="$(normalize_path_arg "${2:-}")"
+      [ -n "$rf" ] || usage_err "--require-file received an empty path after normalization"
+      REQUIRE_FILES+=("$rf"); shift 2 ;;
     --require-marker)    REQUIRE_MARKERS+=("${2:-}"); shift 2 ;;
     --prod-state-cmd)    PROD_CMDS+=("${2:-}"); shift 2 ;;
     --prod-state-expect) PROD_EXPECTS+=("${2:-}"); shift 2 ;;
     --skip-gitea-api)    SKIP_API=1; shift ;;
     --strict-untracked)  STRICT_UNTRACKED=1; shift ;;
     --no-fetch)          DO_FETCH=0; shift ;;
+    --mirror-mode)
+      MIRROR_MODE="${2:-}"
+      case "$MIRROR_MODE" in exact|ancestor) ;; *) usage_err "--mirror-mode must be exact|ancestor" ;; esac
+      shift 2 ;;
     -h|--help)           sed -n '2,60p' "$0"; exit 0 ;;
     *) usage_err "unknown argument: $1" ;;
   esac
@@ -192,8 +215,33 @@ github_sha="$(git_c rev-parse --verify --quiet "github/${BASE}" 2>/dev/null || e
 [ -n "$origin_sha" ] || add_fail "origin-base-resolves" "origin/${BASE} does not resolve"
 [ -n "$github_sha" ] || add_fail "github-base-resolves" "github/${BASE} (mirror) does not resolve"
 if [ -n "$origin_sha" ] && [ -n "$github_sha" ]; then
-  if [ "$origin_sha" = "$github_sha" ]; then add_pass "origin==github mirror"
-  else add_fail "origin==github mirror" "origin/${BASE} ${origin_sha:0:12} != github/${BASE} ${github_sha:0:12}"; fi
+  # Determine the mirror↔origin relationship. Gitea/origin is authoritative.
+  rel="unknown"
+  if [ "$github_sha" = "$origin_sha" ]; then
+    rel="equal"
+  elif git_c merge-base --is-ancestor "$github_sha" "$origin_sha" 2>/dev/null; then
+    rel="mirror-behind"        # clean lag: mirror is an ancestor of origin
+  elif git_c merge-base --is-ancestor "$origin_sha" "$github_sha" 2>/dev/null; then
+    rel="mirror-ahead"         # mirror carries commits origin does not
+  elif git_c merge-base "$github_sha" "$origin_sha" >/dev/null 2>&1; then
+    rel="diverged"            # a common ancestor exists but neither contains the other
+  else
+    rel="ancestry-error"     # unrelated histories / unresolved refs
+  fi
+  log "mirror-mode=${MIRROR_MODE}; github/${BASE} vs origin/${BASE}: ${rel} (github ${github_sha:0:12}, origin ${origin_sha:0:12})"
+  case "$MIRROR_MODE" in
+    exact)
+      if [ "$rel" = "equal" ]; then add_pass "mirror exact (github==origin ${BASE})"
+      else add_fail "mirror exact (${BASE})" "not in sync: ${rel} (github ${github_sha:0:12} != origin ${origin_sha:0:12})"; fi
+      ;;
+    ancestor)
+      if [ "$rel" = "equal" ] || [ "$rel" = "mirror-behind" ]; then
+        add_pass "mirror ancestor (${rel}) ${BASE}"
+      else
+        add_fail "mirror ancestor (${BASE})" "not equal/clean-ancestor: ${rel} (github ${github_sha:0:12}, origin ${origin_sha:0:12})"
+      fi
+      ;;
+  esac
 fi
 if [ "$SKIP_API" -eq 0 ] && [ -n "$origin_sha" ]; then
   api_sha="$(gitea_get "branches/${BASE}" 2>/dev/null | json_field commit.id || true)"

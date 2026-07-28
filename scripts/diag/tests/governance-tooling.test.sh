@@ -106,6 +106,67 @@ expect_exit 1 "verify: required file missing" -- \
   "$VERIFY" --branch feat/unmerged --expected-commit "$MAIN_SHA" --base main \
     --require-file docs/NOPE.md --no-fetch
 
+# --- require-file normalization (CR + surrounding whitespace stripped; empty rejected) ---
+CRLF_ARG="$(printf 'docs/ACCEPTANCE.md\r')"
+expect_exit 0 "verify: require-file CRLF-contaminated is normalized" -- \
+  env GITEA_GET_CMD="$STUB_MERGED" GIT="git -C $D/work" \
+  "$VERIFY" --branch feat/unmerged --expected-commit "$MAIN_SHA" --base main \
+    --require-file "$CRLF_ARG" --no-fetch
+
+expect_exit 0 "verify: require-file surrounding whitespace is trimmed" -- \
+  env GITEA_GET_CMD="$STUB_MERGED" GIT="git -C $D/work" \
+  "$VERIFY" --branch feat/unmerged --expected-commit "$MAIN_SHA" --base main \
+    --require-file "   docs/ACCEPTANCE.md   " --no-fetch
+
+EMPTY_ARG="$(printf '  \r ')"
+expect_exit 2 "verify: require-file empty after normalization is rejected" -- \
+  env GITEA_GET_CMD="$STUB_MERGED" GIT="git -C $D/work" \
+  "$VERIFY" --branch feat/unmerged --expected-commit "$MAIN_SHA" --base main \
+    --require-file "$EMPTY_ARG" --no-fetch
+
+# --- mirror modes (exact|ancestor) --------------------------------------------
+# Fixture: a work repo with commits C0<-C1<-C2 on main and a sibling CX off C0.
+# origin/main is pinned to C1; github/main is set per scenario via update-ref.
+MMD="$TMP/mm"; rm -rf "$MMD"; mkdir -p "$MMD"
+( cd "$MMD"; git init -q work
+  cd work; git config user.email t@t; git config user.name t
+  echo a > f; git add -A; git commit -qm c0; git branch -M main
+  echo b >> f; git commit -qam c1
+  echo c >> f; git commit -qam c2
+  git checkout -q -b sib main~2; echo z > g; git add -A; git commit -qm cx
+  git checkout -q main
+) >/dev/null 2>&1
+MMW="$MMD/work"
+C0="$(git -C "$MMW" rev-parse main~2)"; C1="$(git -C "$MMW" rev-parse main~1)"
+C2="$(git -C "$MMW" rev-parse main)";   CX="$(git -C "$MMW" rev-parse sib)"
+MM_STUB="$TMP/gitea_mm.sh"
+cat > "$MM_STUB" <<STUB
+#!/usr/bin/env bash
+case "\$1" in
+  pulls*)     echo '[{"number":7,"merged":true,"merge_commit_sha":"${C1}","head":{"ref":"feat"},"base":{"ref":"main"}}]';;
+  branches/*) echo '{"commit":{"id":"${C1}"}}';;
+  *)          echo '{}';;
+esac
+STUB
+chmod +x "$MM_STUB"
+mm_setrefs() { # <origin_sha> <github_sha|"">
+  git -C "$MMW" update-ref refs/remotes/origin/main "$1"
+  if [ -n "$2" ]; then git -C "$MMW" update-ref refs/remotes/github/main "$2"
+  else git -C "$MMW" update-ref -d refs/remotes/github/main 2>/dev/null || true; fi
+}
+mm_run() { # <mode>
+  env GITEA_GET_CMD="$MM_STUB" GIT="git -C $MMW" \
+    "$VERIFY" --branch feat --expected-commit "$C1" --base main --no-fetch --mirror-mode "$1"
+}
+
+mm_setrefs "$C1" "$C1"; expect_exit 0 "mirror exact: equal -> pass" -- mm_run exact
+mm_setrefs "$C1" "$C0"; expect_exit 1 "mirror exact: clean lag -> fail" -- mm_run exact
+mm_setrefs "$C1" "$C1"; expect_exit 0 "mirror ancestor: equal -> pass" -- mm_run ancestor
+mm_setrefs "$C1" "$C0"; expect_exit 0 "mirror ancestor: clean lag -> pass" -- mm_run ancestor
+mm_setrefs "$C1" "$CX"; expect_exit 1 "mirror ancestor: diverged -> fail" -- mm_run ancestor
+mm_setrefs "$C1" "$C2"; expect_exit 1 "mirror ancestor: mirror-ahead -> fail" -- mm_run ancestor
+mm_setrefs "$C1" "";    expect_exit 1 "mirror ancestor: missing mirror ref -> fail" -- mm_run ancestor
+
 echo "== migrate-deploy-guarded.sh =="
 EVID="$TMP/evidence.txt"; echo '{"backup":"ok"}' > "$EVID"
 MISSING_EVID="$TMP/nope-evidence.txt"
