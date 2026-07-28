@@ -8,7 +8,9 @@
 
 ## Relationship to existing records
 
-- **Oracle:** `CANONICAL_GLOSSARY.md` → `3_LANGUAGE_SPECIFICATION.md §2` (frozen canonical words).
+- **Oracle (words):** `CANONICAL_GLOSSARY.md` → `3_LANGUAGE_SPECIFICATION.md §2` (frozen canonical words).
+- **Oracle (usage):** `LANGUAGE_RULES.md` — each deviation below is a violation of a specific usage rule
+  (U-… / R-…), which is what the detector evaluates.
 - **Full deviation harvest:** `LANGUAGE_CONFLICT_REPORT.md` (all nine concepts, aliases + homonyms,
   every `file:line`). BE-3 does not re-run this; it **selects** the "Retire via BE-3" subset.
 - This inventory is therefore a *narrowing view*, not a new source of truth.

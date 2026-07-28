@@ -1,9 +1,10 @@
 # BE-3 — Language Readiness Review (planning)
 
 > **Status: PLANNING — for review. No code, renames, schema, API, UI, report, prompt, or migration
-> changes are proposed or made by this document or this branch.** Deliverable 1 of 5 in the BE-3
-> planning set; nothing here is a decision until reviewed and approved. All vocabulary is governed by
-> `CANONICAL_GLOSSARY.md`, which projects the ratified `../../3_LANGUAGE_SPECIFICATION.md`.
+> changes are proposed or made by this document or this branch.** Deliverable 1 of 6 in the BE-3
+> planning set; nothing here is a decision until reviewed and approved. Vocabulary is governed by
+> `CANONICAL_GLOSSARY.md` (what words exist) and `LANGUAGE_RULES.md` (how they may be used), both
+> projecting the ratified `../../3_LANGUAGE_SPECIFICATION.md`.
 
 BE-3's objective (per `../INDEX.md`): raise **Language alignment from ~65% toward the frozen Business
 Architecture v1.0 vocabulary** by *enforcing* the ratified canonical language — **without** replacing

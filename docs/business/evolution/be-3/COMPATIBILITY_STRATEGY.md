@@ -3,8 +3,8 @@
 > **Status: PLANNING — for review.** Defines how enforcing the canonical language preserves
 > compatibility. **This is the gate: no rename, alias, deprecation, schema change, or migration happens
 > until this strategy is approved.** Nothing is changed by this document or this branch. Scope = the six
-> mappings L1–L6 + Lead-surface (L0) in `CANONICAL_GLOSSARY.md`; canonical words come from the frozen
-> `../../3_LANGUAGE_SPECIFICATION.md §2`.
+> mappings L1–L6 + Lead-surface (L0) in `CANONICAL_GLOSSARY.md`; each fix closes a specific violation in
+> `LANGUAGE_RULES.md`; canonical words come from the frozen `../../3_LANGUAGE_SPECIFICATION.md §2`.
 
 ## Governing rule
 

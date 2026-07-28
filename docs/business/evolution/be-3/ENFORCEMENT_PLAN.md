@@ -5,7 +5,7 @@
 > prompt, or migration changes are proposed or made now. Oracle = `CANONICAL_GLOSSARY.md` →
 > `../../3_LANGUAGE_SPECIFICATION.md`. Scope = the six mappings L1–L6 + Lead-surface (L0).
 
-## Principle — BE-3 is an observability project first
+## Principle — BE-3 is an observability project first (ordering FROZEN)
 
 ```
 Phase 1  DETECT    — find every deviation (L1–L6/L0) in the live tree      (read-only)
@@ -14,15 +14,28 @@ Phase 3  PREVENT   — fail CI on NEW deviations only (baseline the existing)  (
 Phase 4  REDUCE    — close existing deviations, per Compatibility Strategy    (destructive — gated)
 ```
 
-Everything through Phase 3 is non-destructive. **Phase 4 does not begin until
-`COMPATIBILITY_STRATEGY.md` is approved.** Existing divergence is *reduced last*, deliberately.
+**This ordering is frozen for BE-3.** Detect + Measure gather information; Prevent stops *new* drift;
+Reduce cleans up *old* drift and is deliberately **last**. Everything through Phase 3 is non-destructive.
+**Phase 4 does not begin until `COMPATIBILITY_STRATEGY.md` is approved.** Each phase is separately
+authorized: entering a phase requires the prior phase's output to be reviewed.
 
 ## The oracle (already exists — not rebuilt)
 
-The canonical words are frozen in Doc 3 §2; `CANONICAL_GLOSSARY.md` is their BE-3-scoped projection
-with the deprecated→canonical pairs and evidence. Enforcement validates representations *against* this
-frozen set. Nothing is enforced that the glossary/Doc 3 does not define (no enforcing an unratified
-opinion). Changing a canonical word is a **Doc-3 change** via `../../CHANGE_GOVERNANCE.md`, not BE-3.
+Two frozen inputs, both projections of Doc 3 (not re-decided here):
+- **Words** — `CANONICAL_GLOSSARY.md` → Doc 3 §2 (canonical nouns + the BE-3 deprecated→canonical pairs).
+- **Usage** — `LANGUAGE_RULES.md` → Doc 3 §2 decisions/§4/§5/§7 + No-Synonyms/No-Homonyms. Each rule
+  (U-…/R-…) is a **predicate the detector evaluates**; a violation maps to an L-ID.
+
+Nothing is enforced that the glossary/rules/Doc 3 do not define (no enforcing an unratified opinion).
+Changing a canonical word is a **Doc-3 change** via `../../CHANGE_GOVERNANCE.md`, not BE-3.
+
+## Phase 1 (Detect) — the only phase authorized to build after this branch merges
+
+Build **only**: the detector (evaluates the `LANGUAGE_RULES.md` predicates over code/schema/surfaces),
+its scoring input, and its report. **No** renames, aliases, schema, persistence, UI, reports, prompts,
+or migrations. **Exit criterion (single):** the detector can answer, with evidence, *"exactly where does
+every L0–L6 deviation exist?"* — nothing more. The detector output is then reviewed as BE-3's first
+evidence package **before** Measure (Phase 2) begins.
 
 ## Phases (each a separately gated change; only Phases 1–2 are non-destructive and plannable now)
 

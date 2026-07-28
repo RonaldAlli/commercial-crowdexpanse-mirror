@@ -15,10 +15,16 @@ Reality → Business → Language → Code
                          │
    3_LANGUAGE_SPECIFICATION.md  (RATIFIED; §2 frozen; governed by CHANGE_GOVERNANCE.md)
                          │  (BE-3-scoped projection)
-             be-3/CANONICAL_GLOSSARY.md   ← this file
+             be-3/CANONICAL_GLOSSARY.md   ← this file   (WHAT words exist)
+                         │
+             be-3/LANGUAGE_RULES.md                      (HOW words may be used)
                          │
    READINESS_REVIEW · LANGUAGE_CONFLICT_INVENTORY · ENFORCEMENT_PLAN · COMPATIBILITY_STRATEGY
 ```
+
+This glossary defines the **words**; `LANGUAGE_RULES.md` defines their **allowed usage** (e.g. "Deal is
+never a synonym for Opportunity"; "Pipeline is only a view"; "Match is Buyer↔Deal only"). The detector
+keys off the rules; the inventory records where they are violated.
 
 The nine canonical concepts (Doc 3 §1) — **not redefined here, cited as-is**:
 `Market · Property · Owner · Seller · Buyer · Opportunity · Deal · Transaction · Revenue`.
