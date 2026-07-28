@@ -1,0 +1,1316 @@
+{
+  "alignmentScore": {
+    "byLId": [
+      {
+        "count": 8,
+        "lId": "L0"
+      },
+      {
+        "count": 2,
+        "lId": "L1"
+      },
+      {
+        "count": 6,
+        "lId": "L2"
+      },
+      {
+        "count": 8,
+        "lId": "L3"
+      },
+      {
+        "count": 2,
+        "lId": "L4"
+      },
+      {
+        "count": 70,
+        "lId": "L5"
+      },
+      {
+        "count": 21,
+        "lId": "L6"
+      }
+    ],
+    "errorFindingCount": 117,
+    "percentage": null,
+    "phase": "Phase 1 input only"
+  },
+  "detectorId": "BE3-DET",
+  "findings": [
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/acquire/AcquisitionCockpit.tsx",
+      "glossaryTerm": "Seller",
+      "lId": "L2",
+      "line": 66,
+      "matched": "next targets",
+      "ruleId": "R-SYN-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/acquire/AcquisitionCockpit.tsx",
+      "glossaryTerm": "Seller",
+      "lId": "L2",
+      "line": 67,
+      "matched": "target the session",
+      "ruleId": "R-SYN-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/acquire/AcquisitionCockpit.tsx",
+      "glossaryTerm": "Seller",
+      "lId": "L2",
+      "line": 196,
+      "matched": "next targets",
+      "ruleId": "R-SYN-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/acquire/AcquisitionCockpit.tsx",
+      "glossaryTerm": "Seller",
+      "lId": "L2",
+      "line": 199,
+      "matched": "Next targets",
+      "ruleId": "R-SYN-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/acquire/page.tsx",
+      "glossaryTerm": "Seller",
+      "lId": "L2",
+      "line": 130,
+      "matched": "current target",
+      "ruleId": "R-SYN-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/acquire/page.tsx",
+      "glossaryTerm": "Seller",
+      "lId": "L0",
+      "line": 174,
+      "matched": "lead",
+      "ruleId": "R-RET-001",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/dashboard/page.tsx",
+      "glossaryTerm": "Opportunity",
+      "lId": "L1",
+      "line": 158,
+      "matched": "Pipeline",
+      "ruleId": "R-HOM-001",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/insights/page.tsx",
+      "glossaryTerm": "Transaction Closed",
+      "lId": "L4",
+      "line": 94,
+      "matched": "Closed-won",
+      "ruleId": "R-SYN-004",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/opportunities/[id]/edit/page.tsx",
+      "glossaryTerm": "Acquisition Channel",
+      "lId": "L3",
+      "line": 58,
+      "matched": "source",
+      "ruleId": "R-SYN-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/opportunities/[id]/page.tsx",
+      "glossaryTerm": "Acquisition Channel",
+      "lId": "L3",
+      "line": 416,
+      "matched": "source",
+      "ruleId": "R-SYN-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/opportunities/[id]/page.tsx",
+      "glossaryTerm": "Seller",
+      "lId": "L0",
+      "line": 579,
+      "matched": "lead",
+      "ruleId": "R-RET-001",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/opportunities/[id]/page.tsx",
+      "glossaryTerm": "Opportunity",
+      "lId": "L1",
+      "line": 728,
+      "matched": "Pipeline",
+      "ruleId": "R-HOM-001",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/opportunities/actions.ts",
+      "glossaryTerm": "Acquisition Channel",
+      "lId": "L3",
+      "line": 43,
+      "matched": "source",
+      "ruleId": "R-SYN-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/opportunities/actions.ts",
+      "glossaryTerm": "Acquisition Channel",
+      "lId": "L3",
+      "line": 93,
+      "matched": "source",
+      "ruleId": "R-SYN-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/opportunities/actions.ts",
+      "glossaryTerm": "Seller",
+      "lId": "L0",
+      "line": 112,
+      "matched": "lead",
+      "ruleId": "R-RET-001",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/opportunities/actions.ts",
+      "glossaryTerm": "Acquisition Channel",
+      "lId": "L3",
+      "line": 187,
+      "matched": "source",
+      "ruleId": "R-SYN-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/opportunities/page.tsx",
+      "glossaryTerm": "Seller",
+      "lId": "L0",
+      "line": 112,
+      "matched": "lead",
+      "ruleId": "R-RET-001",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/opportunities/page.tsx",
+      "glossaryTerm": "Acquisition Channel",
+      "lId": "L3",
+      "line": 173,
+      "matched": "source",
+      "ruleId": "R-SYN-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/opportunities/page.tsx",
+      "glossaryTerm": "Acquisition Channel",
+      "lId": "L3",
+      "line": 214,
+      "matched": "source",
+      "ruleId": "R-SYN-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/owners/[id]/page.tsx",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 53,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/owners/[id]/page.tsx",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 67,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/owners/actions.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 16,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/owners/candidates/actions.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 10,
+      "matched": "owner-match",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/owners/candidates/actions.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 13,
+      "matched": "OwnerMatchDecision",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/owners/candidates/page.tsx",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 10,
+      "matched": "owner-match",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/owners/candidates/page.tsx",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 16,
+      "matched": "alias-match",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/owners/candidates/page.tsx",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 16,
+      "matched": "exact-match-key",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/owners/merges/page.tsx",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 10,
+      "matched": "owner-match",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/owners/page.tsx",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 42,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/owners/page.tsx",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 53,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/owners/page.tsx",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 136,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/properties/[id]/link-owner/page.tsx",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 29,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/properties/candidates/actions.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 10,
+      "matched": "property-match",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/properties/candidates/actions.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 10,
+      "matched": "PropertyMatchDecision",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/properties/candidates/actions.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 13,
+      "matched": "PropertyMatchDecision",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/properties/candidates/actions.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 23,
+      "matched": "PropertyMatchDecision",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/properties/candidates/actions.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 53,
+      "matched": "PropertyMatchDecision",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/properties/candidates/page.tsx",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 10,
+      "matched": "property-match",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/settings/imports/page.tsx",
+      "glossaryTerm": "Seller",
+      "lId": "L0",
+      "line": 30,
+      "matched": "lead",
+      "ruleId": "R-RET-001",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/settings/imports/page.tsx",
+      "glossaryTerm": "Seller",
+      "lId": "L0",
+      "line": 50,
+      "matched": "lead",
+      "ruleId": "R-RET-001",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/tasks/[id]/edit/page.tsx",
+      "glossaryTerm": "assignee",
+      "lId": "L6",
+      "line": 30,
+      "matched": "ownerId",
+      "ruleId": "R-HOM-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/tasks/[id]/edit/page.tsx",
+      "glossaryTerm": "assignee",
+      "lId": "L6",
+      "line": 32,
+      "matched": "ownerId",
+      "ruleId": "R-HOM-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/tasks/[id]/edit/page.tsx",
+      "glossaryTerm": "assignee",
+      "lId": "L6",
+      "line": 54,
+      "matched": "ownerId",
+      "ruleId": "R-HOM-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/tasks/[id]/page.tsx",
+      "glossaryTerm": "assignee",
+      "lId": "L6",
+      "line": 22,
+      "matched": "owner",
+      "ruleId": "R-HOM-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/tasks/[id]/page.tsx",
+      "glossaryTerm": "assignee",
+      "lId": "L6",
+      "line": 34,
+      "matched": "owner",
+      "ruleId": "R-HOM-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/tasks/actions.ts",
+      "glossaryTerm": "assignee",
+      "lId": "L6",
+      "line": 26,
+      "matched": "owner",
+      "ruleId": "R-HOM-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/tasks/actions.ts",
+      "glossaryTerm": "assignee",
+      "lId": "L6",
+      "line": 54,
+      "matched": "ownerId",
+      "ruleId": "R-HOM-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/tasks/actions.ts",
+      "glossaryTerm": "assignee",
+      "lId": "L6",
+      "line": 55,
+      "matched": "ownerId",
+      "ruleId": "R-HOM-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/tasks/actions.ts",
+      "glossaryTerm": "assignee",
+      "lId": "L6",
+      "line": 56,
+      "matched": "owner",
+      "ruleId": "R-HOM-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/tasks/actions.ts",
+      "glossaryTerm": "assignee",
+      "lId": "L6",
+      "line": 57,
+      "matched": "ownerId",
+      "ruleId": "R-HOM-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/tasks/actions.ts",
+      "glossaryTerm": "assignee",
+      "lId": "L6",
+      "line": 60,
+      "matched": "owner",
+      "ruleId": "R-HOM-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/tasks/actions.ts",
+      "glossaryTerm": "assignee",
+      "lId": "L6",
+      "line": 61,
+      "matched": "owner",
+      "ruleId": "R-HOM-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/tasks/actions.ts",
+      "glossaryTerm": "assignee",
+      "lId": "L6",
+      "line": 61,
+      "matched": "ownerId",
+      "ruleId": "R-HOM-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/tasks/actions.ts",
+      "glossaryTerm": "assignee",
+      "lId": "L6",
+      "line": 71,
+      "matched": "ownerId",
+      "ruleId": "R-HOM-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/tasks/actions.ts",
+      "glossaryTerm": "assignee",
+      "lId": "L6",
+      "line": 127,
+      "matched": "ownerId",
+      "ruleId": "R-HOM-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/tasks/page.tsx",
+      "glossaryTerm": "assignee",
+      "lId": "L6",
+      "line": 45,
+      "matched": "owner",
+      "ruleId": "R-HOM-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/(workspace)/tasks/page.tsx",
+      "glossaryTerm": "assignee",
+      "lId": "L6",
+      "line": 142,
+      "matched": "owner",
+      "ruleId": "R-HOM-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "app/login/page.tsx",
+      "glossaryTerm": "Seller",
+      "lId": "L0",
+      "line": 8,
+      "matched": "lead",
+      "ruleId": "R-RET-001",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/business-intelligence/queries.ts",
+      "glossaryTerm": "Transaction Closed",
+      "lId": "L4",
+      "line": 67,
+      "matched": "Closed-won",
+      "ruleId": "R-SYN-004",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-duplicates.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 5,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-duplicates.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 11,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-duplicates.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 15,
+      "matched": "alias-match",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-duplicates.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 15,
+      "matched": "exact-match-key",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-duplicates.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 30,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-duplicates.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 36,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-duplicates.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 37,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-duplicates.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 39,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-duplicates.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 46,
+      "matched": "exact-match-key",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-duplicates.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 46,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-duplicates.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 47,
+      "matched": "alias-match",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-duplicates.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 47,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-duplicates.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 63,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-duplicates.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 66,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-duplicates.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 68,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-duplicates.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 72,
+      "matched": "exact-match-key",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-duplicates.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 76,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-duplicates.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 83,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-duplicates.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 85,
+      "matched": "alias-match",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-duplicates.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 85,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-identity.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 19,
+      "matched": "alias-match",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-identity.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 19,
+      "matched": "exact-match-key",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-identity.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 31,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-identity.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 88,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-identity.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 89,
+      "matched": "exact-match-key",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/owner-identity.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 91,
+      "matched": "alias-match",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/projection.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 5,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/projection.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 34,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/projection.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 44,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/property-resolver.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 21,
+      "matched": "property-match",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/provenance.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 178,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/intelligence/provenance.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 183,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/owner-match.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 4,
+      "matched": "OwnerMatchDecision",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/owner-match.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 17,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/owner-match.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 19,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/owner-match.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 89,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/owner-match.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 92,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/property-match.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 6,
+      "matched": "owner-match",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/property-match.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 103,
+      "matched": "PropertyMatchDecision",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "lib/property-match.ts",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 125,
+      "matched": "PropertyMatchDecision",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "prisma/schema.prisma",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 375,
+      "matched": "OwnerMatchDecision",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "prisma/schema.prisma",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 377,
+      "matched": "PropertyMatchDecision",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "prisma/schema.prisma",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 509,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "prisma/schema.prisma",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 511,
+      "matched": "OwnerMatchDecision",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "prisma/schema.prisma",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 517,
+      "matched": "alias-match",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "prisma/schema.prisma",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 517,
+      "matched": "exact-match-key",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "prisma/schema.prisma",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 549,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "prisma/schema.prisma",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 564,
+      "matched": "matchKey",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "prisma/schema.prisma",
+      "glossaryTerm": "Seller",
+      "lId": "L2",
+      "line": 900,
+      "matched": "deal contact",
+      "ruleId": "R-SYN-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "prisma/schema.prisma",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 1100,
+      "matched": "OwnerMatchDecision",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "prisma/schema.prisma",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 1135,
+      "matched": "OwnerMatchDecision",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "prisma/schema.prisma",
+      "glossaryTerm": "Resolution / Merge",
+      "lId": "L5",
+      "line": 1136,
+      "matched": "PropertyMatchDecision",
+      "ruleId": "R-HOM-002",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "prisma/schema.prisma",
+      "glossaryTerm": "Acquisition Channel",
+      "lId": "L3",
+      "line": 1165,
+      "matched": "  source           String?",
+      "ruleId": "R-SYN-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "prisma/schema.prisma",
+      "glossaryTerm": "assignee",
+      "lId": "L6",
+      "line": 1768,
+      "matched": "ownerId",
+      "ruleId": "R-HOM-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "prisma/schema.prisma",
+      "glossaryTerm": "assignee",
+      "lId": "L6",
+      "line": 1777,
+      "matched": "owner",
+      "ruleId": "R-HOM-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "prisma/schema.prisma",
+      "glossaryTerm": "assignee",
+      "lId": "L6",
+      "line": 1777,
+      "matched": "ownerId",
+      "ruleId": "R-HOM-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "prisma/schema.prisma",
+      "glossaryTerm": "assignee",
+      "lId": "L6",
+      "line": 1781,
+      "matched": "ownerId",
+      "ruleId": "R-HOM-003",
+      "severity": "error"
+    },
+    {
+      "confidence": 1,
+      "file": "scripts/import-dealautomator-commercial-leads.ts",
+      "glossaryTerm": "Seller",
+      "lId": "L0",
+      "line": 257,
+      "matched": "lead",
+      "ruleId": "R-RET-001",
+      "severity": "error"
+    }
+  ],
+  "inputs": {
+    "config": {
+      "blob": "cea0270d14f32bc8ec9375de1e328122fea8a60e",
+      "path": "config/be3-language-detector.json"
+    },
+    "glossary": {
+      "blob": "b1de80c7ac96c1d790a25186cad1dbd2d29ccb1a",
+      "path": "docs/business/evolution/be-3/CANONICAL_GLOSSARY.md"
+    },
+    "rules": {
+      "blob": "a185be064e4de9d48cb2bb9685ddeccc1af240b4",
+      "path": "docs/business/evolution/be-3/LANGUAGE_RULES.md"
+    },
+    "sourceCommit": "3b71401c633a59d387e7f890825ae4c84a8c4f06"
+  },
+  "scope": {
+    "ignoredPathFragments": [
+      "/node_modules/",
+      "/.next",
+      "/.next-isolated",
+      "/dist/",
+      "/coverage/",
+      "/docs/"
+    ],
+    "includeExtensions": [
+      ".ts",
+      ".tsx",
+      ".prisma"
+    ]
+  },
+  "summaries": {
+    "byLId": [
+      {
+        "count": 8,
+        "lId": "L0"
+      },
+      {
+        "count": 2,
+        "lId": "L1"
+      },
+      {
+        "count": 6,
+        "lId": "L2"
+      },
+      {
+        "count": 8,
+        "lId": "L3"
+      },
+      {
+        "count": 2,
+        "lId": "L4"
+      },
+      {
+        "count": 70,
+        "lId": "L5"
+      },
+      {
+        "count": 21,
+        "lId": "L6"
+      }
+    ],
+    "byRule": [
+      {
+        "count": 2,
+        "lId": "L1",
+        "ruleId": "R-HOM-001",
+        "severity": "error"
+      },
+      {
+        "count": 70,
+        "lId": "L5",
+        "ruleId": "R-HOM-002",
+        "severity": "error"
+      },
+      {
+        "count": 21,
+        "lId": "L6",
+        "ruleId": "R-HOM-003",
+        "severity": "error"
+      },
+      {
+        "count": 8,
+        "lId": "L0",
+        "ruleId": "R-RET-001",
+        "severity": "error"
+      },
+      {
+        "count": 6,
+        "lId": "L2",
+        "ruleId": "R-SYN-002",
+        "severity": "error"
+      },
+      {
+        "count": 8,
+        "lId": "L3",
+        "ruleId": "R-SYN-003",
+        "severity": "error"
+      },
+      {
+        "count": 2,
+        "lId": "L4",
+        "ruleId": "R-SYN-004",
+        "severity": "error"
+      }
+    ]
+  }
+}
