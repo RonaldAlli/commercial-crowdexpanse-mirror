@@ -1,0 +1,141 @@
+{
+  "baseline": {
+    "errorFindingCount": 117,
+    "ref": "be3-evidence-baseline-v1.0"
+  },
+  "byLId": [
+    {
+      "distinctFiles": 7,
+      "distinctMatched": 1,
+      "findings": 8,
+      "lId": "L0",
+      "remediationSurface": 1,
+      "sharePct": 5.263158
+    },
+    {
+      "distinctFiles": 2,
+      "distinctMatched": 1,
+      "findings": 2,
+      "lId": "L1",
+      "remediationSurface": 1,
+      "sharePct": 5.263158
+    },
+    {
+      "distinctFiles": 3,
+      "distinctMatched": 5,
+      "findings": 6,
+      "lId": "L2",
+      "remediationSurface": 5,
+      "sharePct": 26.315789
+    },
+    {
+      "distinctFiles": 5,
+      "distinctMatched": 2,
+      "findings": 8,
+      "lId": "L3",
+      "remediationSurface": 2,
+      "sharePct": 10.526316
+    },
+    {
+      "distinctFiles": 2,
+      "distinctMatched": 1,
+      "findings": 2,
+      "lId": "L4",
+      "remediationSurface": 1,
+      "sharePct": 5.263158
+    },
+    {
+      "distinctFiles": 17,
+      "distinctMatched": 7,
+      "findings": 70,
+      "lId": "L5",
+      "remediationSurface": 7,
+      "sharePct": 36.842105
+    },
+    {
+      "distinctFiles": 5,
+      "distinctMatched": 2,
+      "findings": 21,
+      "lId": "L6",
+      "remediationSurface": 2,
+      "sharePct": 10.526316
+    }
+  ],
+  "byRule": [
+    {
+      "distinctFiles": 2,
+      "distinctMatched": 1,
+      "findings": 2,
+      "lId": "L1",
+      "ruleId": "R-HOM-001"
+    },
+    {
+      "distinctFiles": 17,
+      "distinctMatched": 7,
+      "findings": 70,
+      "lId": "L5",
+      "ruleId": "R-HOM-002"
+    },
+    {
+      "distinctFiles": 5,
+      "distinctMatched": 2,
+      "findings": 21,
+      "lId": "L6",
+      "ruleId": "R-HOM-003"
+    },
+    {
+      "distinctFiles": 7,
+      "distinctMatched": 1,
+      "findings": 8,
+      "lId": "L0",
+      "ruleId": "R-RET-001"
+    },
+    {
+      "distinctFiles": 3,
+      "distinctMatched": 5,
+      "findings": 6,
+      "lId": "L2",
+      "ruleId": "R-SYN-002"
+    },
+    {
+      "distinctFiles": 5,
+      "distinctMatched": 2,
+      "findings": 8,
+      "lId": "L3",
+      "ruleId": "R-SYN-003"
+    },
+    {
+      "distinctFiles": 2,
+      "distinctMatched": 1,
+      "findings": 2,
+      "lId": "L4",
+      "ruleId": "R-SYN-004"
+    }
+  ],
+  "compatibilityReasons": [],
+  "compatibleWithPrevious": null,
+  "measurementSeriesId": "41f04b6234d74e194ab5541f18e9c7318bf252861d9805f27a3d2cc2787b5808",
+  "measurementSpec": "BE3-MEASURE-v1",
+  "previousSeriesId": null,
+  "provenance": {
+    "detectorReportDigest": "e25b54cf26d5883cf67875608e34b77b141495306cac9b4a6973b1415df48d22",
+    "previousMeasurementDigest": null
+  },
+  "reason": null,
+  "repo": {
+    "burndownPct": 0,
+    "densityPerKSloc": 2.408151,
+    "distinctDeviations": 19,
+    "distinctFiles": 33,
+    "errorFindings": 117,
+    "remediationSurface": 19,
+    "scannedSloc": 48585
+  },
+  "scannedCommit": "3b71401c633a59d387e7f890825ae4c84a8c4f06",
+  "series": {
+    "detectorVersion": "be3-detector-v1.0",
+    "ruleSetHash": "1d107d5acebd430a4085942056bdfbc1568241a77e6fc874630c3f46703596da",
+    "scopeHash": "e84d4131921699b74e6bc2f0d1693a823f0e06c0e3c39f00167eff28721babf7"
+  },
+  "trend": null
+}
