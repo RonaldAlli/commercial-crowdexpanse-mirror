@@ -86,6 +86,22 @@ measurements sharing them:
   any timestamp is taken from the commit, not wall-time). This mirrors the detector's determinism and
   is what makes a delta meaningful rather than noisy.
 
+### Series Compatibility Contract (invariant)
+
+**Measurements never compare incompatible detector series.** Every measurement carries a
+`measurementSeriesId` and, when a previous measurement is supplied, a `compatibleWithPrevious`
+(`true|false`) with explicit `reasons` (any of: `detectorVersion changed`, `ruleSetHash changed`,
+`scopeHash changed`, `baseline changed`). The measurement engine **refuses to compute a trend unless
+the series is compatible** (identical series key and baseline). On an incompatible pair it emits, in
+both JSON and the human report:
+
+> `Trend unavailable — measurement series changed. New baseline required.`
+
+This makes a false comparison — e.g. broadening the scanner (v1.0 → v1.1) and then reporting
+"burndown improved 42%" — **impossible by construction**: a broader detector changes `ruleSetHash`/
+`scopeHash`, flips `compatibleWithPrevious` to `false`, and blocks the delta. Cross-series movement is
+only ever surfaced as an explicit, documented re-baseline (§6), never as a trend number.
+
 ## 6. How a future detector v1.1 starts a new series (never rewrites v1.0 history)
 
 - A change to detector rules/scope changes `ruleSetHash`/`scopeHash` → a **different series key** →
@@ -105,8 +121,16 @@ source of truth) — same discipline as Phase 1.
 ```jsonc
 {
   "measurementSpec": "BE3-MEASURE-v1",
+  "measurementSeriesId": "<hash(detectorVersion, ruleSetHash, scopeHash, baseline)>",
   "series": { "detectorVersion": "be3-detector-v1.0",
               "ruleSetHash": "<glossary+rules+config digest>", "scopeHash": "<digest>" },
+  "compatibleWithPrevious": {           // present only when a previous measurement is supplied
+    "value": true,
+    "previousSeriesId": "<hash|null>",
+    "reasons": []                        // e.g. ["ruleSetHash changed","scopeHash changed"] when false
+  },
+  "trend": null,                         // computed ONLY when compatibleWithPrevious.value === true;
+                                         // else the string "Trend unavailable — measurement series changed. New baseline required."
   "scannedCommit": "<sha>",
   "baseline": { "ref": "be3-evidence-baseline-v1.0", "errorFindingCount": 117 },
   "repo": { "errorFindings": 0, "distinctDeviations": 0, "distinctFiles": 0,
@@ -128,8 +152,11 @@ digest of the **detector JSON it consumed**, binding a measurement to its exact 
 2. **Deterministic:** same input + same series → byte-identical JSON (proven by a repeat run).
 3. **Repetition-honest:** L5 (and any repeated rule) reports locations *and* distinct/remediation
    counts; the headline debt figure uses distinct/remediation, not raw locations.
-4. **Series-safe:** measurements carry the series key; cross-series deltas are refused/flagged, not
-   silently computed.
+4. **Series-safe (Series Compatibility Contract):** **measurements never compare incompatible
+   detector series.** Each measurement carries `measurementSeriesId` + `compatibleWithPrevious`
+   (with reasons); a trend is computed **only** when the series is compatible, otherwise the engine
+   returns `Trend unavailable — measurement series changed. New baseline required.` A test proves a
+   v1.0-vs-simulated-v1.1 comparison refuses to produce a burndown delta.
 5. **Read-only & in-scope:** consumes the detector JSON; changes no rules, scope, or source.
 6. **Derived report:** human report generated from the JSON; tests cover metric math, determinism,
    series-keying, and baseline reconciliation.
