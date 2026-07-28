@@ -37,6 +37,24 @@ or migrations. **Exit criterion (single):** the detector can answer, with eviden
 every L0–L6 deviation exist?"* — nothing more. The detector output is then reviewed as BE-3's first
 evidence package **before** Measure (Phase 2) begins.
 
+### Finding schema (deterministic, keyed by stable Rule ID)
+
+Every detector finding is one record with exactly these fields, so reports are reproducible and stable
+even if rule *text* changes (`LANGUAGE_RULES.md` rule IDs are permanent):
+
+| Field | Meaning |
+|---|---|
+| `ruleId` | stable `R-<CLASS>-<NNN>` from `LANGUAGE_RULES.md` |
+| `glossaryTerm` | canonical word from `CANONICAL_GLOSSARY.md` the rule protects |
+| `lId` | remediation item (`L0`–`L6`) — the Compatibility-Strategy entry that fixes it |
+| `file` / `line` | exact location in the live tree |
+| `severity` | `error` (in-scope L-ID) or `info` (boundary / report-only) |
+| `matched` | the offending text (the deprecated word as used) |
+
+Findings are grouped by `ruleId` then `lId`; the count of `error` findings per L-ID is the raw input to
+the Phase-2 alignment score. Phase 3's "block new only" baseline is the set of `(ruleId, file, line)`
+tuples present at Phase-1 exit — anything outside that set is *new* drift.
+
 ## Phases (each a separately gated change; only Phases 1–2 are non-destructive and plannable now)
 
 | Phase | What | Destructive? | Gate |

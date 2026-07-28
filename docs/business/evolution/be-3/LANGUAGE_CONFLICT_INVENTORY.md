@@ -20,15 +20,15 @@
 Each entry is a deviation from the frozen vocabulary that BE-3 must close. Evidence is carried from the
 Conflict Report / Spec §3; it is **indicative and to be re-confirmed at implementation**, not acted on here.
 
-| ID | Deviation (as it appears) | Canonical target | Class | Evidence | Compat tier (see strategy) |
+| L-ID | Rule ID | Deviation (as it appears) | Canonical target | Evidence | Compat tier (see strategy) |
 |---|---|---|---|---|---|
-| **L1** | "Pipeline" naming the Opportunity **object** in nav | **Opportunity** (object); keep "Pipeline" only as a §7 *view* | homonym (object vs view) | `workspace-shell.tsx:24` | E (surface) |
-| **L2** | "deal contact" / "target" / "contact" for the acquisition party | **Seller** | synonym | `schema.prisma:899`; `acquire/page.tsx:130` | B/D (code + schema) + E |
-| **L3** | `Opportunity.source` free-text origin | **Acquisition Channel** (structured) | synonym | `schema.prisma:1164` | D (persistence) |
-| **L4** | BI "closed-won" | **Transaction Closed** | synonym (CRM-ism) | `queries.ts:70` | E (report label) |
-| **L5** | "match" meaning identity de-duplication | **Resolution / Merge** ("Match" stays for Buyer↔Deal only) | homonym | `OwnerMatchDecision`, `PropertyMatchDecision` | B (code identifiers) |
-| **L6** | `Task.ownerId` "owner" = the task **assignee** | **assignee** | homonym | `schema.prisma:1741` | D (schema) |
-| **L0** | "Lead" as a stage/prospect word | *(retired — `Owner → Seller`)* | retirement | `acquire/page.tsx:174`; imports | E surface now; **code = BE-4** |
+| **L1** | R-HOM-001 | "Pipeline" naming the Opportunity **object** in nav | **Opportunity** (object); keep "Pipeline" only as a §7 *view* | `workspace-shell.tsx:24` | E (surface) |
+| **L2** | R-SYN-002 | "deal contact" / "target" / "contact" for the acquisition party | **Seller** | `schema.prisma:899`; `acquire/page.tsx:130` | B/D (code + schema) + E |
+| **L3** | R-SYN-003 | `Opportunity.source` free-text origin | **Acquisition Channel** (structured) | `schema.prisma:1164` | D (persistence) |
+| **L4** | R-SYN-004 | BI "closed-won" | **Transaction Closed** | `queries.ts:70` | E (report label) |
+| **L5** | R-HOM-002 | "match" meaning identity de-duplication | **Resolution / Merge** ("Match" stays for Buyer↔Deal only) | `OwnerMatchDecision`, `PropertyMatchDecision` | B (code identifiers) |
+| **L6** | R-HOM-003 | `Task.ownerId` "owner" = the task **assignee** | **assignee** | `schema.prisma:1741` | D (schema) |
+| **L0** | R-RET-001 | "Lead" as a stage/prospect word | *(retired — `Owner → Seller`)* | `acquire/page.tsx:174`; imports | E surface now; **code = BE-4** |
 
 ## Conflict classes (already resolved by Doc 3 — restated for enforcement)
 
