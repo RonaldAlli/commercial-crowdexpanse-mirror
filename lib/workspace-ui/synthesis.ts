@@ -11,7 +11,7 @@ import type { ContactOutreachStatus } from "@prisma/client";
 
 import type { EvidenceChainInput } from "@/lib/workspace-ui/evidence";
 import type { MissingInfoState } from "@/lib/workspace-ui/missing-info";
-import { followUpUrgency, type PromotionView, type GateChannelView } from "@/lib/workspace-ui/seller-view";
+import { followUpUrgency, type PromotionView } from "@/lib/workspace-ui/seller-view";
 import type { StageEval } from "@/lib/workspace-ui/opportunity-view";
 
 // Categorical confidence ONLY (never a numeric/probabilistic score).
