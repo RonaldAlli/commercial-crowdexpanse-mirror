@@ -1,0 +1,1065 @@
+{
+  "comparison": {
+    "hardened": {
+      "candidateIdentityStability": {
+        "baselineEvolution": true,
+        "classificationIndependence": true,
+        "pathCanonicalization": true,
+        "removeReintroduce": true,
+        "renames": true,
+        "repeats": true
+      },
+      "candidateIdentityVersionSuspension": "wired"
+    },
+    "priorV1_0": {
+      "candidateIdentityStability": {
+        "baselineEvolution": false,
+        "classificationIndependence": false,
+        "pathCanonicalization": true,
+        "removeReintroduce": true,
+        "renames": false,
+        "repeats": true
+      },
+      "candidateIdentityVersionSuspension": "not-wired",
+      "confusion": {
+        "ambiguousFalseNegatives": 1,
+        "falseNegatives": 1,
+        "falsePositives": 0,
+        "silentFalseNegatives": 0,
+        "trueNegatives": 4,
+        "truePositives": 2,
+        "unclassified": 0
+      }
+    },
+    "stabilityDeltas": [
+      {
+        "changed": true,
+        "hardened": true,
+        "priorV1_0": false,
+        "property": "classificationIndependence"
+      },
+      {
+        "changed": true,
+        "hardened": true,
+        "priorV1_0": false,
+        "property": "renames"
+      },
+      {
+        "changed": false,
+        "hardened": true,
+        "priorV1_0": true,
+        "property": "repeats"
+      },
+      {
+        "changed": false,
+        "hardened": true,
+        "priorV1_0": true,
+        "property": "removeReintroduce"
+      },
+      {
+        "changed": false,
+        "hardened": true,
+        "priorV1_0": true,
+        "property": "pathCanonicalization"
+      },
+      {
+        "changed": true,
+        "hardened": true,
+        "priorV1_0": false,
+        "property": "baselineEvolution"
+      }
+    ]
+  },
+  "compatibilityEvidence": {
+    "allVersionFieldsSuspend": true,
+    "contract": [
+      {
+        "field": "findingIdentityVersion",
+        "result": "suspended",
+        "supported": true
+      },
+      {
+        "field": "candidateIdentityVersion",
+        "result": "suspended",
+        "supported": true
+      },
+      {
+        "field": "classificationAlgorithmVersion",
+        "result": "suspended",
+        "supported": true
+      },
+      {
+        "field": "detectorVersion",
+        "result": "suspended",
+        "supported": true
+      },
+      {
+        "field": "ruleSetHash",
+        "result": "suspended",
+        "supported": true
+      },
+      {
+        "field": "scopeHash",
+        "result": "suspended",
+        "supported": true
+      },
+      {
+        "field": "measurementSeriesId",
+        "result": "suspended",
+        "supported": true
+      },
+      {
+        "field": "baselineTag",
+        "result": "suspended",
+        "supported": true
+      }
+    ],
+    "manifest": {
+      "field": "migrationSchemaVersion",
+      "result": "suspended",
+      "supported": true,
+      "via": "evidence-manifest validateManifest"
+    }
+  },
+  "confusion": {
+    "ambiguousExpected": 2,
+    "ambiguousFalseNegatives": 2,
+    "ambiguousSoft": 2,
+    "byCase": [
+      {
+        "currentStatuses": [
+          "ambiguous",
+          "ambiguous"
+        ],
+        "groundTruth": "real-drift",
+        "name": "genuine-new-drift",
+        "outcome": "FN_ambiguous",
+        "suite": "original"
+      },
+      {
+        "currentStatuses": [
+          "ambiguous",
+          "ambiguous"
+        ],
+        "groundTruth": "real-drift",
+        "name": "duplicate-addition",
+        "outcome": "FN_ambiguous",
+        "suite": "original"
+      },
+      {
+        "currentStatuses": [
+          "ambiguous",
+          "ambiguous"
+        ],
+        "groundTruth": "harmless",
+        "name": "harmless-line-movement",
+        "outcome": "ambiguous_soft",
+        "suite": "original"
+      },
+      {
+        "currentStatuses": [
+          "renamed"
+        ],
+        "groundTruth": "harmless",
+        "name": "file-rename",
+        "outcome": "TN",
+        "suite": "original"
+      },
+      {
+        "currentStatuses": [
+          "ambiguous"
+        ],
+        "groundTruth": "harmless",
+        "name": "path-canonicalization",
+        "outcome": "ambiguous_soft",
+        "suite": "original"
+      },
+      {
+        "currentStatuses": [
+          "split"
+        ],
+        "groundTruth": "harmless",
+        "name": "resolved-finding",
+        "outcome": "FP",
+        "suite": "original"
+      },
+      {
+        "currentStatuses": [
+          "sameCandidate",
+          "sameCandidate"
+        ],
+        "groundTruth": "real-drift",
+        "name": "reintroduced-violation",
+        "outcome": "FN_silent",
+        "suite": "original"
+      },
+      {
+        "currentStatuses": [
+          "split"
+        ],
+        "groundTruth": "ambiguous-by-design",
+        "name": "competing-match",
+        "outcome": "unclassified",
+        "suite": "original"
+      },
+      {
+        "currentStatuses": [],
+        "groundTruth": "suspension",
+        "name": "incompatible-baseline",
+        "outcome": "suspension",
+        "suite": "original"
+      },
+      {
+        "currentStatuses": [
+          "sameCandidate"
+        ],
+        "groundTruth": "harmless",
+        "name": "add-classification-independence",
+        "outcome": "TN",
+        "suite": "added"
+      },
+      {
+        "currentStatuses": [
+          "renamed"
+        ],
+        "groundTruth": "harmless",
+        "name": "add-verified-rename-continuity",
+        "outcome": "TN",
+        "suite": "added"
+      },
+      {
+        "currentStatuses": [
+          "ambiguous"
+        ],
+        "groundTruth": "ambiguous-by-design",
+        "name": "add-ambiguous-competing-rename",
+        "outcome": "ambiguous_expected",
+        "suite": "added"
+      },
+      {
+        "currentStatuses": [
+          "reintroduced"
+        ],
+        "groundTruth": "real-drift",
+        "name": "add-reintroduction-reopened",
+        "outcome": "TP",
+        "suite": "added"
+      },
+      {
+        "currentStatuses": [
+          "sameCandidate",
+          "split"
+        ],
+        "groundTruth": "real-drift",
+        "name": "add-split-new-occurrence",
+        "outcome": "TP",
+        "suite": "added"
+      },
+      {
+        "currentStatuses": [
+          "ambiguous",
+          "ambiguous"
+        ],
+        "groundTruth": "ambiguous-by-design",
+        "name": "add-indistinguishable-duplicates",
+        "outcome": "ambiguous_expected",
+        "suite": "added"
+      },
+      {
+        "currentStatuses": [],
+        "groundTruth": "suspension",
+        "name": "add-candidate-identity-version-suspension",
+        "outcome": "suspension",
+        "suite": "added"
+      }
+    ],
+    "falseNegatives": 3,
+    "falsePositives": 1,
+    "silentFalseNegatives": 1,
+    "suspension": 2,
+    "trueNegatives": 3,
+    "truePositives": 2,
+    "unclassified": 1
+  },
+  "confusionBySuite": {
+    "added": {
+      "ambiguousExpected": 2,
+      "ambiguousFalseNegatives": 0,
+      "ambiguousSoft": 0,
+      "byCase": [
+        {
+          "currentStatuses": [
+            "sameCandidate"
+          ],
+          "groundTruth": "harmless",
+          "name": "add-classification-independence",
+          "outcome": "TN",
+          "suite": "added"
+        },
+        {
+          "currentStatuses": [
+            "renamed"
+          ],
+          "groundTruth": "harmless",
+          "name": "add-verified-rename-continuity",
+          "outcome": "TN",
+          "suite": "added"
+        },
+        {
+          "currentStatuses": [
+            "ambiguous"
+          ],
+          "groundTruth": "ambiguous-by-design",
+          "name": "add-ambiguous-competing-rename",
+          "outcome": "ambiguous_expected",
+          "suite": "added"
+        },
+        {
+          "currentStatuses": [
+            "reintroduced"
+          ],
+          "groundTruth": "real-drift",
+          "name": "add-reintroduction-reopened",
+          "outcome": "TP",
+          "suite": "added"
+        },
+        {
+          "currentStatuses": [
+            "sameCandidate",
+            "split"
+          ],
+          "groundTruth": "real-drift",
+          "name": "add-split-new-occurrence",
+          "outcome": "TP",
+          "suite": "added"
+        },
+        {
+          "currentStatuses": [
+            "ambiguous",
+            "ambiguous"
+          ],
+          "groundTruth": "ambiguous-by-design",
+          "name": "add-indistinguishable-duplicates",
+          "outcome": "ambiguous_expected",
+          "suite": "added"
+        },
+        {
+          "currentStatuses": [],
+          "groundTruth": "suspension",
+          "name": "add-candidate-identity-version-suspension",
+          "outcome": "suspension",
+          "suite": "added"
+        }
+      ],
+      "falseNegatives": 0,
+      "falsePositives": 0,
+      "silentFalseNegatives": 0,
+      "suspension": 1,
+      "trueNegatives": 2,
+      "truePositives": 2,
+      "unclassified": 0
+    },
+    "original": {
+      "ambiguousExpected": 0,
+      "ambiguousFalseNegatives": 2,
+      "ambiguousSoft": 2,
+      "byCase": [
+        {
+          "currentStatuses": [
+            "ambiguous",
+            "ambiguous"
+          ],
+          "groundTruth": "real-drift",
+          "name": "genuine-new-drift",
+          "outcome": "FN_ambiguous",
+          "suite": "original"
+        },
+        {
+          "currentStatuses": [
+            "ambiguous",
+            "ambiguous"
+          ],
+          "groundTruth": "real-drift",
+          "name": "duplicate-addition",
+          "outcome": "FN_ambiguous",
+          "suite": "original"
+        },
+        {
+          "currentStatuses": [
+            "ambiguous",
+            "ambiguous"
+          ],
+          "groundTruth": "harmless",
+          "name": "harmless-line-movement",
+          "outcome": "ambiguous_soft",
+          "suite": "original"
+        },
+        {
+          "currentStatuses": [
+            "renamed"
+          ],
+          "groundTruth": "harmless",
+          "name": "file-rename",
+          "outcome": "TN",
+          "suite": "original"
+        },
+        {
+          "currentStatuses": [
+            "ambiguous"
+          ],
+          "groundTruth": "harmless",
+          "name": "path-canonicalization",
+          "outcome": "ambiguous_soft",
+          "suite": "original"
+        },
+        {
+          "currentStatuses": [
+            "split"
+          ],
+          "groundTruth": "harmless",
+          "name": "resolved-finding",
+          "outcome": "FP",
+          "suite": "original"
+        },
+        {
+          "currentStatuses": [
+            "sameCandidate",
+            "sameCandidate"
+          ],
+          "groundTruth": "real-drift",
+          "name": "reintroduced-violation",
+          "outcome": "FN_silent",
+          "suite": "original"
+        },
+        {
+          "currentStatuses": [
+            "split"
+          ],
+          "groundTruth": "ambiguous-by-design",
+          "name": "competing-match",
+          "outcome": "unclassified",
+          "suite": "original"
+        },
+        {
+          "currentStatuses": [],
+          "groundTruth": "suspension",
+          "name": "incompatible-baseline",
+          "outcome": "suspension",
+          "suite": "original"
+        }
+      ],
+      "falseNegatives": 3,
+      "falsePositives": 1,
+      "silentFalseNegatives": 1,
+      "suspension": 1,
+      "trueNegatives": 1,
+      "truePositives": 0,
+      "unclassified": 1
+    }
+  },
+  "contractVersions": {
+    "candidateIdentityVersion": "civ-2",
+    "compatibilityContractVersion": "cc-1",
+    "lineageVersion": "lin-1",
+    "manifestContractVersion": "emc-1",
+    "migrationSchemaVersion": "msv-1",
+    "migrationVersion": "mig-1"
+  },
+  "evidenceSpec": "BE3-CANDIDATE-IDENTITY-RERUN-v1",
+  "governanceQuestions": [
+    {
+      "evidence": {
+        "gaps": [
+          {
+            "gap": "classification-independent candidate identity",
+            "hardened": true,
+            "priorV1_0": false
+          },
+          {
+            "gap": "candidateIdentityVersion wired into suspension",
+            "hardened": true,
+            "priorV1_0": false
+          },
+          {
+            "gap": "verified-rename continuity",
+            "hardened": true,
+            "priorV1_0": false
+          },
+          {
+            "gap": "baseline-evolution stability",
+            "hardened": true,
+            "priorV1_0": false
+          }
+        ],
+        "openObservations": [
+          "path-alias canonicalization is not handled by the hardened stack (identity is repo-relative POSIX-only; lineage consumes verified renames, not aliases)",
+          "drift classification over the ACCEPTED (anchorless) corpus depends on an upstream stable context-anchor source not yet available"
+        ],
+        "stillOpen": []
+      },
+      "id": 1,
+      "judgment": "DEFERRED TO GOVERNED REVIEW",
+      "question": "Are known material gaps closed?"
+    },
+    {
+      "evidence": {
+        "cases": [
+          "reintroduced-violation"
+        ],
+        "silentFalseNegatives": 1
+      },
+      "id": 2,
+      "judgment": "DEFERRED TO GOVERNED REVIEW",
+      "question": "Are silent false negatives present?"
+    },
+    {
+      "evidence": {
+        "addedCase": "TN",
+        "identityLineageRename": true
+      },
+      "id": 3,
+      "judgment": "DEFERRED TO GOVERNED REVIEW",
+      "question": "Is rename stability demonstrated?"
+    },
+    {
+      "evidence": {
+        "baselineEvolution": true,
+        "note": "identity is derived from immutable evidence and is independent of baseline snapshot state."
+      },
+      "id": 4,
+      "judgment": "DEFERRED TO GOVERNED REVIEW",
+      "question": "Is baseline-evolution stability demonstrated?"
+    },
+    {
+      "evidence": {
+        "ambiguousExpected": 2,
+        "ambiguousFindingsAndCases": [
+          "add-ambiguous-competing-rename",
+          "add-indistinguishable-duplicates",
+          "duplicate-addition",
+          "genuine-new-drift",
+          "harmless-line-movement",
+          "path-canonicalization"
+        ],
+        "migrationAmbiguous": 1
+      },
+      "id": 5,
+      "judgment": "DEFERRED TO GOVERNED REVIEW",
+      "question": "Are ambiguities preserved (never downgraded)?"
+    },
+    {
+      "evidence": {
+        "allNonOneToOneReviewed": true,
+        "migrationSummary": {
+          "ambiguous": 1,
+          "manyToOne": 2,
+          "oneToMany": 1,
+          "oneToOne": 2,
+          "reviewRequired": 5,
+          "total": 7,
+          "unmapped": 1
+        },
+        "reviewQueue": [
+          "C-civ1-ambiguous",
+          "C-civ1-merge-a",
+          "C-civ1-merge-b",
+          "C-civ1-split",
+          "C-civ1-unmapped"
+        ]
+      },
+      "id": 6,
+      "judgment": "DEFERRED TO GOVERNED REVIEW",
+      "question": "Are non-one-to-one migration mappings surfaced?"
+    },
+    {
+      "evidence": {
+        "allVersionFieldsSuspend": true,
+        "suspensionMatrix": {
+          "allVersionFieldsSuspend": true,
+          "contract": [
+            {
+              "field": "findingIdentityVersion",
+              "result": "suspended",
+              "supported": true
+            },
+            {
+              "field": "candidateIdentityVersion",
+              "result": "suspended",
+              "supported": true
+            },
+            {
+              "field": "classificationAlgorithmVersion",
+              "result": "suspended",
+              "supported": true
+            },
+            {
+              "field": "detectorVersion",
+              "result": "suspended",
+              "supported": true
+            },
+            {
+              "field": "ruleSetHash",
+              "result": "suspended",
+              "supported": true
+            },
+            {
+              "field": "scopeHash",
+              "result": "suspended",
+              "supported": true
+            },
+            {
+              "field": "measurementSeriesId",
+              "result": "suspended",
+              "supported": true
+            },
+            {
+              "field": "baselineTag",
+              "result": "suspended",
+              "supported": true
+            }
+          ],
+          "manifest": {
+            "field": "migrationSchemaVersion",
+            "result": "suspended",
+            "supported": true,
+            "via": "evidence-manifest validateManifest"
+          }
+        }
+      },
+      "id": 7,
+      "judgment": "DEFERRED TO GOVERNED REVIEW",
+      "question": "Is compatibility suspension complete across all version fields?"
+    },
+    {
+      "evidence": {
+        "note": "byte-identical repeatability is asserted by the harness selfCheck and by the focused determinism tests; the canonical JSON is content-addressed to the corpus + versions."
+      },
+      "id": 8,
+      "judgment": "DEFERRED TO GOVERNED REVIEW",
+      "question": "Is the package deterministic and reproducible?"
+    }
+  ],
+  "identityStability": {
+    "baselineEvolution": true,
+    "classificationIndependence": true,
+    "detail": {
+      "pathCanonicalization": {
+        "absolutePathHandling": "rejected",
+        "aliasResolution": false,
+        "relativeNormalization": true
+      },
+      "repeats": {
+        "ambiguousWithoutContext": true,
+        "distinguishableWithContext": true
+      }
+    },
+    "notes": {
+      "baselineEvolution": "identity is derived from immutable evidence and is independent of baseline snapshot state.",
+      "classificationIndependence": "civ-2 identity is computed only from rule + canonical subject + canonical location + stable context anchor; it takes NO classification input, so a review item keeps its id across classification changes.",
+      "pathCanonicalization": "hardened identity canonicalizes repo-relative POSIX paths but does NOT resolve path aliases and REJECTS absolute paths; the accepted corpus's alias-based case is therefore not canonicalized by the hardened stack (open item).",
+      "renames": "identity continuity across a rename is provided by the lineage layer (verified rename), not by identity alone; identity itself performs no rename inference.",
+      "repeats": "distinguishable only when a stable context anchor differs; identical co-located occurrences are ambiguous by design (never a fabricated ordinal)."
+    },
+    "pathCanonicalization": true,
+    "removeReintroduce": true,
+    "renames": true,
+    "repeats": true
+  },
+  "lineageEvidence": {
+    "added": [
+      {
+        "current": [
+          {
+            "candidateId": "C-civ2-840ef8cd06c3e4dee2f8b346",
+            "status": "sameCandidate"
+          }
+        ],
+        "groundTruth": "harmless",
+        "name": "add-classification-independence",
+        "suspended": false
+      },
+      {
+        "current": [
+          {
+            "candidateId": "C-civ2-f64ccc2c84840c653d28fe73",
+            "status": "renamed"
+          }
+        ],
+        "groundTruth": "harmless",
+        "name": "add-verified-rename-continuity",
+        "suspended": false
+      },
+      {
+        "current": [
+          {
+            "candidateId": "C-civ2-1c0caadb021021521d860ebc",
+            "status": "ambiguous"
+          }
+        ],
+        "groundTruth": "ambiguous-by-design",
+        "name": "add-ambiguous-competing-rename",
+        "suspended": false
+      },
+      {
+        "current": [
+          {
+            "candidateId": "C-civ2-974cd9086f8670ce1bb6126b",
+            "status": "reintroduced"
+          }
+        ],
+        "groundTruth": "real-drift",
+        "name": "add-reintroduction-reopened",
+        "suspended": false
+      },
+      {
+        "current": [
+          {
+            "candidateId": "C-civ2-ea39ad51b5a2a641a535e55f",
+            "status": "sameCandidate"
+          },
+          {
+            "candidateId": "C-civ2-b5a63d4affa25c65c4642313",
+            "status": "split"
+          }
+        ],
+        "groundTruth": "real-drift",
+        "name": "add-split-new-occurrence",
+        "suspended": false
+      },
+      {
+        "current": [
+          {
+            "candidateId": null,
+            "status": "ambiguous"
+          },
+          {
+            "candidateId": null,
+            "status": "ambiguous"
+          }
+        ],
+        "groundTruth": "ambiguous-by-design",
+        "name": "add-indistinguishable-duplicates",
+        "suspended": false
+      },
+      {
+        "current": [],
+        "groundTruth": "suspension",
+        "name": "add-candidate-identity-version-suspension",
+        "suspended": true
+      }
+    ],
+    "lineageVersion": "lin-1",
+    "original": [
+      {
+        "currentStatuses": [
+          "ambiguous",
+          "ambiguous"
+        ],
+        "groundTruth": "real-drift",
+        "name": "genuine-new-drift",
+        "suspended": false
+      },
+      {
+        "currentStatuses": [
+          "ambiguous",
+          "ambiguous"
+        ],
+        "groundTruth": "real-drift",
+        "name": "duplicate-addition",
+        "suspended": false
+      },
+      {
+        "currentStatuses": [
+          "ambiguous",
+          "ambiguous"
+        ],
+        "groundTruth": "harmless",
+        "name": "harmless-line-movement",
+        "suspended": false
+      },
+      {
+        "currentStatuses": [
+          "renamed"
+        ],
+        "groundTruth": "harmless",
+        "name": "file-rename",
+        "suspended": false
+      },
+      {
+        "currentStatuses": [
+          "ambiguous"
+        ],
+        "groundTruth": "harmless",
+        "name": "path-canonicalization",
+        "suspended": false
+      },
+      {
+        "currentStatuses": [
+          "split"
+        ],
+        "groundTruth": "harmless",
+        "name": "resolved-finding",
+        "suspended": false
+      },
+      {
+        "currentStatuses": [
+          "sameCandidate",
+          "sameCandidate"
+        ],
+        "groundTruth": "real-drift",
+        "name": "reintroduced-violation",
+        "suspended": false
+      },
+      {
+        "currentStatuses": [
+          "split"
+        ],
+        "groundTruth": "ambiguous-by-design",
+        "name": "competing-match",
+        "suspended": false
+      },
+      {
+        "currentStatuses": [],
+        "groundTruth": "suspension",
+        "name": "incompatible-baseline",
+        "suspended": true
+      }
+    ]
+  },
+  "manifest": {
+    "baselineTag": "be3-candidate-mode-v1.0",
+    "candidateIdentityVersion": "civ-2",
+    "classificationAlgorithmVersion": "cav-1",
+    "detectorVersion": "be3-detector-v1.0",
+    "findingIdentityVersion": "fiv-1",
+    "generatedAt": "2026-07-29T00:00:00Z",
+    "generatorVersion": "genv-1",
+    "measurementSeriesId": "ms-accepted",
+    "migrationSchemaVersion": "msv-1",
+    "ruleSetHash": "rs-accepted",
+    "scopeHash": "sc-accepted"
+  },
+  "manifestDigest": "EM-97240ceb22d462cfdf170153",
+  "migrationEvidence": {
+    "mappings": [
+      {
+        "evidence": {
+          "duplicateOldId": false,
+          "lineageStatuses": [
+            "sameCandidate"
+          ],
+          "linkedNewIndices": [
+            5
+          ],
+          "newIdentityStatuses": [
+            "ambiguous"
+          ]
+        },
+        "lineageStatuses": [
+          "sameCandidate"
+        ],
+        "mappingClassification": "ambiguous",
+        "oldCandidateId": "C-civ1-ambiguous",
+        "proposedNewIds": [
+          null
+        ],
+        "reason": "ambiguous civ-2 identity or ambiguous lineage — ambiguity preserved, never downgraded",
+        "reviewRequired": true
+      },
+      {
+        "evidence": {
+          "duplicateOldId": false,
+          "lineageStatuses": [
+            "sameCandidate"
+          ],
+          "linkedNewIndices": [
+            4
+          ],
+          "newIdentityStatuses": [
+            "resolved"
+          ]
+        },
+        "lineageStatuses": [
+          "sameCandidate"
+        ],
+        "mappingClassification": "manyToOne",
+        "oldCandidateId": "C-civ1-merge-a",
+        "proposedNewIds": [
+          "C-civ2-3acc03999a60deb314aa80ae"
+        ],
+        "reason": "multiple civ-1 candidates map to one civ-2 identity (merge) — review required",
+        "reviewRequired": true
+      },
+      {
+        "evidence": {
+          "duplicateOldId": false,
+          "lineageStatuses": [
+            "sameCandidate"
+          ],
+          "linkedNewIndices": [
+            4
+          ],
+          "newIdentityStatuses": [
+            "resolved"
+          ]
+        },
+        "lineageStatuses": [
+          "sameCandidate"
+        ],
+        "mappingClassification": "manyToOne",
+        "oldCandidateId": "C-civ1-merge-b",
+        "proposedNewIds": [
+          "C-civ2-3acc03999a60deb314aa80ae"
+        ],
+        "reason": "multiple civ-1 candidates map to one civ-2 identity (merge) — review required",
+        "reviewRequired": true
+      },
+      {
+        "evidence": {
+          "duplicateOldId": false,
+          "lineageStatuses": [
+            "renamed"
+          ],
+          "linkedNewIndices": [
+            1
+          ],
+          "newIdentityStatuses": [
+            "resolved"
+          ]
+        },
+        "lineageStatuses": [
+          "renamed"
+        ],
+        "mappingClassification": "oneToOne",
+        "oldCandidateId": "C-civ1-rename",
+        "proposedNewIds": [
+          "C-civ2-f64ccc2c84840c653d28fe73"
+        ],
+        "reason": "deterministic one-to-one mapping (lineage: renamed)",
+        "reviewRequired": false
+      },
+      {
+        "evidence": {
+          "duplicateOldId": false,
+          "lineageStatuses": [
+            "sameCandidate"
+          ],
+          "linkedNewIndices": [
+            0
+          ],
+          "newIdentityStatuses": [
+            "resolved"
+          ]
+        },
+        "lineageStatuses": [
+          "sameCandidate"
+        ],
+        "mappingClassification": "oneToOne",
+        "oldCandidateId": "C-civ1-same",
+        "proposedNewIds": [
+          "C-civ2-840ef8cd06c3e4dee2f8b346"
+        ],
+        "reason": "deterministic one-to-one mapping (lineage: sameCandidate)",
+        "reviewRequired": false
+      },
+      {
+        "evidence": {
+          "duplicateOldId": false,
+          "lineageStatuses": [
+            "split",
+            "split"
+          ],
+          "linkedNewIndices": [
+            2,
+            3
+          ],
+          "newIdentityStatuses": [
+            "resolved",
+            "resolved"
+          ]
+        },
+        "lineageStatuses": [
+          "split",
+          "split"
+        ],
+        "mappingClassification": "oneToMany",
+        "oldCandidateId": "C-civ1-split",
+        "proposedNewIds": [
+          "C-civ2-ea39ad51b5a2a641a535e55f",
+          "C-civ2-b5a63d4affa25c65c4642313"
+        ],
+        "reason": "one civ-1 candidate maps to multiple civ-2 identities (split) — review required",
+        "reviewRequired": true
+      },
+      {
+        "evidence": {
+          "duplicateOldId": false,
+          "lineageStatuses": [],
+          "linkedNewIndices": [],
+          "newIdentityStatuses": []
+        },
+        "lineageStatuses": [],
+        "mappingClassification": "unmapped",
+        "oldCandidateId": "C-civ1-unmapped",
+        "proposedNewIds": [],
+        "reason": "no linked civ-2 identity — remains visible for review",
+        "reviewRequired": true
+      }
+    ],
+    "migrationVersion": "mig-1",
+    "reviewQueue": [
+      "C-civ1-ambiguous",
+      "C-civ1-merge-a",
+      "C-civ1-merge-b",
+      "C-civ1-split",
+      "C-civ1-unmapped"
+    ],
+    "statement": "This tooling proposes mappings. It does not migrate authority.",
+    "summary": {
+      "ambiguous": 1,
+      "manyToOne": 2,
+      "oneToMany": 1,
+      "oneToOne": 2,
+      "reviewRequired": 5,
+      "total": 7,
+      "unmapped": 1
+    }
+  },
+  "provenance": {
+    "acceptedCorpusSpec": "BE3-BLOCKING-READINESS-CORPUS-v1",
+    "additionsSpec": "BE3-CANDIDATE-IDENTITY-ADDITIONS-v1",
+    "corpusDigest": "7a1600e2fa5be590452ef1c1d528aa2826c263a4df9d67aff2f53069ee9be46e",
+    "evaluatedAt": "2026-07-29T00:00:00Z",
+    "generatedAt": "2026-07-29T00:00:00Z",
+    "generatorVersion": "genv-1"
+  },
+  "reviewQueues": {
+    "ambiguous": [
+      "add-ambiguous-competing-rename",
+      "add-indistinguishable-duplicates",
+      "duplicate-addition",
+      "genuine-new-drift",
+      "harmless-line-movement",
+      "path-canonicalization"
+    ],
+    "nonOneToOneMigration": [
+      "C-civ1-ambiguous",
+      "C-civ1-merge-a",
+      "C-civ1-merge-b",
+      "C-civ1-split",
+      "C-civ1-unmapped"
+    ],
+    "suspended": [
+      "add-candidate-identity-version-suspension",
+      "incompatible-baseline"
+    ],
+    "unresolvedOrRejected": []
+  },
+  "selfCheck": {
+    "deterministic": true,
+    "manifestDigestStable": true,
+    "note": "core evidence recomputed on identical inputs is byte-identical; a determinism failure is itself a suspension trigger."
+  },
+  "status": "EVIDENCE-ONLY — not a baseline, not accepted, not tagged, not authoritative. civ-1 remains authoritative.",
+  "thresholdPolicy": "NONE — evidence only; no pass/fail threshold is defined or inferred. For governed review."
+}

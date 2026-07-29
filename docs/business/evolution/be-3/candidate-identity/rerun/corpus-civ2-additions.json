@@ -1,0 +1,108 @@
+{
+  "meta": {
+    "corpusSpec": "BE3-CANDIDATE-IDENTITY-ADDITIONS-v1",
+    "appendOnlyTo": "blocking-readiness/corpus.json (BE3-BLOCKING-READINESS-CORPUS-v1, @89a945f)",
+    "note": "APPEND-ONLY additions that exercise the hardened identity stack (civ-2 identity + lineage + migration + compatibility) per Increment 5 plan §1. The accepted corpus is read verbatim and unchanged. Unlike the accepted corpus (shaped for the line-aware v1.0 classifier), these cases carry STABLE contextAnchors because civ-2 is line-blind by design and distinguishes co-located occurrences only by stable structural context. Synthetic, ground-truth-labelled, deterministic. Evidence only — not a baseline.",
+    "classificationAlgorithmVersion": "cav-1"
+  },
+  "cases": [
+    {
+      "name": "add-classification-independence",
+      "justification": "§1 classification-independence: civ-2 derives identity from rule+subject+location+contextAnchor and EXCLUDES classification/role; the same review item keeps its id whether it is classified new or existing.",
+      "groundTruth": "harmless",
+      "previous": [{ "ruleId": "R-RET-001", "lId": "L0", "matched": "lead", "path": "svc/a.ts", "contextAnchor": "renderHeader", "priorState": "existing" }],
+      "current": [{ "ruleId": "R-RET-001", "lId": "L0", "matched": "lead", "path": "svc/a.ts", "contextAnchor": "renderHeader" }],
+      "renames": []
+    },
+    {
+      "name": "add-verified-rename-continuity",
+      "justification": "§1 verified rename continuity: identity is preserved across a repo-metadata verified rename (filename change alone, same rule/subject/context).",
+      "groundTruth": "harmless",
+      "previous": [{ "ruleId": "R-RET-001", "lId": "L0", "matched": "lead", "path": "svc/old.ts", "contextAnchor": "renderHeader", "priorState": "existing" }],
+      "current": [{ "ruleId": "R-RET-001", "lId": "L0", "matched": "lead", "path": "svc/new.ts", "contextAnchor": "renderHeader" }],
+      "renames": [{ "from": "svc/old.ts", "to": "svc/new.ts", "source": "repo-metadata" }]
+    },
+    {
+      "name": "add-ambiguous-competing-rename",
+      "justification": "§1 ambiguous reopen / competing rename: two verified-rename predecessors resolve to the same target → lineage is not invented → ambiguous by design.",
+      "groundTruth": "ambiguous-by-design",
+      "previous": [
+        { "ruleId": "R-RET-001", "lId": "L0", "matched": "lead", "path": "svc/p.ts", "contextAnchor": "fnX", "priorState": "resolved" },
+        { "ruleId": "R-RET-001", "lId": "L0", "matched": "lead", "path": "svc/q.ts", "contextAnchor": "fnX", "priorState": "resolved" }
+      ],
+      "current": [{ "ruleId": "R-RET-001", "lId": "L0", "matched": "lead", "path": "svc/z.ts", "contextAnchor": "fnX" }],
+      "renames": [
+        { "from": "svc/p.ts", "to": "svc/z.ts", "source": "repo-metadata" },
+        { "from": "svc/q.ts", "to": "svc/z.ts", "source": "repo-metadata" }
+      ]
+    },
+    {
+      "name": "add-reintroduction-reopened",
+      "justification": "§1 reintroduction: a deterministic identity match to a RESOLVED predecessor (same rule/subject/location/context) reopens the candidate → reintroduced (real drift), never silently the same.",
+      "groundTruth": "real-drift",
+      "previous": [{ "ruleId": "R-RET-001", "lId": "L0", "matched": "lead", "path": "svc/r.ts", "contextAnchor": "fnBeta", "priorState": "resolved" }],
+      "current": [{ "ruleId": "R-RET-001", "lId": "L0", "matched": "lead", "path": "svc/r.ts", "contextAnchor": "fnBeta" }],
+      "renames": []
+    },
+    {
+      "name": "add-split-new-occurrence",
+      "justification": "§1 split → migration oneToMany: one existing candidate plus a NEW occurrence at the same rule/subject/location under a different stable context → split; the new occurrence is real drift and must be surfaced.",
+      "groundTruth": "real-drift",
+      "previous": [{ "ruleId": "R-RET-001", "lId": "L0", "matched": "lead", "path": "svc/s.ts", "contextAnchor": "fnGamma", "priorState": "existing" }],
+      "current": [
+        { "ruleId": "R-RET-001", "lId": "L0", "matched": "lead", "path": "svc/s.ts", "contextAnchor": "fnGamma" },
+        { "ruleId": "R-RET-001", "lId": "L0", "matched": "lead", "path": "svc/s.ts", "contextAnchor": "fnDelta" }
+      ],
+      "renames": []
+    },
+    {
+      "name": "add-indistinguishable-duplicates",
+      "justification": "§1 indistinguishable duplicates: two occurrences with identical rule/subject/location and NO distinguishing context → ambiguous by design; civ-2 never fabricates a stable ordinal.",
+      "groundTruth": "ambiguous-by-design",
+      "previous": [],
+      "current": [
+        { "ruleId": "R-HOM-002", "lId": "L5", "matched": "matchKey", "path": "lib/owners.ts", "contextAnchor": null },
+        { "ruleId": "R-HOM-002", "lId": "L5", "matched": "matchKey", "path": "lib/owners.ts", "contextAnchor": null }
+      ],
+      "renames": []
+    },
+    {
+      "name": "add-candidate-identity-version-suspension",
+      "justification": "§1 incompatible identity-version suspension: an accepted candidateIdentityVersion (civ-2) vs a current civ-1 is an identity-version incompatibility → evaluation SUSPENDS before any classification (Increment-2 contract now covers candidateIdentityVersion).",
+      "groundTruth": "suspension",
+      "previous": [{ "ruleId": "R-RET-001", "lId": "L0", "matched": "lead", "path": "svc/v.ts", "contextAnchor": "fnV", "priorState": "existing" }],
+      "current": [{ "ruleId": "R-RET-001", "lId": "L0", "matched": "lead", "path": "svc/v.ts", "contextAnchor": "fnV" }],
+      "compatOverride": { "candidateIdentityVersion": "civ-1" }
+    }
+  ],
+  "migration": {
+    "note": "civ-1 → proposed civ-2 migration scenario exercising all five mapping classifications (§1 split/merge; ambiguity preserved; every old candidate visible). oldIds are civ-1 placeholders (authoritative ids are never altered); linkage + lineageStatus are CONSUMED, never inferred here.",
+    "old": [
+      { "oldId": "C-civ1-same" },
+      { "oldId": "C-civ1-rename" },
+      { "oldId": "C-civ1-split" },
+      { "oldId": "C-civ1-merge-a" },
+      { "oldId": "C-civ1-merge-b" },
+      { "oldId": "C-civ1-unmapped" },
+      { "oldId": "C-civ1-ambiguous" }
+    ],
+    "new": [
+      { "identity": { "rule": { "ruleId": "R-RET-001", "lId": "L0" }, "matched": "lead", "path": "svc/a.ts", "contextAnchor": "renderHeader" } },
+      { "identity": { "rule": { "ruleId": "R-RET-001", "lId": "L0" }, "matched": "lead", "path": "svc/new.ts", "contextAnchor": "renderHeader" } },
+      { "identity": { "rule": { "ruleId": "R-RET-001", "lId": "L0" }, "matched": "lead", "path": "svc/s.ts", "contextAnchor": "fnGamma" } },
+      { "identity": { "rule": { "ruleId": "R-RET-001", "lId": "L0" }, "matched": "lead", "path": "svc/s.ts", "contextAnchor": "fnDelta" } },
+      { "identity": { "rule": { "ruleId": "R-RET-001", "lId": "L0" }, "matched": "lead", "path": "svc/m.ts", "contextAnchor": "fnMerge" } },
+      { "identity": { "rule": { "ruleId": "R-HOM-002", "lId": "L5" }, "matched": "matchKey", "path": "lib/dup.ts", "contextAnchor": null } },
+      { "identity": { "rule": { "ruleId": "R-HOM-002", "lId": "L5" }, "matched": "matchKey", "path": "lib/dup.ts", "contextAnchor": null } }
+    ],
+    "linkage": [
+      { "oldId": "C-civ1-same", "newIndex": 0, "lineageStatus": "sameCandidate" },
+      { "oldId": "C-civ1-rename", "newIndex": 1, "lineageStatus": "renamed" },
+      { "oldId": "C-civ1-split", "newIndex": 2, "lineageStatus": "split" },
+      { "oldId": "C-civ1-split", "newIndex": 3, "lineageStatus": "split" },
+      { "oldId": "C-civ1-merge-a", "newIndex": 4, "lineageStatus": "sameCandidate" },
+      { "oldId": "C-civ1-merge-b", "newIndex": 4, "lineageStatus": "sameCandidate" },
+      { "oldId": "C-civ1-ambiguous", "newIndex": 5, "lineageStatus": "sameCandidate" }
+    ]
+  }
+}
