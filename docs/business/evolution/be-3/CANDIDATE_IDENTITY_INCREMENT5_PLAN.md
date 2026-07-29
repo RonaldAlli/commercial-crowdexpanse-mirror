@@ -64,6 +64,30 @@ JSON (authoritative) + derived report**, containing:
 Every version field from §2 is stamped; the package is byte-identical on rerun and content-addressed to
 the corpus + versions.
 
+### 3a. Evidence Manifest (immutable, in the canonical package)
+
+Every evidence package **must include an immutable Evidence Manifest** so a future evaluation can
+reproduce it exactly. The manifest records every identifier used to produce the package:
+
+```
+Evidence Manifest
+  findingIdentityVersion
+  candidateIdentityVersion
+  classificationAlgorithmVersion
+  migrationSchemaVersion
+  detectorVersion
+  ruleSetHash
+  scopeHash
+  measurementSeriesId
+  baselineTag
+  generatedAt        (deterministic — supplied input, never wall-clock)
+  generatorVersion   (the rerun harness version)
+```
+
+The manifest is part of the **canonical JSON** (content-addressed with the rest of the package),
+**immutable**, and never rewritten — a superseding package carries a new manifest, not an edit. Any
+mismatch between a manifest field and the accepted baseline is a **suspension** trigger (§7).
+
 ## 4. Acceptance questions (evidence answers them; a governed review judges)
 
 1. Are **all known material gaps** from `BE3-BLOCKING-READINESS-EVIDENCE-v1.0` closed?
