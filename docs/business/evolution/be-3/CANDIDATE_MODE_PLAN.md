@@ -41,6 +41,34 @@ classifier** (`existing / candidate-new / moved / ambiguous / resolved`) with **
 FN/evasion gaps to a provable standard is a **precondition for any future blocking mode** (§5), not for
 candidate.
 
+## 1a. Deterministic classification precedence & one-to-one matching (invariant)
+
+Classification is **deterministic** and follows this **fixed precedence** — a finding is classified at
+the first rule that applies, so matching order cannot change the result:
+
+1. **Validate the Prevention Compatibility Contract.** If incompatible → `suspended`; **no
+   classifications are produced.**
+2. **Match exact existing identities** (`(ruleId, file, matched)` + count) → `existing`.
+3. **Match verified file renames/moves** (git rename detection) → `moved`.
+4. **Match canonicalized-path equivalents** (realpath; alias/symlink resolution) → `existing`/`moved`.
+5. **Identify resolved baseline findings** (a baseline occurrence with no surviving current match) →
+   `resolved`.
+6. **Identify unmatched current findings** → `candidate-new`.
+7. **Classify uncertain or competing matches** → `ambiguous`.
+
+**One-to-one matching contract:**
+- one **baseline** occurrence may match **at most one** current occurrence;
+- one **current** occurrence may match **at most one** baseline occurrence;
+- **no many-to-one or one-to-many** pairing is allowed without producing `ambiguous`;
+- classification is **deterministic regardless of filesystem traversal order** (inputs are sorted to a
+  total order before matching);
+- `ambiguous` is **never silently converted** to `existing` or `candidate-new`;
+- **candidate IDs are stable** for identical inputs.
+
+This closes the greedy-matcher hole: a rename or token matcher cannot hide genuine new drift by
+pairing it with the wrong grandfathered occurrence — a contested pairing becomes `ambiguous` (surfaced
+for human judgment), never a silent `existing`.
+
 ## 2. Candidate-mode policy
 
 Candidate mode:
@@ -108,6 +136,10 @@ emergency-bypass process**; and **rollback readiness**. Nothing in this plan aut
 2. **Compatibility contract enforced**, including `findingIdentityVersion`; any mismatch → suspend.
 3. **Case matrix (§1) covered by tests** — each case classifies into the intended
    `existing/candidate-new/moved/ambiguous/resolved`.
+3a. **Precedence + one-to-one enforced (§1a):** classification follows the fixed 7-step precedence;
+   matching is strictly one-to-one; a contested/competing pairing yields `ambiguous` (never a silent
+   `existing`/`candidate-new`); output is invariant under input/traversal order; candidate IDs are
+   stable for identical inputs — all covered by tests.
 4. **Never blocks; never silently reclassifies existing debt;** `ambiguous` → human review signal.
 5. **Append-only audit artifact;** every classification + reviewer decision has an entry + explanation.
 6. **Read-only / in-scope:** no detector/rules/scope change; no CI enforcement; no remediation.
