@@ -1,0 +1,237 @@
+{
+  "candidateIdentityStability": {
+    "baselineEvolution": false,
+    "classificationIndependence": false,
+    "notes": {
+      "baselineEvolution": "no candidateIdentityVersion in the classifier yet; baseline evolution is handled by whole-evaluation suspension, not candidate-id continuity.",
+      "classificationIndependence": "candidateId currently embeds classification+role; a review item changes id when its classification evolves — candidateIdentityVersion should make identity classification-independent.",
+      "renames": "same root cause as classificationIndependence (moved vs existing changes the id)."
+    },
+    "pathCanonicalization": true,
+    "removeReintroduce": true,
+    "renames": false,
+    "repeats": true
+  },
+  "confusion": {
+    "ambiguousExpected": 1,
+    "ambiguousFalseNegatives": 1,
+    "ambiguousFindings": 4,
+    "ambiguousSoft": 0,
+    "byCase": [
+      {
+        "groundTruth": "real-drift",
+        "mode": "candidate",
+        "name": "genuine-new-drift",
+        "outcome": "TP",
+        "summary": {
+          "ambiguous": 0,
+          "candidate-new": 1,
+          "existing": 1,
+          "moved": 0,
+          "resolved": 0,
+          "total": 2
+        }
+      },
+      {
+        "groundTruth": "real-drift",
+        "mode": "candidate",
+        "name": "duplicate-addition",
+        "outcome": "TP",
+        "summary": {
+          "ambiguous": 0,
+          "candidate-new": 1,
+          "existing": 1,
+          "moved": 0,
+          "resolved": 0,
+          "total": 2
+        }
+      },
+      {
+        "groundTruth": "harmless",
+        "mode": "candidate",
+        "name": "harmless-line-movement",
+        "outcome": "TN",
+        "summary": {
+          "ambiguous": 0,
+          "candidate-new": 0,
+          "existing": 2,
+          "moved": 0,
+          "resolved": 0,
+          "total": 2
+        }
+      },
+      {
+        "groundTruth": "harmless",
+        "mode": "candidate",
+        "name": "file-rename",
+        "outcome": "TN",
+        "summary": {
+          "ambiguous": 0,
+          "candidate-new": 0,
+          "existing": 0,
+          "moved": 1,
+          "resolved": 0,
+          "total": 1
+        }
+      },
+      {
+        "groundTruth": "harmless",
+        "mode": "candidate",
+        "name": "path-canonicalization",
+        "outcome": "TN",
+        "summary": {
+          "ambiguous": 0,
+          "candidate-new": 0,
+          "existing": 1,
+          "moved": 0,
+          "resolved": 0,
+          "total": 1
+        }
+      },
+      {
+        "groundTruth": "harmless",
+        "mode": "candidate",
+        "name": "resolved-finding",
+        "outcome": "TN",
+        "summary": {
+          "ambiguous": 0,
+          "candidate-new": 0,
+          "existing": 1,
+          "moved": 0,
+          "resolved": 1,
+          "total": 2
+        }
+      },
+      {
+        "groundTruth": "real-drift",
+        "mode": "candidate",
+        "name": "reintroduced-violation",
+        "outcome": "FN_ambiguous",
+        "summary": {
+          "ambiguous": 1,
+          "candidate-new": 0,
+          "existing": 1,
+          "moved": 0,
+          "resolved": 0,
+          "total": 2
+        }
+      },
+      {
+        "groundTruth": "ambiguous-by-design",
+        "mode": "candidate",
+        "name": "competing-match",
+        "outcome": "ambiguous_expected",
+        "summary": {
+          "ambiguous": 3,
+          "candidate-new": 0,
+          "existing": 0,
+          "moved": 0,
+          "resolved": 0,
+          "total": 3
+        }
+      },
+      {
+        "groundTruth": "suspension",
+        "mode": "suspended",
+        "name": "incompatible-baseline",
+        "outcome": "suspension",
+        "summary": {}
+      }
+    ],
+    "falseNegatives": 1,
+    "falsePositives": 0,
+    "silentFalseNegatives": 0,
+    "trueNegatives": 4,
+    "truePositives": 2,
+    "unclassified": 0
+  },
+  "evaluationSpec": "BE3-BLOCKING-READINESS-v1",
+  "exceptionSimulations": [
+    {
+      "approver": "sim-approver",
+      "auditRef": "a2e9acd64be6",
+      "candidateId": "9786bd4e1e2324b7",
+      "evaluatedAt": "2026-07-30",
+      "expirationDate": "2026-08-01",
+      "outcome": "active(suppressed→logged)",
+      "ruleId": "R-RET-001",
+      "suppressed": true
+    },
+    {
+      "approver": "sim-approver",
+      "auditRef": "40ed34a1159e",
+      "candidateId": "9786bd4e1e2324b7",
+      "evaluatedAt": "2026-08-02",
+      "expirationDate": "2026-08-01",
+      "outcome": "expired→candidate-new",
+      "ruleId": "R-RET-001",
+      "suppressed": false
+    },
+    {
+      "approver": "sim-approver",
+      "auditRef": "2273f3811939",
+      "candidateId": "9786bd4e1e2324b7",
+      "evaluatedAt": "2026-07-30",
+      "expirationDate": "2026-08-01",
+      "outcome": "revoked→candidate-new",
+      "ruleId": "R-RET-001",
+      "suppressed": false
+    }
+  ],
+  "provenance": {
+    "corpusDigest": "9848921578cf321d98d9f2fab12acac60f28f5d6e398830234ff0678e270f21b",
+    "evaluatedAtActive": "2026-07-30",
+    "evaluatedAtExpired": "2026-08-02"
+  },
+  "selfCheck": {
+    "deterministic": true,
+    "note": "classifier re-run on identical input is byte-identical; a determinism failure would itself be a suspension trigger ('classifier behaves unexpectedly')."
+  },
+  "suspensionOutcomes": [
+    {
+      "result": "suspended",
+      "supported": true,
+      "trigger": "detectorVersion changed"
+    },
+    {
+      "result": "suspended",
+      "supported": true,
+      "trigger": "ruleSetHash changed"
+    },
+    {
+      "result": "suspended",
+      "supported": true,
+      "trigger": "scopeHash changed"
+    },
+    {
+      "result": "suspended",
+      "supported": true,
+      "trigger": "measurementSeriesId changed"
+    },
+    {
+      "result": "suspended",
+      "supported": true,
+      "trigger": "findingIdentityVersion changed"
+    },
+    {
+      "note": "candidateIdentityVersion is proposed but not yet a suspension trigger in the classifier (gap for a future increment).",
+      "result": "not-wired",
+      "supported": false,
+      "trigger": "candidateIdentityVersion changed"
+    },
+    {
+      "note": "baselineTag is an accepted-side label, not a current-vs-accepted comparison in the current contract.",
+      "result": "n/a",
+      "supported": false,
+      "trigger": "baselineTag changed"
+    }
+  ],
+  "thresholdPolicy": "NONE — evidence only; no pass/fail threshold is defined or inferred. For governed review.",
+  "versions": {
+    "baselineTag": "be3-candidate-mode-v1.0",
+    "candidateIdentityVersion": "civ-1 (proposed; not yet enforced by the classifier)",
+    "candidateSpec": "BE3-CANDIDATE-v1",
+    "corpusSpec": "BE3-BLOCKING-READINESS-CORPUS-v1",
+    "findingIdentityVersion": "fiv-1"
+  }
+}

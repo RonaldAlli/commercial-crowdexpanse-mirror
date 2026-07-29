@@ -1,0 +1,103 @@
+{
+  "meta": {
+    "corpusSpec": "BE3-BLOCKING-READINESS-CORPUS-v1",
+    "note": "Synthetic, ground-truth-labelled fixtures — NOT the live repository. Each case is deterministic and carries a groundTruth label so false-positive / false-negative can be measured against the existing candidate classifier. Read-only evidence only."
+  },
+  "accepted": {
+    "detectorVersion": "be3-detector-v1.0",
+    "ruleSetHash": "rs-accepted",
+    "scopeHash": "sc-accepted",
+    "measurementSeriesId": "ms-accepted",
+    "baselineTag": "be3-candidate-mode-v1.0",
+    "findingIdentityVersion": "fiv-1"
+  },
+  "currentCompat": {
+    "detectorVersion": "be3-detector-v1.0",
+    "ruleSetHash": "rs-accepted",
+    "scopeHash": "sc-accepted",
+    "measurementSeriesId": "ms-accepted"
+  },
+  "cases": [
+    {
+      "name": "genuine-new-drift",
+      "groundTruth": "real-drift",
+      "baseline": [{ "ruleId": "R-RET-001", "lId": "L0", "file": "a.ts", "line": 10, "matched": "lead" }],
+      "current": [
+        { "ruleId": "R-RET-001", "lId": "L0", "file": "a.ts", "line": 10, "matched": "lead" },
+        { "ruleId": "R-RET-001", "lId": "L0", "file": "a.ts", "line": 30, "matched": "lead" }
+      ]
+    },
+    {
+      "name": "duplicate-addition",
+      "groundTruth": "real-drift",
+      "baseline": [{ "ruleId": "R-HOM-002", "lId": "L5", "file": "b.ts", "line": 5, "matched": "matchKey" }],
+      "current": [
+        { "ruleId": "R-HOM-002", "lId": "L5", "file": "b.ts", "line": 5, "matched": "matchKey" },
+        { "ruleId": "R-HOM-002", "lId": "L5", "file": "b.ts", "line": 25, "matched": "matchKey" }
+      ]
+    },
+    {
+      "name": "harmless-line-movement",
+      "groundTruth": "harmless",
+      "baseline": [
+        { "ruleId": "R-RET-001", "lId": "L0", "file": "c.ts", "line": 10, "matched": "lead" },
+        { "ruleId": "R-RET-001", "lId": "L0", "file": "c.ts", "line": 20, "matched": "lead" }
+      ],
+      "current": [
+        { "ruleId": "R-RET-001", "lId": "L0", "file": "c.ts", "line": 13, "matched": "lead" },
+        { "ruleId": "R-RET-001", "lId": "L0", "file": "c.ts", "line": 23, "matched": "lead" }
+      ]
+    },
+    {
+      "name": "file-rename",
+      "groundTruth": "harmless",
+      "baseline": [{ "ruleId": "R-RET-001", "lId": "L0", "file": "old.ts", "line": 10, "matched": "lead" }],
+      "current": [{ "ruleId": "R-RET-001", "lId": "L0", "file": "new.ts", "line": 10, "matched": "lead" }],
+      "options": { "renames": { "old.ts": "new.ts" } }
+    },
+    {
+      "name": "path-canonicalization",
+      "groundTruth": "harmless",
+      "baseline": [{ "ruleId": "R-RET-001", "lId": "L0", "file": "/x/link/d.ts", "line": 10, "matched": "lead" }],
+      "current": [{ "ruleId": "R-RET-001", "lId": "L0", "file": "/x/real/d.ts", "line": 10, "matched": "lead" }],
+      "options": { "aliases": { "/x/link/d.ts": "/x/real/d.ts" } }
+    },
+    {
+      "name": "resolved-finding",
+      "groundTruth": "harmless",
+      "baseline": [
+        { "ruleId": "R-RET-001", "lId": "L0", "file": "e.ts", "line": 10, "matched": "lead" },
+        { "ruleId": "R-RET-001", "lId": "L0", "file": "e.ts", "line": 30, "matched": "lead" }
+      ],
+      "current": [{ "ruleId": "R-RET-001", "lId": "L0", "file": "e.ts", "line": 10, "matched": "lead" }]
+    },
+    {
+      "name": "reintroduced-violation",
+      "groundTruth": "real-drift",
+      "baseline": [
+        { "ruleId": "R-RET-001", "lId": "L0", "file": "f.ts", "line": 10, "matched": "lead" },
+        { "ruleId": "R-SYN-003", "lId": "L3", "file": "f.ts", "line": 20, "matched": "source" }
+      ],
+      "current": [
+        { "ruleId": "R-SYN-003", "lId": "L3", "file": "f.ts", "line": 20, "matched": "source" },
+        { "ruleId": "R-RET-001", "lId": "L0", "file": "f.ts", "line": 60, "matched": "lead" }
+      ]
+    },
+    {
+      "name": "competing-match",
+      "groundTruth": "ambiguous-by-design",
+      "baseline": [
+        { "ruleId": "R-RET-001", "lId": "L0", "file": "g.ts", "line": 10, "matched": "lead" },
+        { "ruleId": "R-RET-001", "lId": "L0", "file": "g.ts", "line": 12, "matched": "lead" }
+      ],
+      "current": [{ "ruleId": "R-RET-001", "lId": "L0", "file": "g.ts", "line": 11, "matched": "lead" }]
+    },
+    {
+      "name": "incompatible-baseline",
+      "groundTruth": "suspension",
+      "baseline": [{ "ruleId": "R-RET-001", "lId": "L0", "file": "h.ts", "line": 10, "matched": "lead" }],
+      "current": [{ "ruleId": "R-RET-001", "lId": "L0", "file": "h.ts", "line": 10, "matched": "lead" }],
+      "currentCompatOverride": { "ruleSetHash": "rs-DIFFERENT" }
+    }
+  ]
+}
