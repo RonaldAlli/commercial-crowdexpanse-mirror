@@ -15,7 +15,9 @@ import { resolveSellerPromotion } from "@/lib/promote-seller";
 import { OUTREACH_STATUS_OPTIONS } from "@/lib/contact-options";
 import { DISPOSITIONS } from "@/lib/disposition";
 import { promotionView, commsGateView } from "@/lib/workspace-ui/seller-view";
+import { synthesizeSeller } from "@/lib/workspace-ui/synthesis";
 import { SellerRecordView } from "@/components/workspace-ui/seller/SellerRecordView";
+import { SynthesisPanel } from "@/components/workspace-ui/synthesis/SynthesisPanel";
 import { setSellerOutreachStatus } from "@/app/(workspace)/sellers/actions";
 import { recordDisposition } from "@/app/(workspace)/acquire/actions";
 import { logContactTouchAction } from "@/app/(workspace)/contacts/actions";
@@ -54,8 +56,24 @@ export default async function SellerRecordPage({ params }: { params: { id: strin
     propertyIds: seller.properties.map((p) => p.id),
   });
 
+  const checklist = { items: checklistItems, progress: checklistProgress(checklistItems) };
+  const promoView = promotionView(promotion, { canCreateOpportunity, outreachStatus: seller.outreachStatus });
+
+  // Increment 5: deterministic Next Best Action + Missing Information synthesis over the SAME existing
+  // facts already loaded above. Advisory only — it changes no workflow.
+  const synthesis = synthesizeSeller({
+    outreachStatus: seller.outreachStatus,
+    checklist,
+    nextFollowUpAt: seller.nextFollowUpAt,
+    promotion: promoView,
+    hasContact: Boolean(seller.phone || seller.email),
+    now: new Date(),
+  });
+
   return (
-    <SellerRecordView
+    <div className="space-y-5">
+      <SynthesisPanel synthesis={synthesis} idPrefix="seller" />
+      <SellerRecordView
       seller={{
         id: seller.id,
         name: seller.name,
@@ -71,8 +89,8 @@ export default async function SellerRecordPage({ params }: { params: { id: strin
       }}
       owner={seller.owner}
       propertyCount={seller.properties.length}
-      checklist={{ items: checklistItems, progress: checklistProgress(checklistItems) }}
-      promotion={promotionView(promotion, { canCreateOpportunity, outreachStatus: seller.outreachStatus })}
+      checklist={checklist}
+      promotion={promoView}
       gate={commsGateView({
         outreachStatus: seller.outreachStatus,
         doNotCall: seller.doNotCall,
@@ -93,6 +111,7 @@ export default async function SellerRecordPage({ params }: { params: { id: strin
         recordDisposition: recordDisposition.bind(null, seller.id),
         logTouch: logContactTouchAction.bind(null, "seller", seller.id),
       }}
-    />
+      />
+    </div>
   );
 }
