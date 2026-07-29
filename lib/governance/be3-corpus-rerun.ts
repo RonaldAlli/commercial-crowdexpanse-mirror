@@ -300,7 +300,7 @@ export function runRerun(acceptedCorpus: AcceptedCorpus, additions: Additions, p
       candidateIdentityStability: { classificationIndependence: stability.classificationIndependence, renames: stability.renames, repeats: stability.repeats, removeReintroduce: stability.removeReintroduce, pathCanonicalization: stability.pathCanonicalization, baselineEvolution: stability.baselineEvolution },
       candidateIdentityVersionSuspension: suspension.contract.find((c) => c.field === "candidateIdentityVersion")!.result === "suspended" ? "wired" : "not-wired",
     },
-    stabilityDeltas: (["classificationIndependence", "renames", "repeats", "removeReintroduce", "pathCanonicalization", "baselineEvolution"] as const).map((k) => ({ property: k, priorV1_0: prior.candidateIdentityStability[k], hardened: (stability as any)[k], changed: prior.candidateIdentityStability[k] !== (stability as any)[k] })),
+    stabilityDeltas: (["classificationIndependence", "renames", "repeats", "removeReintroduce", "pathCanonicalization", "baselineEvolution"] as const).map((k) => ({ property: k, priorV1_0: prior.candidateIdentityStability[k], hardened: (stability as Record<string, unknown>)[k], changed: prior.candidateIdentityStability[k] !== (stability as Record<string, unknown>)[k] })),
   };
 
   // Governance questions (ANSWERED with evidence; NOT judged) ----------------------------------------

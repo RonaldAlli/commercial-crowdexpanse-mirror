@@ -151,7 +151,7 @@ export function evaluate(corpus: Corpus, opts: { evaluatedAtActive: string; eval
   const base = corpus.cases.find((c) => c.name === "genuine-new-drift")!;
   const suspendTrigger = (override: Partial<CompatCurrent> | { findingIdentityVersion: string }): boolean => {
     if ("findingIdentityVersion" in override) {
-      const r = runCandidate({ current: { compat: cur, findings: base.current }, baseline: { findings: base.baseline }, accepted: { ...acc, findingIdentityVersion: (override as any).findingIdentityVersion }, options: {} });
+      const r = runCandidate({ current: { compat: cur, findings: base.current }, baseline: { findings: base.baseline }, accepted: { ...acc, findingIdentityVersion: (override as { findingIdentityVersion: string }).findingIdentityVersion }, options: {} });
       return r.mode === "suspended";
     }
     const r = runCandidate({ current: { compat: { ...cur, ...(override as Partial<CompatCurrent>) }, findings: base.current }, baseline: { findings: base.baseline }, accepted: acc, options: {} });
@@ -214,7 +214,7 @@ export function renderEvidenceReport(ev: ReturnType<typeof evaluate>): string {
   for (const x of c.byCase) L.push(`  ${x.name} [${x.groundTruth}] → ${x.outcome}`);
   L.push("");
   L.push("Candidate-identity stability:");
-  for (const k of ["classificationIndependence", "renames", "repeats", "removeReintroduce", "pathCanonicalization", "baselineEvolution"] as const) L.push(`  ${k}: ${(ev.candidateIdentityStability as any)[k]}`);
+  for (const k of ["classificationIndependence", "renames", "repeats", "removeReintroduce", "pathCanonicalization", "baselineEvolution"] as const) L.push(`  ${k}: ${(ev.candidateIdentityStability as Record<string, unknown>)[k]}`);
   L.push("");
   L.push("Exception simulations:");
   for (const e of ev.exceptionSimulations) L.push(`  ${e.ruleId} ${e.candidateId} @${e.evaluatedAt} → ${e.outcome}`);
