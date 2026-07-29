@@ -1,0 +1,8 @@
+[
+  { "rule": { "ruleId": "R-RET-001", "lId": "L0" }, "matched": "lead", "path": "app/a.ts", "contextAnchor": "renderHeader" },
+  { "rule": { "ruleId": "R-RET-001", "lId": "L0" }, "matched": "lead", "path": "app/a.ts", "contextAnchor": "renderFooter" },
+  { "rule": { "ruleId": "R-HOM-002", "lId": "L5" }, "matched": "matchKey", "path": "lib/owners.ts" },
+  { "rule": { "ruleId": "R-HOM-002", "lId": "L5" }, "matched": "matchKey", "path": "lib/owners.ts" },
+  { "rule": { "ruleId": "R-RET-001", "ruleAlias": "R-UNKNOWN" }, "matched": "lead", "path": "app/b.ts" },
+  { "rule": { "ruleId": "R-RET-001", "lId": "L0" }, "matched": "lead", "path": "../escape.ts" }
+]
