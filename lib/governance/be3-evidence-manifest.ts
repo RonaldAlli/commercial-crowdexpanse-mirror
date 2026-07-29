@@ -69,9 +69,9 @@ export function constructManifest(input: Record<string, unknown>): ConstructResu
     if (v === undefined || v === null) return { status: "rejected", reason: `missing required field '${f}'` };
     if (typeof v !== "string" || v === "") return { status: "rejected", reason: `field '${f}' must be a non-empty string` };
     if (v.includes(US)) return { status: "rejected", reason: `field '${f}' contains reserved delimiter` };
-    (out as any)[f] = v;
+    (out as Record<string, string>)[f] = v;
   }
-  if (!SUPPORTED_MIGRATION_SCHEMA_VERSIONS.includes(out.migrationSchemaVersion as any)) {
+  if (!(SUPPORTED_MIGRATION_SCHEMA_VERSIONS as readonly string[]).includes(out.migrationSchemaVersion)) {
     return { status: "rejected", reason: `unsupported migrationSchemaVersion '${out.migrationSchemaVersion}' (supported: ${SUPPORTED_MIGRATION_SCHEMA_VERSIONS.join(", ")}) — no automatic schema upgrade` };
   }
   return { status: "ok", manifest: Object.freeze(out) };
