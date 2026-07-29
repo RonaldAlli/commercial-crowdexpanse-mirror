@@ -64,7 +64,7 @@ function findingsOf(doc: any): Finding[] {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const measurement = loadJson(args.acceptedMeasurement);
+  const measurement = loadJson(args.acceptedMeasurement!); // parseArgs guarantees presence (usage-exit otherwise)
   const series = measurement.series ?? {};
   const accepted = {
     detectorVersion: String(series.detectorVersion),
@@ -83,8 +83,8 @@ function main() {
     measurementSeriesId: accepted.measurementSeriesId,
   };
   const input: CandidateInput = {
-    current: { compat: curCompat, findings: findingsOf(loadJson(args.current)) },
-    baseline: { findings: findingsOf(loadJson(args.baselineFindings)) },
+    current: { compat: curCompat, findings: findingsOf(loadJson(args.current!)) },
+    baseline: { findings: findingsOf(loadJson(args.baselineFindings!)) },
     accepted,
     options: { renames: args.renames, aliases: args.aliases, recreatedFiles: args.recreated },
   };

@@ -90,7 +90,9 @@ function readJsonFile<T>(path: string) {
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const detectorReport = readJsonFile<DetectorReport>(args.inputPath);
-  const previousMeasurement = args.previousPath ? readJsonFile(args.previousPath) : undefined;
+  const previousMeasurement = args.previousPath
+    ? readJsonFile<NonNullable<Parameters<typeof runBe3Measurement>[0]["previousMeasurement"]>>(args.previousPath)
+    : undefined;
   const report = runBe3Measurement({
     baseline: {
       errorFindingCount: args.baselineErrors,
