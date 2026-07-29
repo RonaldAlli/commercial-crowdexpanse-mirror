@@ -16,7 +16,9 @@ import { getClosingGateStatus } from "@/lib/closing-service";
 import { getOpportunityTimeline } from "@/lib/transaction-timeline-service";
 import { listGeneratedAgreements } from "@/lib/documents/assignment-agreement-service";
 import { nextStageOf, stageReadinessView, crossLink } from "@/lib/workspace-ui/opportunity-view";
+import { synthesizeOpportunity } from "@/lib/workspace-ui/synthesis";
 import { OpportunityWorkspace } from "@/components/workspace-ui/opportunity/OpportunityWorkspace";
+import { SynthesisPanel } from "@/components/workspace-ui/synthesis/SynthesisPanel";
 import { moveOpportunityStage, evaluateStageMove } from "@/app/(workspace)/opportunities/actions";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +56,16 @@ export default async function OpportunityWorkspacePage({
   const next = nextStageOf(opp.stage);
   const nextEval = next ? await evaluateStageMove(opp.id, next) : null;
 
+  const diligence = summarizeDiligence(diligenceItems);
+
+  // Increment 5: deterministic Next Best Action + Missing Information synthesis over the SAME existing
+  // facts already loaded above (stage evaluation, diligence, closing gate). Advisory only.
+  const synthesis = synthesizeOpportunity({
+    stageEval: nextEval,
+    diligence: { missing: diligence.missing, total: diligence.total, readyForUnderwriting: diligence.readyForUnderwriting },
+    closing: { ready: gate.ready, blockerLabels: gate.blockingLabels },
+  });
+
   const crossLinks = [
     crossLink("Seller", opp.seller ? `/seller-queue/${opp.seller.id}` : null, opp.seller ? "View seller" : "None"),
     crossLink("Property", opp.property ? `/properties/${opp.property.id}` : null, opp.property ? "View property" : "None"),
@@ -64,7 +76,9 @@ export default async function OpportunityWorkspacePage({
   ];
 
   return (
-    <OpportunityWorkspace
+    <div className="space-y-5">
+      <SynthesisPanel synthesis={synthesis} idPrefix="opportunity" />
+      <OpportunityWorkspace
       opportunity={{
         id: opp.id,
         title: opp.title,
@@ -77,7 +91,7 @@ export default async function OpportunityWorkspacePage({
       }}
       seller={opp.seller}
       property={opp.property}
-      diligence={summarizeDiligence(diligenceItems)}
+      diligence={diligence}
       gate={gate}
       stageReadiness={stageReadinessView(nextEval)}
       crossLinks={crossLinks}
@@ -86,6 +100,7 @@ export default async function OpportunityWorkspacePage({
       stageOptions={STAGE_OPTIONS}
       stageAction={moveOpportunityStage.bind(null, opp.id)}
       stageEvaluate={evaluateStageMove.bind(null, opp.id)}
-    />
+      />
+    </div>
   );
 }
