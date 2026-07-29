@@ -1,0 +1,14 @@
+{
+  // Dedicated type-check for the tsx-executed tooling under scripts/ (excluded from the Next
+  // application build's tsconfig, but NOT left unchecked). Inherits the app compiler options
+  // (target es2017, strict, @/* paths). allowImportingTsExtensions is enabled ONLY here — the
+  // diagnostic CLIs are run via tsx and import lib modules with explicit .ts extensions; it is
+  // never enabled in the production-emitting application config. noEmit is inherited.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": ["scripts/**/*.ts"],
+  "exclude": ["node_modules"]
+}
