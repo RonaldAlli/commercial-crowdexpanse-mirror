@@ -14,7 +14,9 @@ import { PageHeader } from "@/components/workspace-ui/PageHeader";
 import { WorkspaceSection } from "@/components/workspace-ui/WorkspaceSection";
 import { StateBlock } from "@/components/workspace-ui/StateBlock";
 import { TaxonomyBadge } from "@/components/workspace-ui/TaxonomyBadge";
+import { MissingAssumptionsPanel } from "@/components/workspace-ui/guided-underwriting/MissingAssumptionsPanel";
 import type { GuidedUnderwritingView } from "@/lib/workspace-ui/guided-underwriting";
+import type { GuidedAssumptionsView } from "@/lib/workspace-ui/guided-underwriting-assumptions";
 
 function AdvancedAnalysisLink({ opportunityId }: { opportunityId: string }) {
   return (
@@ -30,13 +32,22 @@ function AdvancedAnalysisLink({ opportunityId }: { opportunityId: string }) {
 
 export function GuidedUnderwritingWorkspace({
   view,
+  assumptions,
   opportunityId,
   opportunityName,
 }: {
   view: GuidedUnderwritingView;
+  /** Increment 2: the four-state missing-assumption view. Optional so Increment 1 rendering is unchanged. */
+  assumptions?: GuidedAssumptionsView;
   opportunityId: string;
   opportunityName: string;
 }) {
+  const completeness =
+    assumptions?.state === "present"
+      ? assumptions.summary.missing === 0 && assumptions.summary.incomplete === 0
+        ? "All expected inputs present"
+        : `${assumptions.summary.missing} input(s) missing · ${assumptions.summary.incomplete} with incomplete provenance`
+      : null;
   return (
     <div>
       <PageHeader
@@ -87,8 +98,16 @@ export function GuidedUnderwritingWorkspace({
               ) : (
                 <p className="text-sm text-slate-500">No decisive constraint identified.</p>
               )}
+              {completeness ? (
+                <p className="text-sm text-slate-500">
+                  Input completeness: <span className="font-medium text-slate-700">{completeness}</span>
+                </p>
+              ) : null}
             </div>
           </WorkspaceSection>
+
+          {/* Increment 2: what's preventing a complete answer — after the summary, before the metrics. */}
+          {assumptions ? <MissingAssumptionsPanel assumptions={assumptions} /> : null}
 
           {/* Supporting metrics — beneath the summary. */}
           <WorkspaceSection title="Supporting metrics" id="metrics" actions={<TaxonomyBadge kind="computed" />}>

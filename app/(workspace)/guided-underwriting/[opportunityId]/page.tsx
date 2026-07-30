@@ -12,6 +12,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getActiveScenarioResult } from "@/lib/underwriting";
 import { buildGuidedUnderwritingView, type GuidedScenarioInput } from "@/lib/workspace-ui/guided-underwriting";
+import { buildGuidedAssumptionsView, type AssumptionRowInput } from "@/lib/workspace-ui/guided-underwriting-assumptions";
 import { GuidedUnderwritingWorkspace } from "@/components/workspace-ui/guided-underwriting/GuidedUnderwritingWorkspace";
 
 export const dynamic = "force-dynamic";
@@ -66,5 +67,26 @@ export default async function GuidedUnderwritingPage({ params }: { params: { opp
     scenario: scenarioInput,
   });
 
-  return <GuidedUnderwritingWorkspace view={view} opportunityId={opp.id} opportunityName={opp.title} />;
+  // Increment 2: classify the EXISTING assumption set (scenario operating + primary financing-case capital)
+  // into the four-state missing-information model, reading provenance verbatim (never inferred).
+  const toRow = (a: { key: string; source: string | null; sourceField: string | null; sourceAsOf: Date | null }): AssumptionRowInput => ({
+    key: a.key,
+    provenance: { source: a.source, sourceField: a.sourceField, sourceAsOf: a.sourceAsOf ? a.sourceAsOf.toISOString() : null },
+  });
+  const primaryFc = scenario?.financingCases[0] ?? null;
+  const assumptions = buildGuidedAssumptionsView({
+    hasScenario: !!scenario,
+    hasFinancingCase: !!primaryFc,
+    scenarioAssumptions: (scenario?.assumptions ?? []).map(toRow),
+    capitalAssumptions: (primaryFc?.capitalAssumptions ?? []).map(toRow),
+  });
+
+  return (
+    <GuidedUnderwritingWorkspace
+      view={view}
+      assumptions={assumptions}
+      opportunityId={opp.id}
+      opportunityName={opp.title}
+    />
+  );
 }

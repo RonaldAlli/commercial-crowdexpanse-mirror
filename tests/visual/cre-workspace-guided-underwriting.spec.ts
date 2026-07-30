@@ -62,12 +62,48 @@ test.describe("Guided Underwriting — desktop (ADMIN)", () => {
   });
 });
 
+test.describe("Guided Underwriting — Increment 2 missing assumptions (ADMIN, desktop)", () => {
+  test.use({ viewport: DESKTOP });
+
+  test("missing-info section is grouped, four-state, with provenance — and the summary stays FIRST", async ({ page }) => {
+    await page.goto(`/guided-underwriting/${M.opportunities.active}`);
+    const summaryH = page.getByRole("heading", { name: "Structurability summary" });
+    const missingH = page.getByRole("heading", { name: "What information is preventing a complete answer?" });
+    await expect(summaryH).toBeVisible();
+    await expect(missingH).toBeVisible();
+    // Executive Summary remains the entry point — it appears ABOVE the missing-info section.
+    expect((await summaryH.boundingBox())!.y).toBeLessThan((await missingH.boundingBox())!.y);
+
+    // Operational grouping from existing key-sets.
+    for (const g of ["Core underwriting inputs", "Projection", "Debt & capital"]) {
+      await expect(page.getByRole("heading", { name: g })).toBeVisible();
+    }
+    // Four distinct states present (seed: PURCHASE_PRICE complete, GROSS_INCOME incomplete, others missing).
+    await expect(page.getByText("Complete").first()).toBeVisible();
+    await expect(page.getByText("Incomplete").first()).toBeVisible();
+    await expect(page.getByText("Missing").first()).toBeVisible();
+    // Provenance rendered for present values; honest "no value" for absent ones — never fabricated.
+    await expect(page.getByText(/Source:/).first()).toBeVisible();
+    await expect(page.getByText("MANUAL").first()).toBeVisible();
+    await expect(page.getByText(/No value on file/).first()).toBeVisible();
+    // Completeness enriches (not replaces) the summary.
+    await expect(page.getByText(/input\(s\) missing/)).toBeVisible();
+  });
+
+  test("no underwriting: the missing-info section is absent (honest), not fabricated", async ({ page }) => {
+    await page.goto(`/guided-underwriting/${M.opportunities.empty}`);
+    expect(await page.getByRole("heading", { name: "What information is preventing a complete answer?" }).count()).toBe(0);
+  });
+});
+
 test.describe("Guided Underwriting — mobile (ADMIN)", () => {
   test.use({ viewport: MOBILE });
 
-  test("narrow viewport: summary + analyzer link reachable, no horizontal overflow", async ({ page }) => {
+  test("narrow viewport: summary + missing-info + analyzer link reachable, no horizontal overflow", async ({ page }) => {
     await page.goto(`/guided-underwriting/${M.opportunities.active}`);
     await expect(page.getByText("Structurable: Conditional").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What information is preventing a complete answer?" })).toBeVisible();
+    await expect(page.getByText(/Source:/).first()).toBeVisible(); // provenance readable on mobile
     await expect(page.getByRole("link", { name: "Advanced analysis" }).first()).toBeVisible();
     await expectNoHorizontalOverflow(page);
   });

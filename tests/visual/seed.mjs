@@ -134,6 +134,18 @@ async function main() {
   await prisma.scenarioFinding.create({
     data: { organizationId: org.id, scenarioId: scenario.id, code: "THIN_DEBT_YIELD", category: "FINANCING", severity: "WARNING", decisive: true, title: "Thin debt yield (Senior Debt)", detail: "Debt yield is under 8%.", position: 0 },
   });
+  // A few persisted assumptions (M2 Increment 2) exercising the four-state model: PURCHASE_PRICE has full
+  // provenance (complete); GROSS_INCOME has a value but partial provenance (incomplete); OPERATING_EXPENSES
+  // etc. are left absent (missing). A capital assumption on the financing case shows the Debt group.
+  await prisma.underwritingAssumption.create({
+    data: { organizationId: org.id, scenarioId: scenario.id, key: "PURCHASE_PRICE", valueNumeric: 6500000, source: "MANUAL", sourceField: "purchasePriceUsd", sourceAsOf: new Date("2026-07-01T00:00:00.000Z") },
+  });
+  await prisma.underwritingAssumption.create({
+    data: { organizationId: org.id, scenarioId: scenario.id, key: "GROSS_INCOME", valueNumeric: 900000, source: "MANUAL" }, // no sourceField / sourceAsOf -> incomplete provenance
+  });
+  await prisma.financingAssumption.create({
+    data: { organizationId: org.id, financingCaseId: fc.id, key: "LOAN_AMOUNT", valueNumeric: 4200000, source: "MANUAL", sourceField: "loanAmountUsd", sourceAsOf: new Date("2026-07-01T00:00:00.000Z") },
+  });
   // Assignment in the DRAFTED state (with a generated draft + long assignee to exercise wrapping);
   // an ADMIN viewer sees the Execute control, a non-admin sees the admin-only note.
   await prisma.opportunity.update({ where: { id: active.id }, data: { contractValueUsd: 6_500_000, assignmentFeeUsd: 185_000 } });
