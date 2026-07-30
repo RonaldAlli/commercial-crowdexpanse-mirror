@@ -122,6 +122,18 @@ async function main() {
   await prisma.financingCaseResult.create({
     data: { organizationId: org.id, financingCaseId: fc.id, financingCaseVersion: "visual-seed-fc-v1", calcLibVersion: 1, sizedLoanUsd: 4200000, dscr: 1.35, debtYieldPct: 9.2, bindingConstraint: "DSCR" },
   });
+  // Persisted operating result + engine recommendation + a decisive finding, so the M2-Increment-1 Guided
+  // Underwriting Executive Structurability Summary renders a real verdict (Conditional) with a primary
+  // constraint and supporting metrics. All raw persisted outputs — the workspace only presents them.
+  await prisma.scenarioResult.create({
+    data: { organizationId: org.id, scenarioId: scenario.id, scenarioVersion: "visual-seed-scenario-v1", calcLibVersion: 1, allInCostUsd: 6500000, noiAnnualUsd: 780000, capRate: 6.2, pricePerUnitUsd: 145000 },
+  });
+  await prisma.scenarioRecommendation.create({
+    data: { organizationId: org.id, scenarioId: scenario.id, level: "PROCEED_WITH_CONDITIONS", findingsVersion: "visual-seed-findings-v1", rulesetVersion: 1 },
+  });
+  await prisma.scenarioFinding.create({
+    data: { organizationId: org.id, scenarioId: scenario.id, code: "THIN_DEBT_YIELD", category: "FINANCING", severity: "WARNING", decisive: true, title: "Thin debt yield (Senior Debt)", detail: "Debt yield is under 8%.", position: 0 },
+  });
   // Assignment in the DRAFTED state (with a generated draft + long assignee to exercise wrapping);
   // an ADMIN viewer sees the Execute control, a non-admin sees the admin-only note.
   await prisma.opportunity.update({ where: { id: active.id }, data: { contractValueUsd: 6_500_000, assignmentFeeUsd: 185_000 } });
