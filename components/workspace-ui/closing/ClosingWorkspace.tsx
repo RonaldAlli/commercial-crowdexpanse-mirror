@@ -1,0 +1,115 @@
+// CRE Operating Workspace — Closing Workspace, Increment 1: Executive Closing Summary view.
+//
+// Presentational + READ-ONLY. Answers "Can this transaction close?" — the verdict FIRST, then four visually
+// distinct domain panels (Checklist / Escrow / Financing / Assignment — Domain Progression), then the existing
+// primary blockers, then a prominent deep-link to the Closing Console (/opportunities/[id]) which remains the
+// authoritative execution surface. It renders no editing controls and performs no closing mutations.
+
+import Link from "next/link";
+
+import { Icon } from "@/components/icons";
+import { PageHeader } from "@/components/workspace-ui/PageHeader";
+import { WorkspaceSection } from "@/components/workspace-ui/WorkspaceSection";
+import { TaxonomyBadge } from "@/components/workspace-ui/TaxonomyBadge";
+import type { ClosingWorkspaceView, DomainView } from "@/lib/workspace-ui/closing-workspace";
+
+const STATE_TONE: Record<DomainView["state"], string> = {
+  resolved: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  "in-progress": "bg-amber-50 text-amber-800 ring-amber-200",
+  "not-started": "bg-slate-100 text-slate-600 ring-slate-200",
+};
+
+function ConsoleLink({ opportunityId }: { opportunityId: string }) {
+  return (
+    <Link
+      href={`/opportunities/${opportunityId}`}
+      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+    >
+      <Icon name="check" className="h-4 w-4 text-slate-400" aria-hidden="true" />
+      <span>Open Closing Console</span>
+    </Link>
+  );
+}
+
+function DomainPanel({ d }: { d: DomainView }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4" aria-labelledby={`closing-domain-${d.key}`}>
+      <div className="flex items-center justify-between gap-2">
+        <h3 id={`closing-domain-${d.key}`} className="text-sm font-semibold text-slate-900">{d.title}</h3>
+        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${STATE_TONE[d.state]}`}>
+          {d.stateLabel}
+        </span>
+      </div>
+      <p className="mt-1 text-sm text-slate-600 break-words">{d.statusLabel}</p>
+    </div>
+  );
+}
+
+export function ClosingWorkspace({
+  view,
+  opportunityId,
+  opportunityName,
+}: {
+  view: ClosingWorkspaceView;
+  opportunityId: string;
+  opportunityName: string;
+}) {
+  const { verdict, readiness, domains, blockers } = view;
+
+  return (
+    <div>
+      <PageHeader
+        title="Closing"
+        description={`${opportunityName} — can this transaction close?`}
+        actions={<ConsoleLink opportunityId={opportunityId} />}
+      />
+
+      <div className="space-y-4">
+        {/* Executive Closing Summary — the operator's answer FIRST. */}
+        <WorkspaceSection title="Executive closing summary" id="closing-summary" actions={<TaxonomyBadge kind="recommended" />}>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className={`inline-flex items-center rounded-lg px-3 py-1.5 text-base font-semibold ring-1 ${verdict.toneClass}`}>
+                Closeable: {verdict.label}
+              </span>
+              <span className="sr-only">{verdict.srLabel}</span>
+              {readiness ? (
+                <span className="text-sm text-slate-600">
+                  Checklist: <span className="font-medium text-slate-900">{readiness.requiredSatisfied}/{readiness.requiredTotal}</span> required complete
+                </span>
+              ) : null}
+            </div>
+            {verdict.explanation ? <p className="text-sm text-slate-600 break-words">{verdict.explanation}</p> : null}
+          </div>
+        </WorkspaceSection>
+
+        {/* Domain readiness — four visually distinct domains (Domain Progression). */}
+        <WorkspaceSection title="Domain readiness" id="closing-domains" actions={<TaxonomyBadge kind="observed" />}>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {domains.map((d) => <DomainPanel key={d.key} d={d} />)}
+          </div>
+        </WorkspaceSection>
+
+        {/* Primary blockers — existing only, persisted order, never reprioritized. */}
+        <WorkspaceSection title="Primary blockers" id="closing-blockers" actions={<TaxonomyBadge kind="observed" />}>
+          {blockers.length === 0 ? (
+            <p className="text-sm italic text-slate-400">No outstanding blockers.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {blockers.map((b, i) => (
+                <li key={i} className="py-2 text-sm text-slate-700 break-words">{b}</li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-4 text-xs text-slate-400">
+            Closing work — completing items, resolving escrow / financing / assignment — happens in the{" "}
+            <Link href={`/opportunities/${opportunityId}`} className="font-medium text-brand-600 underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+              Closing Console
+            </Link>
+            . This workspace is read-only.
+          </p>
+        </WorkspaceSection>
+      </div>
+    </div>
+  );
+}
