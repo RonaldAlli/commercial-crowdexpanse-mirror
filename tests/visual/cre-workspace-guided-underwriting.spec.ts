@@ -147,7 +147,11 @@ test.describe("Guided Underwriting — Increment 4 integration + discoverability
   });
 
   test("honest entry: an opportunity with no underwriting shows the label but NOT a Guided Underwriting link", async ({ page }) => {
-    await page.goto(`/opportunity-workspace/${M.opportunities.empty}`);
+    // Use `terminal`: it has NO underwriting (so the cross-link is honestly unavailable) AND is already
+    // non-pristine (a complete closing checklist). The Opportunity Workspace lazily initialises closing/
+    // diligence on GET, so visiting a PRISTINE opportunity (e.g. `empty`) would mutate shared fixture state
+    // that the closing/transaction specs rely on. Visiting `terminal` is idempotent and cannot pollute. (RB-1)
+    await page.goto(`/opportunity-workspace/${M.opportunities.terminal}`);
     await expect(page.getByText("Guided underwriting")).toBeVisible(); // label present
     expect(await page.getByRole("link", { name: /Guided underwriting/ }).count(), "no link when no underwriting").toBe(0);
   });
