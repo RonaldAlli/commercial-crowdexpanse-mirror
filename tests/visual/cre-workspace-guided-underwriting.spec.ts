@@ -13,6 +13,7 @@ test.beforeAll(() => { M = manifest(); });
 test.use({ storageState: authFile("admin") });
 
 const DESKTOP = { width: 1440, height: 1000 };
+const TABLET = { width: 768, height: 1024 };
 const MOBILE = { width: 390, height: 844 };
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -128,6 +129,64 @@ test.describe("Guided Underwriting — Increment 3 decision contrast + history (
     await page.goto(`/guided-underwriting/${M.opportunities.empty}`);
     expect(await page.getByRole("heading", { name: "Why is this recommended?" }).count()).toBe(0);
     expect(await page.getByRole("heading", { name: "Decision history" }).count()).toBe(0);
+  });
+});
+
+test.describe("Guided Underwriting — Increment 4 integration + discoverability + a11y (ADMIN, desktop)", () => {
+  test.use({ viewport: DESKTOP });
+
+  test("workflow continuity: Opportunity Workspace -> Guided Underwriting -> Advanced Analysis (no dead ends)", async ({ page }) => {
+    await page.goto(`/opportunity-workspace/${M.opportunities.active}`);
+    const entry = page.getByRole("link", { name: /Guided underwriting/ });
+    await expect(entry).toBeVisible();
+    await entry.click();
+    await expect(page).toHaveURL(new RegExp(`/guided-underwriting/${M.opportunities.active}`));
+    // onward to the authoritative analyzer
+    await page.getByRole("link", { name: "Advanced analysis" }).first().click();
+    await expect(page).toHaveURL(new RegExp(`/analyzer/${M.opportunities.active}`));
+  });
+
+  test("honest entry: an opportunity with no underwriting shows the label but NOT a Guided Underwriting link", async ({ page }) => {
+    await page.goto(`/opportunity-workspace/${M.opportunities.empty}`);
+    await expect(page.getByText("Guided underwriting")).toBeVisible(); // label present
+    expect(await page.getByRole("link", { name: /Guided underwriting/ }).count(), "no link when no underwriting").toBe(0);
+  });
+
+  test("complete section order: Summary -> Missing -> Why -> History -> Supporting metrics", async ({ page }) => {
+    await page.goto(`/guided-underwriting/${M.opportunities.active}`);
+    const headings = [
+      "Structurability summary",
+      "What information is preventing a complete answer?",
+      "Why is this recommended?",
+      "Decision history",
+      "Supporting metrics",
+    ];
+    const ys: number[] = [];
+    for (const name of headings) ys.push((await page.getByRole("heading", { name }).boundingBox())!.y);
+    for (let i = 1; i < ys.length; i++) expect(ys[i], `${headings[i]} below ${headings[i - 1]}`).toBeGreaterThan(ys[i - 1]);
+  });
+
+  test("accessibility: single h1, section headings at level 2, main landmark, keyboard-reachable handoff", async ({ page }) => {
+    await page.goto(`/guided-underwriting/${M.opportunities.active}`);
+    expect(await page.getByRole("heading", { level: 1 }).count()).toBe(1);
+    await expect(page.getByRole("heading", { level: 1, name: "Guided Underwriting" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Decision history" })).toBeVisible();
+    await expect(page.getByRole("main")).toBeVisible();
+    const link = page.getByRole("link", { name: "Advanced analysis" }).first();
+    await link.focus();
+    await expect(link).toBeFocused();
+  });
+});
+
+test.describe("Guided Underwriting — Increment 4 responsive (ADMIN, tablet)", () => {
+  test.use({ viewport: TABLET });
+
+  test("tablet: summary + decision history reachable, section order maintained, no horizontal overflow", async ({ page }) => {
+    await page.goto(`/guided-underwriting/${M.opportunities.active}`);
+    const summaryY = (await page.getByRole("heading", { name: "Structurability summary" }).boundingBox())!.y;
+    const historyY = (await page.getByRole("heading", { name: "Decision history" }).boundingBox())!.y;
+    expect(summaryY).toBeLessThan(historyY); // order preserved
+    await expectNoHorizontalOverflow(page);
   });
 });
 
