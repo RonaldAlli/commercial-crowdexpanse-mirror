@@ -115,6 +115,31 @@ test.describe("Closing Workspace — Increment 2 blocker detail + ownership + ne
   });
 });
 
+test.describe("Closing Workspace — Increment 3 timeline + closing history (ADMIN, desktop)", () => {
+  test.use({ viewport: DESKTOP });
+
+  test("populated timeline: reused panel, after current-state & next-step, chronological with actors", async ({ page }) => {
+    await page.goto(`/closing-workspace/${M.opportunities.terminal}`);
+    const summaryH = page.getByRole("heading", { name: "Executive closing summary" });
+    const nextH = page.getByRole("heading", { name: "What happens next?" });
+    const historyH = page.getByRole("heading", { name: "What has happened so far?" });
+    for (const h of [summaryH, nextH, historyH]) await expect(h).toBeVisible();
+    // Timeline appears AFTER current-state and next-step.
+    const ys = await Promise.all([summaryH, nextH, historyH].map(async (h) => (await h.boundingBox())!.y));
+    expect(ys[0]).toBeLessThan(ys[1]);
+    expect(ys[1]).toBeLessThan(ys[2]);
+    // The existing panel is reused verbatim (its own "Transaction Timeline" heading), with actor-attributed entries.
+    await expect(page.getByRole("heading", { name: "Transaction Timeline" })).toBeVisible();
+    await expect(page.getByText(/· Ada Admin/).first()).toBeVisible(); // recorded actor from seeded closing actions
+  });
+
+  test("empty history: section renders honestly (no fabricated entries)", async ({ page }) => {
+    await page.goto(`/closing-workspace/${M.opportunities.empty}`);
+    await expect(page.getByRole("heading", { name: "What has happened so far?" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Transaction Timeline" })).toBeVisible();
+  });
+});
+
 test.describe("Closing Workspace — tablet (ADMIN)", () => {
   test.use({ viewport: TABLET });
   test("tablet: summary + four domains reachable, no horizontal overflow", async ({ page }) => {

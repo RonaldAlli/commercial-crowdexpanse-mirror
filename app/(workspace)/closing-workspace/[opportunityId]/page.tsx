@@ -15,6 +15,7 @@ import { getClosingChecklist } from "@/lib/closing-service";
 import { getEscrowRecord } from "@/lib/escrow-service";
 import { getFinancingRecord } from "@/lib/financing-service";
 import { getAssignmentRecord } from "@/lib/assignment-service";
+import { getOpportunityTimeline } from "@/lib/transaction-timeline-service";
 import { closingReadinessSummary, blockingItems } from "@/lib/closing";
 import { isTerminalEscrowStatus, escrowStatusLabel } from "@/lib/escrow";
 import { isTerminalFinancingStatus, financingStatusLabel } from "@/lib/financing";
@@ -26,7 +27,13 @@ import { ClosingWorkspace } from "@/components/workspace-ui/closing/ClosingWorks
 
 export const dynamic = "force-dynamic";
 
-export default async function ClosingWorkspacePage({ params }: { params: { opportunityId: string } }) {
+export default async function ClosingWorkspacePage({
+  params,
+  searchParams,
+}: {
+  params: { opportunityId: string };
+  searchParams?: { tlorder?: string; tlpage?: string };
+}) {
   const user = await requireUser();
   const org = user.organizationId;
 
@@ -110,5 +117,20 @@ export default async function ClosingWorkspacePage({ params }: { params: { oppor
     nextMilestone: nextMilestone ? { label: nextMilestone.label, dateIso: nextMilestone.dateIso, overdue: nextMilestone.overdue } : null,
   });
 
-  return <ClosingWorkspace view={view} blockersDetail={blockersDetail} opportunityId={opp.id} opportunityName={opp.title} />;
+  // Increment 3: closing history — reuse the existing transaction timeline (chronological, paginated,
+  // actor-resolved, evidence-referenced). No new timeline logic.
+  const order = searchParams?.tlorder === "oldest" ? "oldest" : "newest";
+  const page = Math.max(1, Number.parseInt(searchParams?.tlpage ?? "1", 10) || 1);
+  const timeline = await getOpportunityTimeline(org, opp.id, { order, page });
+
+  return (
+    <ClosingWorkspace
+      view={view}
+      blockersDetail={blockersDetail}
+      timeline={timeline}
+      timelineBasePath={`/closing-workspace/${opp.id}`}
+      opportunityId={opp.id}
+      opportunityName={opp.title}
+    />
+  );
 }
