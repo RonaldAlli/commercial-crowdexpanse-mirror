@@ -100,9 +100,12 @@ async function main() {
   const activeSeed = await mkOpp(org.id, "Oakleaf Commons (active closing, blockers)", "Oakleaf Commons");
   const active = activeSeed.opp;
   const cl = await ensureClosingChecklist(org.id, active.id); // default required items left PENDING (blockers)
-  await prisma.closingChecklistItem.create({
+  const blockerItem = await prisma.closingChecklistItem.create({
     data: { organizationId: org.id, checklistId: cl.id, category: "DUE_DILIGENCE", label: LONG_BLOCKER, required: true, completionEvidenceType: "DOCUMENT", position: 90, status: "PENDING" },
   });
+  // Assign an owner to ONE blocker (no due-date change -> no new milestone) so the M2-Increment-2 Closing
+  // Workspace shows a resolved-owner group ("Ada Admin") alongside the unassigned default items.
+  await prisma.closingChecklistItem.update({ where: { id: blockerItem.id }, data: { ownerId: admin.id } });
   await openEscrow(org.id, active.id, admin.id, { earnestAmountUsd: 75000, escrowHolderName: LONG_HOLDER, escrowHolderContact: "commercial.escrow.southeast@firstam.example.com" });
   await markEscrowDeposited(org.id, active.id, admin.id); // DEPOSITED → ADMIN sees terminal resolve controls
   await startFinancing(org.id, active.id, admin.id);
