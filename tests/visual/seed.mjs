@@ -161,6 +161,28 @@ async function main() {
     data: { organizationId: org.id, propertyId: leadProp.id, title: "Cedar Crossing (early lead, no closing)", stage: "LEAD" },
   });
 
+  // --- Milestone-1 seller-acquisition fixtures (Increment 6 browser verification) -----------
+  // Deterministic sellers for the Seller Queue / Seller Record / Command Center surfaces. Fixed dates
+  // (no clock/random) so the acquisition-queue urgency and synthesis are reproducible.
+  const sellerQualified = await prisma.seller.create({
+    data: {
+      organizationId: org.id, name: "Marcus Delgado", company: "Delgado Holdings",
+      phone: "404-555-0142", email: "marcus@delgado.example", city: "Atlanta", state: "GA",
+      motivation: "Relocating out of state; wants a fast close", outreachStatus: "QUALIFIED",
+      acquisitionChannel: "COMMERCIAL_BROKER", nextFollowUpAt: new Date("2026-07-01T00:00:00.000Z"), // overdue
+    },
+  });
+  // A linked property makes the seller promotion-eligible (QUALIFIED + a property).
+  await prisma.property.create({
+    data: { organizationId: org.id, sellerId: sellerQualified.id, name: "Delgado Duplex Portfolio", assetType: "MULTIFAMILY", addressLine1: "88 Elm St", city: "Atlanta", state: "GA" },
+  });
+  const sellerPartial = await prisma.seller.create({
+    data: {
+      organizationId: org.id, name: "Nadia Whitfield", phone: "404-555-0199", city: "Decatur", state: "GA",
+      outreachStatus: "CONTACTED", acquisitionChannel: "OWNER_DIRECT", nextFollowUpAt: new Date("2026-12-15T00:00:00.000Z"), // future
+    },
+  });
+
   // --- storageState per user + manifest -------------------------------------
   const authFiles = {};
   for (const [key, u] of Object.entries({ admin, writer, analyst })) {
@@ -175,9 +197,10 @@ async function main() {
     auth: authFiles,
     users: { admin: admin.id, writer: writer.id, analyst: analyst.id },
     opportunities: { empty: empty.id, active: active.id, terminal: terminal.id, lead: lead.id },
+    sellers: { qualified: sellerQualified.id, partial: sellerPartial.id },
   };
   writeFileSync(join(ARTIFACTS, "fixtures.json"), JSON.stringify(manifest, null, 2));
-  console.log(`[visual-seed] org=${org.slug} empty=${empty.id} active=${active.id} terminal=${terminal.id} lead=${lead.id}`);
+  console.log(`[visual-seed] org=${org.slug} active=${active.id} sellers=${sellerQualified.id},${sellerPartial.id}`);
 }
 
 main()

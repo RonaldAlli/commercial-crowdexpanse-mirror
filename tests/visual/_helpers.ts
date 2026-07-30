@@ -11,6 +11,7 @@ export type Manifest = {
   auth: { admin: string; writer: string; analyst: string };
   users: { admin: string; writer: string; analyst: string };
   opportunities: { empty: string; active: string; terminal: string; lead: string };
+  sellers: { qualified: string; partial: string };
 };
 
 export function manifest(): Manifest {
