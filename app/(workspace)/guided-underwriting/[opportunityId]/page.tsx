@@ -2,9 +2,9 @@
 //
 // Server component. Tenant-scoped via requireUser().organizationId; a miss -> notFound(). READ-ONLY: it
 // reuses ONLY the existing underwriting read service (getActiveScenarioResult) and renders already-persisted
-// outputs. It performs NO calculation, NO writes, NO scenario editing, NO decision recording, and does NOT
-// surface decision history — those belong to /analyzer (authoritative advanced workspace) and to later
-// increments. Answers the operator question "Can we structure this deal?".
+// outputs. It performs NO calculation, NO writes, NO scenario editing, and NO decision recording/approval
+// actions — those belong to /analyzer (authoritative advanced workspace). Increment 3 surfaces the existing
+// decision history + engine/human contrast READ-ONLY. Answers "Can we structure this deal?" and beyond.
 
 import { notFound } from "next/navigation";
 
@@ -13,6 +13,7 @@ import { prisma } from "@/lib/prisma";
 import { getActiveScenarioResult } from "@/lib/underwriting";
 import { buildGuidedUnderwritingView, type GuidedScenarioInput } from "@/lib/workspace-ui/guided-underwriting";
 import { buildGuidedAssumptionsView, type AssumptionRowInput } from "@/lib/workspace-ui/guided-underwriting-assumptions";
+import { buildGuidedDecisionView, type DecisionRecordInput } from "@/lib/workspace-ui/guided-underwriting-decision";
 import { GuidedUnderwritingWorkspace } from "@/components/workspace-ui/guided-underwriting/GuidedUnderwritingWorkspace";
 
 export const dynamic = "force-dynamic";
@@ -81,10 +82,35 @@ export default async function GuidedUnderwritingPage({ params }: { params: { opp
     capitalAssumptions: (primaryFc?.capitalAssumptions ?? []).map(toRow),
   });
 
+  // Increment 3: read-first decision contrast + history. Resolve actor display names with a single
+  // tenant-scoped user read (existing authority); everything else is already on the scenario.
+  const decisionRows = scenario?.decisions ?? [];
+  const actorIds = [...new Set(decisionRows.map((d) => d.actorUserId).filter(Boolean))] as string[];
+  const actors = actorIds.length
+    ? await prisma.user.findMany({ where: { id: { in: actorIds }, organizationId: user.organizationId }, select: { id: true, name: true, email: true } })
+    : [];
+  const actorName = new Map(actors.map((u) => [u.id, u.name || u.email]));
+  const decision = buildGuidedDecisionView({
+    hasScenario: !!scenario,
+    recommendationLevel: scenario?.recommendation?.level ?? null,
+    findings: (scenario?.findings ?? []).map((f) => ({ severity: f.severity, title: f.title, detail: f.detail, position: f.position })),
+    decisions: decisionRows.map(
+      (d): DecisionRecordInput => ({
+        decision: d.decision,
+        suggestedLevel: d.suggestedLevel ?? null,
+        rationale: d.rationale,
+        actor: actorName.get(d.actorUserId) ?? null,
+        at: d.createdAt.toISOString(),
+        sequence: d.sequence,
+      }),
+    ),
+  });
+
   return (
     <GuidedUnderwritingWorkspace
       view={view}
       assumptions={assumptions}
+      decision={decision}
       opportunityId={opp.id}
       opportunityName={opp.title}
     />

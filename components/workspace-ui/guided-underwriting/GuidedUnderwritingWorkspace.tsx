@@ -15,8 +15,10 @@ import { WorkspaceSection } from "@/components/workspace-ui/WorkspaceSection";
 import { StateBlock } from "@/components/workspace-ui/StateBlock";
 import { TaxonomyBadge } from "@/components/workspace-ui/TaxonomyBadge";
 import { MissingAssumptionsPanel } from "@/components/workspace-ui/guided-underwriting/MissingAssumptionsPanel";
+import { DecisionContrastPanel } from "@/components/workspace-ui/guided-underwriting/DecisionContrastPanel";
 import type { GuidedUnderwritingView } from "@/lib/workspace-ui/guided-underwriting";
 import type { GuidedAssumptionsView } from "@/lib/workspace-ui/guided-underwriting-assumptions";
+import type { GuidedDecisionView } from "@/lib/workspace-ui/guided-underwriting-decision";
 
 function AdvancedAnalysisLink({ opportunityId }: { opportunityId: string }) {
   return (
@@ -33,12 +35,15 @@ function AdvancedAnalysisLink({ opportunityId }: { opportunityId: string }) {
 export function GuidedUnderwritingWorkspace({
   view,
   assumptions,
+  decision,
   opportunityId,
   opportunityName,
 }: {
   view: GuidedUnderwritingView;
   /** Increment 2: the four-state missing-assumption view. Optional so Increment 1 rendering is unchanged. */
   assumptions?: GuidedAssumptionsView;
+  /** Increment 3: the read-first decision-contrast + history view. Optional so earlier rendering is unchanged. */
+  decision?: GuidedDecisionView;
   opportunityId: string;
   opportunityName: string;
 }) {
@@ -108,6 +113,9 @@ export function GuidedUnderwritingWorkspace({
 
           {/* Increment 2: what's preventing a complete answer — after the summary, before the metrics. */}
           {assumptions ? <MissingAssumptionsPanel assumptions={assumptions} /> : null}
+
+          {/* Increment 3: why is this recommended + decision history — after missing-info, before metrics. */}
+          {decision ? <DecisionContrastPanel decision={decision} /> : null}
 
           {/* Supporting metrics — beneath the summary. */}
           <WorkspaceSection title="Supporting metrics" id="metrics" actions={<TaxonomyBadge kind="computed" />}>

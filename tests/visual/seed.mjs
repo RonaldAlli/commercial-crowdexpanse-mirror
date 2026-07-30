@@ -146,6 +146,11 @@ async function main() {
   await prisma.financingAssumption.create({
     data: { organizationId: org.id, financingCaseId: fc.id, key: "LOAN_AMOUNT", valueNumeric: 4200000, source: "MANUAL", sourceField: "loanAmountUsd", sourceAsOf: new Date("2026-07-01T00:00:00.000Z") },
   });
+  // A recorded human decision (M2 Increment 3): APPROVED against the engine's PROCEED_WITH_CONDITIONS
+  // suggestion -> contrast status "Agreement". Append-only audit; surfaced read-only in the workspace.
+  await prisma.underwritingDecision.create({
+    data: { organizationId: org.id, scenarioId: scenario.id, underwritingId: uw.id, sequence: 1, decision: "APPROVED", rationale: "Financeable with conditions; proceeding to close.", scenarioVersion: "visual-seed-scenario-v1", suggestedLevel: "PROCEED_WITH_CONDITIONS", actorUserId: admin.id },
+  });
   // Assignment in the DRAFTED state (with a generated draft + long assignee to exercise wrapping);
   // an ADMIN viewer sees the Execute control, a non-admin sees the admin-only note.
   await prisma.opportunity.update({ where: { id: active.id }, data: { contractValueUsd: 6_500_000, assignmentFeeUsd: 185_000 } });

@@ -30,10 +30,11 @@ test.describe("Guided Underwriting — desktop (ADMIN)", () => {
 
     // Structurability verdict (from persisted PROCEED_WITH_CONDITIONS) + engine recommendation as text.
     await expect(page.getByText("Structurable: Conditional").first()).toBeVisible();
-    await expect(page.getByText("Engine recommendation:")).toBeVisible();
-    await expect(page.getByText("Proceed with conditions", { exact: true })).toBeVisible();
-    // Primary constraint from the persisted decisive finding.
-    await expect(page.getByText("Thin debt yield (Senior Debt)")).toBeVisible();
+    // "Engine recommendation:" + the label also appear in Increment 3's "why" section — scope to the summary.
+    await expect(page.getByLabel("Structurability summary").getByText("Engine recommendation:")).toBeVisible();
+    await expect(page.getByLabel("Structurability summary").getByText("Proceed with conditions", { exact: true })).toBeVisible();
+    // Primary constraint from the persisted decisive finding (also listed under "why" in Increment 3).
+    await expect(page.getByText("Thin debt yield (Senior Debt)").first()).toBeVisible();
     // Supporting metrics from persisted outputs (not fabricated).
     await expect(page.getByText("1.35×")).toBeVisible(); // DSCR
     await expect(page.getByText("$780,000")).toBeVisible(); // NOI
@@ -96,14 +97,50 @@ test.describe("Guided Underwriting — Increment 2 missing assumptions (ADMIN, d
   });
 });
 
+test.describe("Guided Underwriting — Increment 3 decision contrast + history (ADMIN, desktop)", () => {
+  test.use({ viewport: DESKTOP });
+
+  test("why-recommended + decision history render from persisted records, after the summary & missing-info", async ({ page }) => {
+    await page.goto(`/guided-underwriting/${M.opportunities.active}`);
+    const summaryH = page.getByRole("heading", { name: "Structurability summary" });
+    const missingH = page.getByRole("heading", { name: "What information is preventing a complete answer?" });
+    const whyH = page.getByRole("heading", { name: "Why is this recommended?" });
+    const historyH = page.getByRole("heading", { name: "Decision history" });
+    for (const h of [summaryH, missingH, whyH, historyH]) await expect(h).toBeVisible();
+    // Order: Executive Summary → Missing info → Why recommended → Decision history.
+    const ys = await Promise.all([summaryH, missingH, whyH, historyH].map(async (h) => (await h.boundingBox())!.y));
+    expect(ys[0]).toBeLessThan(ys[1]);
+    expect(ys[1]).toBeLessThan(ys[2]);
+    expect(ys[2]).toBeLessThan(ys[3]);
+
+    // Engine recommendation + a persisted finding under "why" (also shown as the summary's primary constraint).
+    await expect(page.getByText("Thin debt yield (Senior Debt)").first()).toBeVisible();
+    // Contrast status derived from records (seed: APPROVED vs engine PROCEED_WITH_CONDITIONS = Agreement).
+    await expect(page.getByText("Agreement").first()).toBeVisible();
+    // Decision record: decision label, actor, rationale, engine-suggested-at-time.
+    await expect(page.getByText("Approved").first()).toBeVisible();
+    await expect(page.getByText("Ada Admin")).toBeVisible();
+    await expect(page.getByText(/Financeable with conditions/)).toBeVisible();
+    await expect(page.getByText(/engine suggested Proceed with conditions/)).toBeVisible();
+  });
+
+  test("no underwriting: decision sections are absent (honest), not fabricated", async ({ page }) => {
+    await page.goto(`/guided-underwriting/${M.opportunities.empty}`);
+    expect(await page.getByRole("heading", { name: "Why is this recommended?" }).count()).toBe(0);
+    expect(await page.getByRole("heading", { name: "Decision history" }).count()).toBe(0);
+  });
+});
+
 test.describe("Guided Underwriting — mobile (ADMIN)", () => {
   test.use({ viewport: MOBILE });
 
-  test("narrow viewport: summary + missing-info + analyzer link reachable, no horizontal overflow", async ({ page }) => {
+  test("narrow viewport: summary + missing-info + decision history + analyzer link reachable, no horizontal overflow", async ({ page }) => {
     await page.goto(`/guided-underwriting/${M.opportunities.active}`);
     await expect(page.getByText("Structurable: Conditional").first()).toBeVisible();
     await expect(page.getByRole("heading", { name: "What information is preventing a complete answer?" })).toBeVisible();
     await expect(page.getByText(/Source:/).first()).toBeVisible(); // provenance readable on mobile
+    await expect(page.getByRole("heading", { name: "Decision history" })).toBeVisible();
+    await expect(page.getByText(/Financeable with conditions/)).toBeVisible(); // rationale readable on mobile
     await expect(page.getByRole("link", { name: "Advanced analysis" }).first()).toBeVisible();
     await expectNoHorizontalOverflow(page);
   });
