@@ -66,7 +66,13 @@ export default async function OpportunityWorkspacePage({
     closing: { ready: gate.ready, blockerLabels: gate.blockingLabels },
   });
 
+  // Increment 4 (M2): surface Guided Underwriting from the Opportunity Workspace when an active underwriting
+  // scenario exists (read-only existence check — no new authority). Honestly unavailable when none exists.
+  const uwRef = await prisma.underwriting.findUnique({ where: { opportunityId: opp.id }, select: { activeScenarioId: true } });
+  const hasGuidedUnderwriting = Boolean(uwRef?.activeScenarioId);
+
   const crossLinks = [
+    crossLink("Guided underwriting", hasGuidedUnderwriting ? `/guided-underwriting/${opp.id}` : null, hasGuidedUnderwriting ? "Structurability & decisions" : "Not started"),
     crossLink("Seller", opp.seller ? `/seller-queue/${opp.seller.id}` : null, opp.seller ? "View seller" : "None"),
     crossLink("Property", opp.property ? `/properties/${opp.property.id}` : null, opp.property ? "View property" : "None"),
     crossLink("Buyer matches", "/matches", `${opp._count.buyerMatches} match${opp._count.buyerMatches === 1 ? "" : "es"}`),
