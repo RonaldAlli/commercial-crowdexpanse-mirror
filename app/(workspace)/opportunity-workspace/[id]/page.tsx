@@ -78,7 +78,7 @@ export default async function OpportunityWorkspacePage({
     crossLink("Buyer matches", "/matches", `${opp._count.buyerMatches} match${opp._count.buyerMatches === 1 ? "" : "es"}`),
     crossLink("Agreements", "/documents", `${agreements.length}`),
     crossLink("Documents", "/documents", `${opp._count.documents}`),
-    crossLink("Closing", "/closing", gate.ready ? "Ready" : `${gate.blockingLabels.length} blocker${gate.blockingLabels.length === 1 ? "" : "s"}`),
+    crossLink("Closing workspace", `/closing-workspace/${opp.id}`, gate.ready ? "Ready to close" : `${gate.blockingLabels.length} blocker${gate.blockingLabels.length === 1 ? "" : "s"}`),
   ];
 
   return (
