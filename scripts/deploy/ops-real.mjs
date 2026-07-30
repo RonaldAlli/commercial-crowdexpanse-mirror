@@ -301,10 +301,14 @@ export function makeDeployTsconfig() {
   // those sibling types breaks the build (they can't resolve at their new depth). Scope the deploy build's
   // type-check to the SOURCE tree by EXCLUDING all build-output + release dirs (source is still checked;
   // Next's own build compiles the routes regardless). Verified against a production-like migrated-release layout.
+  // DE-6: mirror the base tsconfig's `scripts` exclusion. A child config's `exclude` REPLACES the base's, so
+  // once the committed tsconfig started excluding `scripts` (tsx-run diag CLIs, type-checked separately via
+  // tsconfig.scripts.json), this generated config had to exclude it too — else the deploy build type-checks the
+  // diag CLIs and fails on their `.ts`-extension imports (valid under tsx / tsconfig.scripts.json, not here).
   return {
     extends: "./tsconfig.json",
     include: ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
-    exclude: ["node_modules", ".next", ".next-isolated", ".next-visual", "releases", "deploy-history"],
+    exclude: ["node_modules", "scripts", ".next", ".next-isolated", ".next-visual", "releases", "deploy-history"],
   };
 }
 
