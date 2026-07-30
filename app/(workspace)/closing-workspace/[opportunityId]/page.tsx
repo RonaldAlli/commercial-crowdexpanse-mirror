@@ -19,7 +19,9 @@ import { closingReadinessSummary, blockingItems } from "@/lib/closing";
 import { isTerminalEscrowStatus, escrowStatusLabel } from "@/lib/escrow";
 import { isTerminalFinancingStatus, financingStatusLabel } from "@/lib/financing";
 import { isTerminalAssignmentStatus, assignmentStatusLabel } from "@/lib/assignment";
+import { milestoneCandidates, selectNextMilestone, type TransactionProjectionInput } from "@/lib/transaction-dashboard";
 import { buildClosingWorkspaceView, type DomainInput } from "@/lib/workspace-ui/closing-workspace";
+import { buildClosingBlockersView, type ChecklistBlockerInput } from "@/lib/workspace-ui/closing-blockers";
 import { ClosingWorkspace } from "@/components/workspace-ui/closing/ClosingWorkspace";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +32,7 @@ export default async function ClosingWorkspacePage({ params }: { params: { oppor
 
   const opp = await prisma.opportunity.findFirst({
     where: { id: params.opportunityId, organizationId: org },
-    select: { id: true, title: true },
+    select: { id: true, title: true, stage: true, targetCloseDate: true, property: { select: { name: true } } },
   });
   if (!opp) notFound();
 
@@ -71,5 +73,42 @@ export default async function ClosingWorkspacePage({ params }: { params: { oppor
 
   const view = buildClosingWorkspaceView({ hasChecklist: !!checklist, readiness, blockerLabels, domains });
 
-  return <ClosingWorkspace view={view} opportunityId={opp.id} opportunityName={opp.title} />;
+  // Increment 2: enriched blockers (owner-grouped) + next milestone — existing read authority only.
+  const blockingChecklistItems = checklist ? blockingItems(checklist.items) : [];
+  const ownerIds = [...new Set(blockingChecklistItems.map((i) => i.ownerId).filter((x): x is string => !!x))];
+  const owners = ownerIds.length
+    ? await prisma.user.findMany({ where: { id: { in: ownerIds }, organizationId: org }, select: { id: true, name: true, email: true } })
+    : [];
+  const ownerName = new Map(owners.map((u) => [u.id, u.name || u.email]));
+  const itemStatusLabel = (s: string) => (s === "PENDING" ? "Pending" : s === "NOT_APPLICABLE" ? "Not applicable" : s);
+  const checklistBlockers: ChecklistBlockerInput[] = blockingChecklistItems.map((i) => ({
+    title: i.label,
+    statusLabel: itemStatusLabel(i.status),
+    hasOwnerId: !!i.ownerId,
+    ownerName: i.ownerId ? (ownerName.get(i.ownerId) ?? null) : null,
+    dueDate: i.dueDate ? i.dueDate.toISOString() : null,
+  }));
+  const domainBlockers = domains
+    .filter((d) => d.started && !d.terminal)
+    .map((d) => ({ domain: ((d.key.charAt(0).toUpperCase() + d.key.slice(1)) as "Escrow" | "Financing" | "Assignment"), statusLabel: d.statusLabel }));
+
+  const ms = (d: Date | null | undefined) => (d ? d.getTime() : null);
+  const projection: TransactionProjectionInput = {
+    opportunity: { id: opp.id, title: opp.title, stage: opp.stage, propertyName: opp.property?.name ?? "", targetCloseDateMs: ms(opp.targetCloseDate) },
+    checklistItems: checklist
+      ? checklist.items.map((i) => ({ required: i.required, status: i.status, label: i.label, dueDateMs: ms(i.dueDate), ownerName: i.ownerId ? (ownerName.get(i.ownerId) ?? null) : null }))
+      : null,
+    escrow: escrow ? { status: escrow.status, earnestDueDateMs: ms(escrow.earnestDueDate), contingencyDeadlineMs: ms(escrow.contingencyDeadline) } : null,
+    financing: financing ? { status: financing.status } : null,
+    assignment: assignment ? { status: assignment.status } : null,
+  };
+  const nextMilestone = selectNextMilestone(milestoneCandidates(projection), Date.now());
+
+  const blockersDetail = buildClosingBlockersView({
+    checklistBlockers,
+    domainBlockers,
+    nextMilestone: nextMilestone ? { label: nextMilestone.label, dateIso: nextMilestone.dateIso, overdue: nextMilestone.overdue } : null,
+  });
+
+  return <ClosingWorkspace view={view} blockersDetail={blockersDetail} opportunityId={opp.id} opportunityName={opp.title} />;
 }

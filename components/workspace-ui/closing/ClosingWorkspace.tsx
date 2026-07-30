@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/workspace-ui/PageHeader";
 import { WorkspaceSection } from "@/components/workspace-ui/WorkspaceSection";
 import { TaxonomyBadge } from "@/components/workspace-ui/TaxonomyBadge";
 import type { ClosingWorkspaceView, DomainView } from "@/lib/workspace-ui/closing-workspace";
+import type { ClosingBlockersView, OwnerGroupView, BlockerItemView } from "@/lib/workspace-ui/closing-blockers";
 
 const STATE_TONE: Record<DomainView["state"], string> = {
   resolved: "bg-emerald-50 text-emerald-700 ring-emerald-200",
@@ -45,12 +46,43 @@ function DomainPanel({ d }: { d: DomainView }) {
   );
 }
 
+function BlockerRow({ item }: { item: BlockerItemView }) {
+  return (
+    <li className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 py-1.5">
+      <span className="text-sm font-medium text-slate-900 break-words">{item.title}</span>
+      <span className="text-xs text-slate-500">· {item.statusLabel}</span>
+      <span className="text-[0.7rem] font-medium uppercase tracking-wide text-slate-400">· {item.domain}</span>
+      {item.dueDate ? <span className="text-xs text-slate-500">· due {item.dueDate.slice(0, 10)}</span> : null}
+    </li>
+  );
+}
+
+function OwnerGroup({ group }: { group: OwnerGroupView }) {
+  return (
+    <div className="rounded-lg border border-slate-200 px-3 py-2">
+      <p className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+        {group.ownerLabel}
+        {!group.ownerResolved ? (
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[0.7rem] font-medium text-slate-500">unassigned / unresolved</span>
+        ) : null}
+        <span className="text-xs font-normal text-slate-400">· {group.items.length} blocker{group.items.length === 1 ? "" : "s"}</span>
+      </p>
+      <ul className="mt-1 divide-y divide-slate-100">
+        {group.items.map((it, i) => <BlockerRow key={i} item={it} />)}
+      </ul>
+    </div>
+  );
+}
+
 export function ClosingWorkspace({
   view,
+  blockersDetail,
   opportunityId,
   opportunityName,
 }: {
   view: ClosingWorkspaceView;
+  /** Increment 2: owner-grouped blocker detail + next milestone. Optional so Increment 1 rendering is unchanged. */
+  blockersDetail?: ClosingBlockersView;
   opportunityId: string;
   opportunityName: string;
 }) {
@@ -90,25 +122,67 @@ export function ClosingWorkspace({
           </div>
         </WorkspaceSection>
 
-        {/* Primary blockers — existing only, persisted order, never reprioritized. */}
+        {/* Primary blockers — existing only, persisted order, never reprioritized. Increment 2 enriches this
+            with owner grouping (who owns each) + due dates + originating domain; falls back to the flat list. */}
         <WorkspaceSection title="Primary blockers" id="closing-blockers" actions={<TaxonomyBadge kind="observed" />}>
-          {blockers.length === 0 ? (
+          {blockersDetail ? (
+            !blockersDetail.hasBlockers ? (
+              <p className="text-sm italic text-slate-400">No outstanding blockers.</p>
+            ) : (
+              <div className="space-y-4">
+                {blockersDetail.ownerGroups.length > 0 ? (
+                  <div>
+                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-[0.1em] text-slate-400">Checklist — by owner</h3>
+                    <div className="space-y-2">
+                      {blockersDetail.ownerGroups.map((g, i) => <OwnerGroup key={i} group={g} />)}
+                    </div>
+                  </div>
+                ) : null}
+                {blockersDetail.domainBlockers.length > 0 ? (
+                  <div>
+                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-[0.1em] text-slate-400">Operational domains outstanding</h3>
+                    <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 px-3">
+                      {blockersDetail.domainBlockers.map((it, i) => <BlockerRow key={i} item={it} />)}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            )
+          ) : blockers.length === 0 ? (
             <p className="text-sm italic text-slate-400">No outstanding blockers.</p>
           ) : (
             <ul className="divide-y divide-slate-100">
-              {blockers.map((b, i) => (
-                <li key={i} className="py-2 text-sm text-slate-700 break-words">{b}</li>
-              ))}
+              {blockers.map((b, i) => <li key={i} className="py-2 text-sm text-slate-700 break-words">{b}</li>)}
             </ul>
           )}
-          <p className="mt-4 text-xs text-slate-400">
-            Closing work — completing items, resolving escrow / financing / assignment — happens in the{" "}
-            <Link href={`/opportunities/${opportunityId}`} className="font-medium text-brand-600 underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
-              Closing Console
-            </Link>
-            . This workspace is read-only.
-          </p>
         </WorkspaceSection>
+
+        {/* What happens next? — the existing next-milestone selection (Increment 2). */}
+        {blockersDetail ? (
+          <WorkspaceSection title="What happens next?" id="closing-next" actions={<TaxonomyBadge kind="observed" />}>
+            {blockersDetail.nextMilestone ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-sm font-medium text-slate-900 break-words">{blockersDetail.nextMilestone.label}</span>
+                <span className="text-sm text-slate-500">· {blockersDetail.nextMilestone.date}</span>
+                {blockersDetail.nextMilestone.overdueLabel ? (
+                  <span className="rounded-full bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700 ring-1 ring-rose-200">
+                    {blockersDetail.nextMilestone.overdueLabel}
+                  </span>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-sm italic text-slate-400">No upcoming milestone recorded.</p>
+            )}
+            <p className="mt-4 text-xs text-slate-400">
+              Closing work — completing items, resolving escrow / financing / assignment, assigning owners and
+              due dates — happens in the{" "}
+              <Link href={`/opportunities/${opportunityId}`} className="font-medium text-brand-600 underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+                Closing Console
+              </Link>
+              . This workspace is read-only.
+            </p>
+          </WorkspaceSection>
+        ) : null}
       </div>
     </div>
   );

@@ -76,6 +76,45 @@ test.describe("Closing Workspace — desktop (ADMIN)", () => {
   });
 });
 
+test.describe("Closing Workspace — Increment 2 blocker detail + ownership + next milestone (ADMIN, desktop)", () => {
+  test.use({ viewport: DESKTOP });
+
+  test("blockers grouped by owner (resolved + unassigned), domain blockers separate, overdue next milestone; summary stays first", async ({ page }) => {
+    await page.goto(`/closing-workspace/${M.opportunities.active}`);
+    // Order preserved: Executive summary -> Primary blockers -> What happens next.
+    const summaryH = page.getByRole("heading", { name: "Executive closing summary" });
+    const blockersH = page.getByRole("heading", { name: "Primary blockers" });
+    const nextH = page.getByRole("heading", { name: "What happens next?" });
+    for (const h of [summaryH, blockersH, nextH]) await expect(h).toBeVisible();
+    const ys = await Promise.all([summaryH, blockersH, nextH].map(async (h) => (await h.boundingBox())!.y));
+    expect(ys[0]).toBeLessThan(ys[1]);
+    expect(ys[1]).toBeLessThan(ys[2]);
+
+    // Ownership clarity: a resolved owner group (seeded on one blocker) AND unassigned others.
+    await expect(page.getByText("Checklist — by owner")).toBeVisible();
+    await expect(page.getByText("Ada Admin").first()).toBeVisible(); // resolved owner
+    await expect(page.getByText(/unassigned \/ unresolved/).first()).toBeVisible(); // honest unassigned
+    // Domain blockers kept separate (Domain Progression reinforced, not replaced).
+    await expect(page.getByText("Operational domains outstanding")).toBeVisible();
+    // Next milestone: active has an overdue Target close (2026-07-05 < now).
+    await expect(page.getByText("Target close").first()).toBeVisible();
+    await expect(page.getByText("Overdue").first()).toBeVisible();
+  });
+
+  test("checklist complete + resolved domains -> no blockers; next milestone present without overdue", async ({ page }) => {
+    await page.goto(`/closing-workspace/${M.opportunities.terminal}`);
+    await expect(page.getByText("No outstanding blockers")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What happens next?" })).toBeVisible();
+    await expect(page.getByText("Target close").first()).toBeVisible(); // 2026-12-01 (future)
+    expect(await page.getByText("Overdue").count(), "future milestone not overdue").toBe(0);
+  });
+
+  test("no checklist -> honest 'No upcoming milestone recorded'", async ({ page }) => {
+    await page.goto(`/closing-workspace/${M.opportunities.empty}`);
+    await expect(page.getByText(/No upcoming milestone recorded/)).toBeVisible();
+  });
+});
+
 test.describe("Closing Workspace — tablet (ADMIN)", () => {
   test.use({ viewport: TABLET });
   test("tablet: summary + four domains reachable, no horizontal overflow", async ({ page }) => {
