@@ -13,6 +13,8 @@ import { WorkspaceSection } from "@/components/workspace-ui/WorkspaceSection";
 import { TaxonomyBadge } from "@/components/workspace-ui/TaxonomyBadge";
 import type { ClosingWorkspaceView, DomainView } from "@/lib/workspace-ui/closing-workspace";
 import type { ClosingBlockersView, OwnerGroupView, BlockerItemView } from "@/lib/workspace-ui/closing-blockers";
+import { TransactionTimelinePanel } from "@/components/transaction-timeline-panel";
+import type { OpportunityTimeline } from "@/lib/transaction-timeline-service";
 
 const STATE_TONE: Record<DomainView["state"], string> = {
   resolved: "bg-emerald-50 text-emerald-700 ring-emerald-200",
@@ -77,12 +79,17 @@ function OwnerGroup({ group }: { group: OwnerGroupView }) {
 export function ClosingWorkspace({
   view,
   blockersDetail,
+  timeline,
+  timelineBasePath,
   opportunityId,
   opportunityName,
 }: {
   view: ClosingWorkspaceView;
   /** Increment 2: owner-grouped blocker detail + next milestone. Optional so Increment 1 rendering is unchanged. */
   blockersDetail?: ClosingBlockersView;
+  /** Increment 3: closing history — the existing transaction timeline, reused verbatim. Optional/additive. */
+  timeline?: OpportunityTimeline;
+  timelineBasePath?: string;
   opportunityId: string;
   opportunityName: string;
 }) {
@@ -182,6 +189,16 @@ export function ClosingWorkspace({
               . This workspace is read-only.
             </p>
           </WorkspaceSection>
+        ) : null}
+
+        {/* What has happened so far? — Increment 3: the EXISTING transaction timeline, reused verbatim
+            (chronological, actor-resolved, evidence-referenced). Placed AFTER current-state + next-step.
+            A plain section heading frames it in operator terms; the reused panel keeps its own card. */}
+        {timeline && timelineBasePath ? (
+          <section aria-labelledby="closing-history-heading" className="space-y-2">
+            <h2 id="closing-history-heading" className="text-sm font-semibold text-slate-900">What has happened so far?</h2>
+            <TransactionTimelinePanel timeline={timeline} basePath={timelineBasePath} />
+          </section>
         ) : null}
       </div>
     </div>
