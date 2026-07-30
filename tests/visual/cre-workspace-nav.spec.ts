@@ -84,8 +84,10 @@ test.describe("Global nav — mobile drawer (ADMIN)", () => {
 
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
-    const afterX = (await cc.boundingBox())!.x;
-    expect(afterX, "drawer open → sidebar on-screen").toBeGreaterThanOrEqual(0);
+    // Poll through the CSS slide-in transition rather than reading the box mid-animation.
+    await expect
+      .poll(async () => (await cc.boundingBox())!.x, { message: "drawer open → sidebar on-screen", timeout: 5000 })
+      .toBeGreaterThanOrEqual(0);
     await expect(navBtn(page, "Seller Queue")).toBeVisible();
   });
 });
