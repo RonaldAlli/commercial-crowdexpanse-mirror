@@ -16,10 +16,15 @@ type NavItem = {
   icon: IconName;
   section: string;
   title: string;
+  // Optional server-computed visibility gate (RBAC evaluated in the layout, passed as props).
+  // Absent = shown to every authenticated user, matching the existing Overview/Records/Workflow items.
+  gate?: "commandCenter" | "sellerQueue";
 };
 
 const navigation: NavItem[] = [
+  { href: "/command-center", label: "Command Center", icon: "spark", section: "Overview", title: "Command Center", gate: "commandCenter" },
   { href: "/dashboard", label: "Dashboard", icon: "dashboard", section: "Overview", title: "Acquisitions dashboard" },
+  { href: "/seller-queue", label: "Seller Queue", icon: "sellers", section: "Overview", title: "Seller work queue", gate: "sellerQueue" },
   { href: "/acquire", label: "Acquisition workspace", icon: "phone", section: "Overview", title: "Seller acquisition workspace" },
   { href: "/opportunities", label: "Pipeline", icon: "pipeline", section: "Overview", title: "Opportunity pipeline" },
   { href: "/analyzer", label: "Deal Analyzer", icon: "analyzer", section: "Overview", title: "Deal analyzer" },
@@ -54,11 +59,15 @@ export function WorkspaceShell({
   userEmail,
   userRole,
   unreadCount = 0,
+  showCommandCenter = false,
+  showSellerQueue = false,
 }: {
   children: ReactNode;
   userEmail: string;
   userRole: UserRole;
   unreadCount?: number;
+  showCommandCenter?: boolean;
+  showSellerQueue?: boolean;
 }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false); // mobile drawer
@@ -88,7 +97,13 @@ export function WorkspaceShell({
   const isAdmin = userRole === "ADMIN";
   // The Settings section (team management) is admin-only. Non-admins never see
   // it; direct navigation is independently blocked by requireRole (404).
-  const visibleNav = navigation.filter((item) => item.section !== "Settings" || isAdmin);
+  // Gated Milestone-1 items are shown only when the server-computed RBAC flag allows it.
+  const visibleNav = navigation.filter((item) => {
+    if (item.section === "Settings" && !isAdmin) return false;
+    if (item.gate === "commandCenter" && !showCommandCenter) return false;
+    if (item.gate === "sellerQueue" && !showSellerQueue) return false;
+    return true;
+  });
   const visibleSections = sections.filter((section) =>
     visibleNav.some((item) => item.section === section),
   );
@@ -224,6 +239,8 @@ export function WorkspaceShell({
           <button
             type="button"
             onClick={() => setSidebarOpen((open) => !open)}
+            aria-label={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={sidebarOpen}
             className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 lg:hidden"
           >
             <Icon name={sidebarOpen ? "close" : "menu"} className="h-5 w-5" />
