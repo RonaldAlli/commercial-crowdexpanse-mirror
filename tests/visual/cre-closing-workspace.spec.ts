@@ -140,6 +140,42 @@ test.describe("Closing Workspace — Increment 3 timeline + closing history (ADM
   });
 });
 
+test.describe("Closing Workspace — Increment 4 integration + discoverability (ADMIN, desktop)", () => {
+  test.use({ viewport: DESKTOP });
+
+  test("workflow continuity: Opportunity Workspace -> Closing Workspace -> Closing Console (no dead ends)", async ({ page }) => {
+    await page.goto(`/opportunity-workspace/${M.opportunities.active}`);
+    // The existing closing signal now hands INTO the per-deal Closing Workspace.
+    const entry = page.getByRole("link", { name: "Open Closing Workspace" });
+    await expect(entry).toHaveAttribute("href", `/closing-workspace/${M.opportunities.active}`);
+    // The Related-records cross-link also points at the per-deal workspace.
+    expect(await page.locator(`a[href="/closing-workspace/${M.opportunities.active}"]`).count()).toBeGreaterThanOrEqual(1);
+    await entry.click();
+    await expect(page).toHaveURL(new RegExp(`/closing-workspace/${M.opportunities.active}`));
+    await expect(page.getByRole("heading", { level: 1, name: "Closing" })).toBeVisible();
+    // Onward to the authoritative execution surface.
+    await page.getByRole("link", { name: "Open Closing Console" }).click();
+    await expect(page).toHaveURL(new RegExp(`/opportunities/${M.opportunities.active}`));
+  });
+
+  test("complete section order (final): Summary -> Domain -> Blockers -> Next -> History", async ({ page }) => {
+    await page.goto(`/closing-workspace/${M.opportunities.active}`);
+    const names = [
+      "Executive closing summary",
+      "Domain readiness",
+      "Primary blockers",
+      "What happens next?",
+      "What has happened so far?",
+    ];
+    const ys: number[] = [];
+    for (const n of names) ys.push((await page.getByRole("heading", { name: n }).boundingBox())!.y);
+    for (let i = 1; i < ys.length; i++) expect(ys[i], `${names[i]} below ${names[i - 1]}`).toBeGreaterThan(ys[i - 1]);
+    // Accessibility anchors.
+    expect(await page.getByRole("heading", { level: 1 }).count()).toBe(1);
+    await expect(page.getByRole("main")).toBeVisible();
+  });
+});
+
 test.describe("Closing Workspace — tablet (ADMIN)", () => {
   test.use({ viewport: TABLET });
   test("tablet: summary + four domains reachable, no horizontal overflow", async ({ page }) => {

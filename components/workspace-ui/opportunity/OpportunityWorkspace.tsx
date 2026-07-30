@@ -165,7 +165,7 @@ export function OpportunityWorkspace(p: OpportunityWorkspaceProps) {
             {gate.blockerLabels.length > 0 ? (
               <ul className="mt-1 list-inside list-disc text-xs text-slate-500">{gate.blockerLabels.slice(0, 5).map((b, i) => <li key={i}>{b}</li>)}</ul>
             ) : null}
-            <Link href="/closing" className="mt-2 inline-block text-xs font-medium text-brand-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">Open closing dashboard →</Link>
+            <Link href={`/closing-workspace/${p.opportunity.id}`} className="mt-2 inline-block text-xs font-medium text-brand-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">Open Closing Workspace →</Link>
           </WorkspaceSection>
 
           <WorkspaceSection title="Related records" id="opp-links">
