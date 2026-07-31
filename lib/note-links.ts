@@ -21,6 +21,6 @@ export function resolveNoteLink(note: {
   if (note.seller) return { type: "seller", label: "Seller", name: note.seller.name, href: `/sellers/${note.seller.id}` };
   if (note.buyer) return { type: "buyer", label: "Buyer", name: note.buyer.name, href: `/buyers/${note.buyer.id}` };
   if (note.property) return { type: "property", label: "Property", name: note.property.name, href: `/properties/${note.property.id}` };
-  if (note.opportunity) return { type: "opportunity", label: "Opportunity", name: note.opportunity.title, href: `/opportunities/${note.opportunity.id}` };
+  if (note.opportunity) return { type: "opportunity", label: "Opportunity", name: note.opportunity.title, href: `/opportunity-workspace/${note.opportunity.id}` };
   return null;
 }

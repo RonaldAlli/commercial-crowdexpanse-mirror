@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
-import { manifest, authFile, oppPath, shot, type Manifest } from "./_helpers";
+import { manifest, authFile, oppPath, workspacePath, shot, type Manifest } from "./_helpers";
 
 // Behavioral + accessibility + screenshot coverage for the Opportunity-list Closing Badges
 // (Slice 7 / Roadmap #7) — a READ-ONLY chip cluster beneath each Opportunity title on the LIST
@@ -11,7 +11,9 @@ let M: Manifest;
 test.beforeAll(() => { M = manifest(); });
 
 const LIST = "/opportunities?view=list";
-const rowFor = (page: Page, id: string) => page.locator("tr").filter({ has: page.locator(`a[href="${oppPath(id)}"]`) });
+// The row's TITLE link now opens the Opportunity Workspace (discoverability remediation, Increment 1);
+// the closing-badge CLUSTER link still deep-links OUT to the Closing Console anchor (execution intent).
+const rowFor = (page: Page, id: string) => page.locator("tr").filter({ has: page.locator(`a[href="${workspacePath(id)}"]`) });
 const clusterLink = (page: Page, id: string) => page.locator(`a[href="${oppPath(id)}#closing-center"]`);
 const DESKTOP = { width: 1440, height: 1000 };
 const TABLET = { width: 900, height: 1100 };

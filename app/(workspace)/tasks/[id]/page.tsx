@@ -36,7 +36,7 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
     {
       label: "Opportunity",
       value: task.opportunity ? (
-        <Link href={`/opportunities/${task.opportunity.id}`} className="text-brand-700 hover:underline">
+        <Link href={`/opportunity-workspace/${task.opportunity.id}`} className="text-brand-700 hover:underline">
           {task.opportunity.title}
         </Link>
       ) : (

@@ -302,7 +302,7 @@ function Board({ opportunities, counts, role }: { opportunities: BoardOpp[]; cou
               <div className="flex-1 space-y-2 rounded-xl bg-slate-50/70 p-2">
                 {items.map((opp) => (
                   <div key={opp.id} className="card p-3">
-                    <Link href={`/opportunities/${opp.id}`} className="block text-sm font-medium text-slate-900 hover:text-brand-700">
+                    <Link href={`/opportunity-workspace/${opp.id}`} className="block text-sm font-medium text-slate-900 hover:text-brand-700">
                       {opp.title}
                     </Link>
                     <p className="mt-0.5 truncate text-xs text-slate-500">
@@ -367,7 +367,7 @@ function ListTable({ opportunities }: { opportunities: OppWithRels[] }) {
             {opportunities.map((opp) => (
               <tr key={opp.id} className="transition-colors hover:bg-slate-50/60">
                 <td className="table-cell">
-                  <Link href={`/opportunities/${opp.id}`} className="font-medium text-slate-900 hover:text-brand-700">
+                  <Link href={`/opportunity-workspace/${opp.id}`} className="font-medium text-slate-900 hover:text-brand-700">
                     {opp.title}
                   </Link>
                   <p className="text-xs text-slate-500">{opp.property.name}</p>

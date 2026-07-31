@@ -112,7 +112,7 @@ export async function searchAll(organizationId: string, rawQuery: string): Promi
         id: o.id,
         title: o.title,
         subtitle: joinParts([o.property?.name, o.source]),
-        href: `/opportunities/${o.id}`,
+        href: `/opportunity-workspace/${o.id}`,
       })),
     },
     {
