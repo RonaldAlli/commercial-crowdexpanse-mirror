@@ -1,9 +1,29 @@
 # CRE Operating Workspace — Opportunity Workspace Discoverability Remediation — PLAN
 
-> **Status: PLAN — AWAITING REVIEW. No implementation, no merge, no deployment.** Governed decision:
-> *Discoverability Remediation (Pipeline → Opportunity Workspace) — APPROVED TO PLAN.* Audit baseline: current
-> `main adad471`. Context: `CRE_CLOSING_WORKSPACE_PRODUCTION_RELEASE.md`, `crowdexpanse-cre-workspace`,
+> **Status: PLAN — ACCEPTED WITH OBSERVATIONS (founder-accepted 2026-07-31, PR #82). Implementation NOT yet
+> authorized — awaits a separate APPROVED TO IMPLEMENT.** Governed decision: *Discoverability Remediation
+> (Pipeline → Opportunity Workspace) — APPROVED TO PLAN → planning ACCEPTED WITH OBSERVATIONS.* All founder
+> rulings (2026-07-31) are folded into §4/§5/§6 below, and the new **Operator Entry Principle** (§0) is carried
+> forward as a platform contract. Audit baseline: current `main adad471`. Context:
+> `CRE_CLOSING_WORKSPACE_PRODUCTION_RELEASE.md`, `crowdexpanse-cre-workspace`,
 > [[crowdexpanse-accepted-to-released-discipline]].
+
+## 0. Operator Entry Principle (new platform contract, carried forward)
+
+**Every core business object has exactly one primary landing page. Specialized workspaces are entered
+*intentionally* from that landing page rather than becoming competing default destinations.**
+
+For an Opportunity, the single primary landing page is the **Opportunity Workspace**. From it, the operator
+intentionally enters purpose-specific surfaces:
+
+- **Guided Underwriting** — understand the *structure* of the deal.
+- **Closing Workspace** — understand *closing readiness*.
+- **Closing Console** — *execute* the closing.
+- **Analyzer** — advanced analysis of the deal.
+
+This reduces confusion because operators always know where "open this deal" lands. This principle joins the
+platform-wide workspace contracts (Executive Summary · Information Quality · Decision Chronology · Workspace
+Progression · Workspace Discoverability) and governs future objects (Seller, Property, Buyer, etc.) as well.
 
 ## 1. Problem (established, live-verified)
 
@@ -46,14 +66,14 @@ Legend: **REPOINT** → change to `/opportunity-workspace/[id]`; **KEEP CONSOLE*
 | 6 | **Task detail → its opportunity** | `app/(workspace)/tasks/[id]/page.tsx:39` | Same. |
 | 7 | **Related-record note links** | `lib/note-links.ts:24` | "Any related-record links" per the decision. |
 
-### 4b. CONDITIONAL — repoint recommended, but each changes a behavior; decide explicitly
+### 4b. CONDITIONAL — founder rulings (2026-07-31)
 
-| # | Surface | File:line | The decision to make |
-|---|---------|-----------|----------------------|
-| C1 | **Buyer matches → opportunity** | `app/(workspace)/matches/page.tsx:103` | Matching is an operator context, not execution → recommend REPOINT. |
-| C2 | **Analyzer "Opportunity" back-link** (×2) | `app/(workspace)/analyzer/[opportunityId]/page.tsx:134,222` | Analyzer is reached *from* the workspace; a "back to deal" affordance → recommend REPOINT (returns to primary detail). |
-| C3 | **Closing/transaction dashboard rows** | `lib/transaction-dashboard.ts:160` | `/closing` is execution-leaning. Repoint sends operators to the workspace's Closing Summary (which links onward to the console); or KEEP CONSOLE if this surface is meant as a direct execution list. **Recommend REPOINT** (consistent with the rule), flagged for your call. |
-| C4 | **Post-CREATE redirect** | `app/(workspace)/opportunities/actions.ts:143` | After creating a deal, land on the workspace (primary detail, mostly-empty early state) vs the console. **Recommend REPOINT.** |
+| # | Surface | File:line | **RULING** |
+|---|---------|-----------|------------|
+| C1 | **Buyer matches → opportunity** | `app/(workspace)/matches/page.tsx:103` | **REPOINT** ✅ — Buyer Matches is an analysis surface, not execution; operator arrives at the Workspace first. |
+| C2 | **Analyzer "Opportunity" back-link** (×2) | `app/(workspace)/analyzer/[opportunityId]/page.tsx:134,222` | **REPOINT** ✅ — completes the clean loop Workspace → Guided Underwriting → Analyzer → Workspace. Analyzer is understanding, not execution. |
+| C3 | **Closing/transaction dashboard rows** | `lib/transaction-dashboard.ts:160` | **KEEP CONSOLE** ✅ — `/closing` is already an execution-oriented surface; operators there are working closings, so preserve intent → Closing Console. (See §4c-K5.) |
+| C4 | **Post-CREATE redirect** | `app/(workspace)/opportunities/actions.ts:143` | **REPOINT to Opportunity Workspace** ✅ — a newly created deal should land on the Workspace as the beginning of its lifecycle. |
 
 ### 4c. KEEP CONSOLE — explicit execution intent (must NOT change)
 
@@ -63,6 +83,7 @@ Legend: **REPOINT** → change to `/opportunity-workspace/[id]`; **KEEP CONSOLE*
 | K2 | Timeline "View in Closing Center" | `lib/transaction-timeline.ts:112` | Explicit execution deep-link. |
 | K3 | Timeline "View document" | `lib/transaction-timeline.ts:116` | Execution/document context. |
 | K4 | Closing Workspace → "Open Closing Console" (×2) | `components/workspace-ui/closing/ClosingWorkspace.tsx:28,186` | The intended workspace→console execution handoff. Correct by design. |
+| K5 | Closing/transaction dashboard rows (C3 ruling) | `lib/transaction-dashboard.ts:160` | **KEEP CONSOLE** — the `/closing` dashboard is an execution surface; deals opened from it go straight to the Closing Console to preserve execution intent. |
 
 ### 4d. OUT OF SCOPE — not operator navigation
 
@@ -85,10 +106,14 @@ Buyer matches, Agreements, Documents, Closing workspace — but **not** the cons
 path: Workspace → Closing Workspace → "Open Closing Console". If the workspace becomes the primary landing, an
 operator who needs the execution surface pays two hops.
 
-**Proposed (in-scope, does NOT modify the console):** add a direct "Open in Closing Console" cross-link on the
-Opportunity Workspace (a link *to* `/opportunities/[id]`, added in the workspace component — the console page
-itself is untouched). This preserves one-hop execution access. **Flagged for your decision**: include this in the
-remediation, or keep the 2-hop path.
+**RULING (2026-07-31): APPROVED — in scope.** Add a direct "Open Closing Console" action on the Opportunity
+Workspace (a link *to* `/opportunities/[id]`, added in the workspace component — the console page itself is
+untouched). The Opportunity Workspace then presents three complementary, intentional exits, per the Operator Entry
+Principle:
+
+- **Guided Underwriting** — understand the structure.
+- **Closing Workspace** — understand closing readiness.
+- **Open Closing Console** — execute the closing (one hop, no forced intermediate).
 
 ## 6. Stop-condition check (per the decision)
 
@@ -98,22 +123,29 @@ remediation, or keep the 2-hop path.
 | API changes | **No** | No route handlers touched. |
 | Workflow authority changes | **No** | No stage/gate/action logic touched. |
 | **Closing Console modification** | **No** | `/opportunities/[id]/page.tsx` is not edited. We change links that *point at* it, and (optionally, §5) add a link *to* it from the workspace. |
-| **Broad navigation restructuring** | **No** (see note) | The global nav IA (`components/workspace-shell.tsx`) is unchanged — same entries, same sections. We only repoint deal-row link *targets*. **Interpretation flagged for confirmation:** if you consider repointing the primary Pipeline link "navigation restructuring," this trips the stop condition — please confirm you read it as targeted repointing, not restructuring. |
+| **Broad navigation restructuring** | **No** (founder-confirmed 2026-07-31) | The global nav IA (`components/workspace-shell.tsx`) is unchanged — same entries, same sections, same routes, same authority. This is a **discoverability correction** — changing the *default destination for opening a deal*, not the information architecture. Founder explicitly ruled this is not restructuring; no stop condition triggered. |
 | Data migration | **No** | No data changes. |
 
-**Conclusion:** no stop condition is triggered under the stated interpretation. The remediation is bounded `href`
-repointing at operator-navigation surfaces (7 REPOINT + up to 4 CONDITIONAL), plus one optional in-scope workspace
-affordance (§5). Console, nav IA, schema, API, and workflow authority are all untouched.
+**Conclusion:** no stop condition is triggered (founder-confirmed). The remediation is bounded `href` repointing at
+operator-navigation surfaces (7 core + C1 + C2 + C4 = **9 repoints across 8 surfaces**; **C3 stays console**), plus
+the approved in-scope Workspace→Console affordance (§5). Console page, nav IA, schema, API, and workflow authority
+are all untouched.
 
 ## 7. Proposed implementation shape (for the NEXT decision, not now)
 
-- **Increment 1 — Core deal-opening repoint:** surfaces 1–7 (§4a). This alone fixes the dominant Pipeline path.
-- **Increment 2 — Conditional surfaces:** C1–C4 (§4b), per your classification.
-- **Increment 3 (optional) — Workspace→Console affordance:** §5, if approved.
-- **Verification:** unit (unchanged view-models), full Playwright (add/adjust specs asserting each repointed
-  surface lands on `/opportunity-workspace/[id]`; console-intent links still land on the console), then the full
-  Accepted → Released lifecycle with a **re-run Discoverability Verification** exercising the real click-path
-  (Pipeline → workspace → GU/Closing → console), not just direct-URL navigation.
+Final scope after founder rulings — **9 repoints across 8 surfaces** (7 core + C1 + C2 ×2-link + C4), **C3 stays
+console**, plus the approved **Workspace→Console affordance**:
+
+- **Increment 1 — Core deal-opening repoint:** surfaces 1–7 (§4a). Fixes the dominant Pipeline path.
+- **Increment 2 — Ruled conditional surfaces:** C1 (matches), C2 (analyzer back-link ×2), C4 (post-create
+  redirect) → REPOINT. **C3 (closing dashboard) is NOT touched** — stays console.
+- **Increment 3 — Workspace→Console affordance:** add "Open Closing Console" to the Opportunity Workspace (§5,
+  approved). Console page untouched.
+- **Verification:** unit (view-models unchanged), full Playwright — add/adjust specs asserting each repointed
+  surface lands on `/opportunity-workspace/[id]`, that C3/closing-dashboard and the `#closing-center`/handoff
+  links still land on the console, and that the new "Open Closing Console" affordance links to `/opportunities/[id]`.
+  Then the full Accepted → Released lifecycle with a **re-run Discoverability Verification** exercising the real
+  click-path (Pipeline → workspace → GU/Closing/Console), not just direct-URL navigation.
 
 ## 8. Release-record correction (to be landed with the remediation)
 
@@ -128,8 +160,10 @@ The prior release records overstated discoverability. The correction to record:
 
 (Applies to `CRE_CLOSING_WORKSPACE_PRODUCTION_RELEASE.md` and, by reference, the M1/M2 discoverability claims.)
 
-## 9. What this plan does NOT do
+## 9. Status & next step
 
-No code changed. No PR merged. No deployment. Classifications in §4b (C1–C4) and the §5 affordance are proposals
-awaiting your ruling. On approval, implementation proceeds as governed increments (§7), each reviewed and accepted
-before the Accepted → Released lifecycle.
+Planning is **ACCEPTED WITH OBSERVATIONS** (2026-07-31); all rulings are folded in above and the **Operator Entry
+Principle** (§0) is carried forward as a platform contract. **No remediation code has been written. Implementation
+is NOT yet authorized** — it proceeds only on a separate **APPROVED TO IMPLEMENT**, as governed increments (§7),
+each reviewed and accepted before the full Accepted → Released lifecycle (with a re-run, click-path Discoverability
+Verification and the §8 release-record correction landed alongside).
