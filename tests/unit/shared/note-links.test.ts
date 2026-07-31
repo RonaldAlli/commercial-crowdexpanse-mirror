@@ -20,7 +20,7 @@ test("resolves buyer / property / opportunity links", () => {
   assert.equal(resolveNoteLink({ buyer: { id: "b1", name: "Buy Co" } })?.href, "/buyers/b1");
   assert.equal(resolveNoteLink({ property: { id: "p1", name: "123 Main" } })?.href, "/properties/p1");
   const opp = resolveNoteLink({ opportunity: { id: "o1", title: "Deal X" } });
-  assert.deepEqual(opp, { type: "opportunity", label: "Opportunity", name: "Deal X", href: "/opportunities/o1" });
+  assert.deepEqual(opp, { type: "opportunity", label: "Opportunity", name: "Deal X", href: "/opportunity-workspace/o1" });
 });
 
 test("seller wins when multiple relations are present (priority order)", () => {

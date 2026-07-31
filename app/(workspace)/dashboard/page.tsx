@@ -171,7 +171,7 @@ export default async function DashboardPage() {
               {opportunities.map((opportunity) => (
                 <li key={opportunity.id}>
                   <Link
-                    href={`/opportunities/${opportunity.id}`}
+                    href={`/opportunity-workspace/${opportunity.id}`}
                     className="flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-slate-50/60 focus:outline-none focus:ring-4 focus:ring-inset focus:ring-brand-500/10"
                   >
                     <div className="min-w-0">

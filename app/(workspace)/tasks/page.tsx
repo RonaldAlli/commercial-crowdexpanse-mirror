@@ -145,7 +145,7 @@ export default async function TasksPage({
                       </td>
                       <td className="table-cell whitespace-nowrap">
                         {task.opportunity ? (
-                          <Link href={`/opportunities/${task.opportunity.id}`} className="text-brand-700 hover:underline">
+                          <Link href={`/opportunity-workspace/${task.opportunity.id}`} className="text-brand-700 hover:underline">
                             {task.opportunity.title}
                           </Link>
                         ) : (

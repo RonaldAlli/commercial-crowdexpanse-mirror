@@ -20,7 +20,10 @@ export function manifest(): Manifest {
 
 export const authFile = (role: "admin" | "writer" | "analyst") => join(ARTIFACTS, "auth", `${role}.json`);
 export const shot = (name: string) => join(ARTIFACTS, "screenshots", `${name}.png`);
-export const oppPath = (id: string) => `/opportunities/${id}`;
+export const oppPath = (id: string) => `/opportunities/${id}`; // Closing Console (execution surface)
+// Opportunity Workspace — the primary operator detail landing (Operator Entry Principle). Deal-opening
+// navigation (Pipeline, Dashboard, Search, Tasks, Notes) repoints here; the Console stays for execution.
+export const workspacePath = (id: string) => `/opportunity-workspace/${id}`;
 
 // The one stable anchor the specs hang off — the labelled Closing Center container.
 export const CLOSING_CENTER = 'section[aria-labelledby="closing-center-heading"]';

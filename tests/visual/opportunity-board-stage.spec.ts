@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { test, expect } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 
-import { manifest, authFile, oppPath, type Manifest } from "./_helpers";
+import { manifest, authFile, workspacePath, type Manifest } from "./_helpers";
 
 // PB-2 regression: changing a lead's stage from the board dropdown moves the card between columns AND
 // persists to the DB (guards the deterministic StageSelect submission — was a stale-value no-op).
@@ -46,7 +46,7 @@ test.describe("opportunity board — stage move + attestation (ADMIN)", () => {
 
   test("PB-2: changing the dropdown moves the card to the new column and persists to the DB", async ({ page }) => {
     await page.goto(BOARD);
-    const link = `a[href="${oppPath(moveId)}"]`;
+    const link = `a[href="${workspacePath(moveId)}"]`;
     await expect(page.locator(`[data-stage="LEAD"] ${link}`)).toBeVisible();
     await expect(page.locator(`[data-stage="SELLER_CONTACTED"] ${link}`)).toHaveCount(0);
 
@@ -59,7 +59,7 @@ test.describe("opportunity board — stage move + attestation (ADMIN)", () => {
 
   test("Attestation: missing truth opens the dialog; Cancel keeps the stage; Continue+reason moves it and logs the attestation", async ({ page }) => {
     await page.goto(BOARD);
-    const link = `a[href="${oppPath(attId)}"]`;
+    const link = `a[href="${workspacePath(attId)}"]`;
     const card = page.locator("div.card").filter({ has: page.locator(link) });
     const dialog = page.locator('[role="dialog"]');
 
