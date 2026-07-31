@@ -131,7 +131,7 @@ export default async function AnalysisViewPage({ params }: { params: { opportuni
           title={opportunity.title}
           description={`${opportunity.property.name} · ${titleCase(opportunity.property.assetType)}`}
           actions={
-            <Link className="btn-ghost" href={`/opportunities/${opportunity.id}`}>
+            <Link className="btn-ghost" href={`/opportunity-workspace/${opportunity.id}`}>
               Opportunity
             </Link>
           }
@@ -219,7 +219,7 @@ export default async function AnalysisViewPage({ params }: { params: { opportuni
         description={`${opportunity.property.name} · ${titleCase(opportunity.property.assetType)}`}
         actions={
           <>
-            <Link className="btn-ghost" href={`/opportunities/${opportunity.id}`}>
+            <Link className="btn-ghost" href={`/opportunity-workspace/${opportunity.id}`}>
               Opportunity
             </Link>
             <Link className="btn-ghost" href={`/analyzer/${opportunity.id}/compare`}>
