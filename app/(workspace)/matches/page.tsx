@@ -100,7 +100,7 @@ export default async function MatchesPage({
                     <Badge tone={matchStatusTone(m.status)}>{matchStatusLabel(m.status)}</Badge>
                   </div>
                   <p className="mt-1 text-xs text-slate-500">
-                    <Link href={`/opportunities/${m.opportunity.id}`} className="font-medium text-slate-700 hover:underline">
+                    <Link href={`/opportunity-workspace/${m.opportunity.id}`} className="font-medium text-slate-700 hover:underline">
                       {m.opportunity.title}
                     </Link>
                     {" · "}

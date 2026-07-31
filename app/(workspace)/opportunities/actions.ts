@@ -140,7 +140,9 @@ export async function createOpportunity(
 
   revalidatePath("/opportunities");
   revalidatePath("/dashboard");
-  redirect(`/opportunities/${opportunity.id}`);
+  // Discoverability remediation (C4): a newly created deal begins its lifecycle on the Opportunity
+  // Workspace (the primary operator landing), not the Closing Console.
+  redirect(`/opportunity-workspace/${opportunity.id}`);
 }
 
 export async function updateOpportunity(
