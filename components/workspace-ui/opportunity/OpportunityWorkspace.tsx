@@ -165,7 +165,14 @@ export function OpportunityWorkspace(p: OpportunityWorkspaceProps) {
             {gate.blockerLabels.length > 0 ? (
               <ul className="mt-1 list-inside list-disc text-xs text-slate-500">{gate.blockerLabels.slice(0, 5).map((b, i) => <li key={i}>{b}</li>)}</ul>
             ) : null}
-            <Link href={`/closing-workspace/${p.opportunity.id}`} className="mt-2 inline-block text-xs font-medium text-brand-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">Open Closing Workspace →</Link>
+            {/* Discoverability remediation (Increment 3): two intent-distinct exits, per Workflow Intent
+                Preservation — understand closing READINESS (Closing Workspace) vs EXECUTE the closing (Closing
+                Console, one hop). Both link OUT from the workspace; the Closing Console page itself is unchanged.
+                Guided Underwriting remains reachable via Related records (Operator Entry Principle preserved). */}
+            <div className="mt-2 flex flex-col gap-1">
+              <Link href={`/closing-workspace/${p.opportunity.id}`} className="inline-block text-xs font-medium text-brand-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">Open Closing Workspace →</Link>
+              <Link href={`/opportunities/${p.opportunity.id}`} className="inline-block text-xs font-medium text-slate-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">Open Closing Console →</Link>
+            </div>
           </WorkspaceSection>
 
           <WorkspaceSection title="Related records" id="opp-links">
