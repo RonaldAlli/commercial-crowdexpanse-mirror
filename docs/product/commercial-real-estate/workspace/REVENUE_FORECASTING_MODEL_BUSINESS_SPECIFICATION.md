@@ -1,6 +1,13 @@
-# Revenue Forecasting Model — Business Specification (PROPOSED)
+# Revenue Forecasting Model — Business Specification (ACCEPTED WITH OBSERVATIONS)
 
-> **Status: BUSINESS SPECIFICATION — AWAITING REVIEW.** Governed decision: *Revenue Forecasting Model — APPROVED
+> **Status: ACCEPTED WITH OBSERVATIONS (founder-accepted 2026-08-01).** The four founder decisions P-1…P-4 are
+> RESOLVED and the model is accepted — see `REVENUE_FORECASTING_MODEL_BUSINESS_SPECIFICATION_ACCEPTANCE.md` for the
+> authoritative rulings (population = *executed acquisition contract, not yet realized*; explicit Lost/Dead state;
+> stage-probability **policy** — historical conversion informs but never derives it; `targetCloseDate` interim time
+> basis; assignment-execution = sole Expected→Realized event) and the new **Financial State Authority** contract.
+> Original proposal preserved below for the record.
+>
+> **Status (as proposed): BUSINESS SPECIFICATION — AWAITING REVIEW.** Governed decision: *Revenue Forecasting Model — APPROVED
 > TO PLAN.* This is a **business-definition** deliverable — **no code, no schema, no API**. It defines the
 > financial concepts, populations, probability basis, time-phasing, state transitions, and concept ownership that a
 > future forecasting backend (then a Milestone-2 UI) would implement. Sections marked **⟶ FOUNDER DECISION** are
