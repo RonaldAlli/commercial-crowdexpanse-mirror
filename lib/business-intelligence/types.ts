@@ -37,3 +37,15 @@ export type RevenueByAcquisitionEventRow = {
   executedRevenueUsd: number;
   dealCount: number;
 };
+
+// One realized revenue event = one EXECUTED assignment. Lists the SAME authoritative population as the grouped
+// realized-revenue queries (BI Rule 1), per deal, with the execution date and acquisition attribution. No metric
+// is computed — realizedUsd is the executed-fee snapshot; executedAt is the assignment's terminal resolution.
+export type RealizedRevenueEventRow = {
+  opportunityId: string;
+  opportunityTitle: string;
+  realizedUsd: number; // AssignmentRecord.executedFeeUsdSnapshot (0 if executed but unsnapshotted)
+  executedAt: Date | null; // AssignmentRecord.resolvedAt — the execution date
+  channel: string; // AcquisitionChannel value, or "UNKNOWN"
+  campaign: string | null; // campaign label, or null
+};

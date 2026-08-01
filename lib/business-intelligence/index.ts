@@ -6,6 +6,7 @@ export {
   buyerCoverageByChannel,
   assignmentRevenueByCampaign,
   revenueByAcquisitionEvent,
+  realizedRevenueEvents,
 } from "./queries";
 export { UNKNOWN } from "./types";
 export type {
@@ -14,4 +15,5 @@ export type {
   BuyerCoverageRow,
   AssignmentRevenueByCampaignRow,
   RevenueByAcquisitionEventRow,
+  RealizedRevenueEventRow,
 } from "./types";
