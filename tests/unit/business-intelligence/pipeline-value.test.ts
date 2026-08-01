@@ -4,10 +4,10 @@ import assert from "node:assert/strict";
 import { aggregatePipelineValue, type PipelineValueRow } from "../../../lib/business-intelligence/pipeline-value";
 
 const rows: PipelineValueRow[] = [
-  { assignmentFeeUsd: 20000, stage: "UNDER_CONTRACT", channel: "COMMERCIAL_BROKER", campaign: "Spring" },
-  { assignmentFeeUsd: 15000, stage: "CLOSING", channel: "COMMERCIAL_BROKER", campaign: "Spring" },
-  { assignmentFeeUsd: 10000, stage: "CLOSING", channel: "OWNER_DIRECT", campaign: null },
-  { assignmentFeeUsd: null, stage: "BUYER_MATCHED", channel: null, campaign: null }, // no fee set → contributes $0
+  { opportunityId: "o1", title: "Alpha", assignmentFeeUsd: 20000, stage: "UNDER_CONTRACT", channel: "COMMERCIAL_BROKER", campaign: "Spring" },
+  { opportunityId: "o2", title: "Bravo", assignmentFeeUsd: 15000, stage: "CLOSING", channel: "COMMERCIAL_BROKER", campaign: "Spring" },
+  { opportunityId: "o3", title: "Charlie", assignmentFeeUsd: 10000, stage: "CLOSING", channel: "OWNER_DIRECT", campaign: null },
+  { opportunityId: "o4", title: "Delta", assignmentFeeUsd: null, stage: "BUYER_MATCHED", channel: null, campaign: null }, // no fee set → $0
 ];
 
 test("total = sum of assignmentFeeUsd (null contributes $0)", () => {
@@ -40,6 +40,13 @@ test("empty population → zero total and empty breakdowns", () => {
   assert.equal(s.totalUsd, 0);
   assert.equal(s.dealCount, 0);
   assert.deepEqual(s.byStage, []);
+});
+
+test("Inventory Integrity (list): the contributing deals reconcile to the total, highest fee first", () => {
+  const s = aggregatePipelineValue(rows);
+  assert.equal(s.deals.length, s.dealCount); // every population member is a displayed deal
+  assert.equal(s.deals.reduce((n, d) => n + d.feeUsd, 0), s.totalUsd); // Σ deal fees === total
+  assert.deepEqual(s.deals.map((d) => d.title), ["Alpha", "Bravo", "Charlie", "Delta"]); // fee desc; $0 last
 });
 
 test("by-stage groups correctly (CLOSING = 15000 + 10000)", () => {

@@ -68,9 +68,11 @@ test.describe("Pipeline Value — Increment 1 org summary (ADMIN, desktop)", () 
   test("Inventory Integrity + exclusion: included deals total $35,000; the executed (realized) deal is excluded", async ({ page }) => {
     await page.goto("/revenue");
     const section = page.getByRole("region", { name: "Pipeline value" });
-    // The two included open-pipeline deals under one campaign total $35,000 (20,000 + 15,000).
-    const includedRow = section.locator("tr", { hasText: INCLUDED });
-    await expect(includedRow).toContainText("$35,000");
+    // The two included open-pipeline deals under one campaign total $35,000 (20,000 + 15,000). Target the
+    // by-campaign BREAKDOWN row (the unique PVINC1-INCLUDED row that shows the $35,000 subtotal) — the
+    // contributing-deal rows (Increment 2) also carry the campaign but show their individual fees.
+    const includedRow = section.locator("tr", { hasText: INCLUDED }).filter({ hasText: "$35,000" });
+    await expect(includedRow).toBeVisible();
     // The executed (realized) deal's campaign must NOT appear — it is excluded from Pipeline Value.
     await expect(section.getByText(EXCLUDED)).toHaveCount(0);
   });
