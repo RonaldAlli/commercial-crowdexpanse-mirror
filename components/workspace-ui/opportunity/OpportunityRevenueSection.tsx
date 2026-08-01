@@ -71,6 +71,16 @@ export function OpportunityRevenueSection({ view }: { view: OpportunityRevenueVi
         </ol>
         <p className="mt-2 text-[11px] text-slate-400">Timeline reflects recorded activity only — pending steps have no recorded event.</p>
       </div>
+
+      {/* Increment 4 — Revenue is an intentional branch of the Opportunity Workspace: from this deal's revenue,
+          the operator moves out to the organization-level Revenue Workspace (Opportunity → Revenue → Revenue
+          Workspace). Not a competing top-level entry; discovered through the workflow. */}
+      <Link
+        href="/revenue"
+        className="inline-block text-xs font-medium text-brand-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+      >
+        Open Revenue Workspace →
+      </Link>
     </div>
   );
 }
