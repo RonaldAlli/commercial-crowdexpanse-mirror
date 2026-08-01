@@ -15,6 +15,8 @@ import Link from "next/link";
 import { Icon } from "@/components/icons";
 import { StageSelect } from "@/components/stage-select";
 import { TransactionTimelinePanel } from "@/components/transaction-timeline-panel";
+import { OpportunityRevenueSection } from "@/components/workspace-ui/opportunity/OpportunityRevenueSection";
+import type { OpportunityRevenueView } from "@/lib/workspace-ui/opportunity-revenue";
 import { PageHeader } from "@/components/workspace-ui/PageHeader";
 import { WorkspaceSection } from "@/components/workspace-ui/WorkspaceSection";
 import { TaxonomyBadge } from "@/components/workspace-ui/TaxonomyBadge";
@@ -35,6 +37,7 @@ export type OpportunityWorkspaceProps = {
   property: { id: string; name: string; addressLine1: string; city: string; state: string } | null;
   diligence: DiligenceSummary;
   gate: ClosingGate;
+  revenue: OpportunityRevenueView;
   stageReadiness: StageReadinessView;
   crossLinks: CrossLink[];
   timeline: import("@/lib/transaction-timeline-service").OpportunityTimeline;
@@ -146,6 +149,10 @@ export function OpportunityWorkspace(p: OpportunityWorkspaceProps) {
                 ) : null}
               </div>
             )}
+          </WorkspaceSection>
+
+          <WorkspaceSection title="Revenue" id="opp-revenue" actions={<TaxonomyBadge kind="computed" />}>
+            <OpportunityRevenueSection view={p.revenue} />
           </WorkspaceSection>
 
           <TransactionTimelinePanel timeline={p.timeline} basePath={p.timelineBasePath} />

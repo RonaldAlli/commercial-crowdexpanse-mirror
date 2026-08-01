@@ -15,6 +15,8 @@ import { ensureOpportunityDiligence } from "@/lib/opportunity-diligence-service"
 import { getClosingGateStatus } from "@/lib/closing-service";
 import { getOpportunityTimeline } from "@/lib/transaction-timeline-service";
 import { listGeneratedAgreements } from "@/lib/documents/assignment-agreement-service";
+import { getAssignmentRecord } from "@/lib/assignment-service";
+import { buildOpportunityRevenueView } from "@/lib/workspace-ui/opportunity-revenue";
 import { nextStageOf, stageReadinessView, crossLink } from "@/lib/workspace-ui/opportunity-view";
 import { synthesizeOpportunity } from "@/lib/workspace-ui/synthesis";
 import { OpportunityWorkspace } from "@/components/workspace-ui/opportunity/OpportunityWorkspace";
@@ -71,6 +73,27 @@ export default async function OpportunityWorkspacePage({
   const uwRef = await prisma.underwriting.findUnique({ where: { opportunityId: opp.id }, select: { activeScenarioId: true } });
   const hasGuidedUnderwriting = Boolean(uwRef?.activeScenarioId);
 
+  // Revenue Workspace M1 Increment 3: per-deal Revenue (read-only over ACTIVE authority only — Active Evidence).
+  // Realized = executed assignment snapshot; Expected = the contracted assignment fee; Projected = the
+  // underwriting estimate (reference). The Revenue Timeline is built from recorded ActivityLog events (the same
+  // active authority as the transaction timeline) + the active AssignmentRecord — never the dormant pipeline facts.
+  const [assignmentRec, activityEvents] = await Promise.all([
+    getAssignmentRecord(user.organizationId, opp.id),
+    prisma.activityLog.findMany({
+      where: { organizationId: user.organizationId, opportunityId: opp.id },
+      select: { eventType: true, createdAt: true },
+    }),
+  ]);
+  const revenue = buildOpportunityRevenueView({
+    opportunityId: opp.id,
+    expectedFeeUsd: opp.assignmentFeeUsd,
+    assignment: assignmentRec
+      ? { status: assignmentRec.status, executedFeeUsdSnapshot: assignmentRec.executedFeeUsdSnapshot, resolvedAt: assignmentRec.resolvedAt, createdAt: assignmentRec.createdAt }
+      : null,
+    hasProjected: hasGuidedUnderwriting,
+    activityEvents: activityEvents.map((e) => ({ eventType: e.eventType, occurredAt: e.createdAt })),
+  });
+
   const crossLinks = [
     crossLink("Guided underwriting", hasGuidedUnderwriting ? `/guided-underwriting/${opp.id}` : null, hasGuidedUnderwriting ? "Structurability & decisions" : "Not started"),
     crossLink("Seller", opp.seller ? `/seller-queue/${opp.seller.id}` : null, opp.seller ? "View seller" : "None"),
@@ -99,6 +122,7 @@ export default async function OpportunityWorkspacePage({
       property={opp.property}
       diligence={diligence}
       gate={gate}
+      revenue={revenue}
       stageReadiness={stageReadinessView(nextEval)}
       crossLinks={crossLinks}
       timeline={timeline}
