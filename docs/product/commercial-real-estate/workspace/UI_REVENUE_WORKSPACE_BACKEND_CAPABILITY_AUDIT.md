@@ -35,12 +35,26 @@ invoice, payment, disbursement, settlement, proceeds, HUD, partner, investor, fo
 - `AssignmentRecord` (status, assignor/assignee, `executedFeeUsdSnapshot`, `executedContractValueUsdSnapshot`)
   via `lib/assignment-service.ts` / `lib/assignment.ts` — an immutable execution snapshot of the realized fee.
 
-### 1.4 Revenue/closing lifecycle events (pipeline facts)
-- Authoritative fact types: `CONTRACT_EXECUTED`, `ASSIGNMENT_EXECUTED`, `FINANCING` (COMMITTED/CLEARED/FUNDED),
-  `SETTLEMENT_COMPLETED`, `TRANSACTION_CLOSED` (`lib/pipeline-facts/registry.ts:68–81`). `TRANSACTION_CLOSED`
-  drives the **PAID** pipeline stage (`lib/pipeline-projection/spine.ts:16`), under an authorization policy
-  (`lib/pipeline-authorization/policy.ts`). This gives an authoritative "where is each deal in its revenue
-  lifecycle" without new backend.
+### 1.4 Revenue/closing lifecycle events (pipeline facts) — ⚠️ CORRECTED: DORMANT, not Proven
+- **CORRECTION (2026-08-01):** this item was originally listed as Proven Existing Authority. It is **not**. The
+  pipeline-facts fact types (`CONTRACT_EXECUTED`, `ASSIGNMENT_EXECUTED`, `SETTLEMENT_COMPLETED`,
+  `TRANSACTION_CLOSED`; `lib/pipeline-facts/registry.ts`) exist **architecturally** but are **DORMANT**: the
+  pipeline write path is off and **zero facts are emitted in production** (`deployed-but-dormant`; per
+  `docs/business/evolution/be-2/ASSUMPTIONS_REGISTER.md` O-2 and the Slice-2 baseline — *"CONTRACT_EXECUTED is not
+  emitted in production; today's live control signal is the mutable OpportunityStage"*). A standing contract
+  (`tests/unit/workspace-ui/opportunity-inc3.contract.test.ts`) also forbids the Opportunity Workspace from
+  importing this layer.
+- **Therefore the pipeline facts are NOT part of the Proven Existing Authority for Milestone 1.** The Revenue
+  Timeline evidence uses the **active ActivityLog authority** instead (the same source as the existing
+  transaction timeline, `getOpportunityTimeline` / `lib/transaction-timeline*`), plus the active
+  `AssignmentRecord`. Governed by the new **Active Evidence** platform contract (recorded with Increment 3).
+
+**Authority classification (adopted platform-wide for future capability audits):**
+- **Active Authority** — production-backed and populated (e.g. `AssignmentRecord`, `ActivityLog`, `Opportunity`,
+  the BI realized-revenue queries). Eligible to back production workspaces.
+- **Dormant Authority** — implemented but not currently producing production evidence (e.g. the pipeline
+  facts/projection engine). May inform planning; must NOT be a production evidence source until it produces
+  authoritative data.
 
 ### 1.5 Funds-disbursement ontology (typed evidence fact)
 - `FUNDS_DISBURSED` fact with a validated payload: `purpose ∈ {SellerProceeds, AssignmentFee, Commission,
@@ -109,8 +123,10 @@ platform treats as real revenue — the **executed assignment fee**:
 2. **Per-deal revenue economics** — contract value, assignment fee (expected), executed-fee snapshot (realized),
    reusing `Opportunity` + `AssignmentRecord` (§1.2–1.3). Clearly separate *expected* (mutable) from *realized*
    (executed snapshot) — mirrors BI Rule 1.
-3. **Revenue lifecycle position** — per deal, from the pipeline facts (CONTRACT_EXECUTED → ASSIGNMENT_EXECUTED →
-   SETTLEMENT_COMPLETED → TRANSACTION_CLOSED/PAID), reusing §1.4. Answers "where is this deal's revenue?"
+3. **Revenue lifecycle / timeline** — per deal, from the **active ActivityLog authority** (`getOpportunityTimeline`
+   / `lib/transaction-timeline*`) plus the active `AssignmentRecord` — **NOT** the dormant pipeline facts (see the
+   §1.4 correction). Each step corresponds to a real recorded event; steps with no recorded event show pending.
+   Answers "what evidence shows this revenue became real?"
 4. **Expected (projected) economics** — from LOCKED underwriting scenarios (spread, net proceeds), reusing §1.6,
    labeled *projected/advisory* (Information Quality contract), never conflated with realized.
 5. **Funds-disbursement evidence** — surface `FUNDS_DISBURSED` facts where present (§1.5), read-only, honestly
