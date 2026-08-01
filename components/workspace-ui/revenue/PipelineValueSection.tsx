@@ -2,8 +2,8 @@
 //
 // Presentational. Pipeline Value is OPERATIONAL INVENTORY — the unweighted sum of Expected fee across the open
 // contractual pipeline. It is NEVER a forecast and is kept visually + semantically separate from Realized
-// Revenue (Financial Truthfulness · Forecast Integrity). It discloses the Lost/Dead limitation honestly
-// (Information Quality) and reconciles every breakdown to the total (Inventory Integrity). Computes nothing —
+// Revenue (Financial Truthfulness · Forecast Integrity). It reconciles every breakdown to the total (Inventory
+// Integrity) and states its population explicitly (Population Transparency; Lost/Dead excluded since G-1). Computes nothing —
 // values come from pipelineValueSummary.
 
 import Link from "next/link";
@@ -58,12 +58,12 @@ export function PipelineValueSection({ summary }: { summary: PipelineValueSummar
 
       {/* Financial Truthfulness: state what this number is and is not. */}
       <p className="text-[11px] leading-snug text-slate-400">
-        Sum of contracted assignment fees on deals under contract through closing (not yet realized). This is an
-        operational inventory — <span className="font-medium text-slate-500">not a forecast</span> (no probability or
-        weighting) and <span className="font-medium text-slate-500">not realized revenue</span>. Deals without a fee
-        on record contribute $0. <span className="font-medium text-slate-500">It does not yet exclude Lost/Dead
-        opportunities, because that business state does not yet exist</span> — it represents all deals in the active
-        contractual pipeline.
+        Sum of contracted assignment fees on <span className="font-medium text-slate-500">active</span> deals under
+        contract through closing (not yet realized). This is an operational inventory —
+        <span className="font-medium text-slate-500"> not a forecast</span> (no probability or weighting) and
+        <span className="font-medium text-slate-500"> not realized revenue</span>. Deals without a fee on record
+        contribute $0. Opportunities explicitly marked <span className="font-medium text-slate-500">Lost or Dead</span>
+        are excluded.
       </p>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -75,8 +75,8 @@ export function PipelineValueSection({ summary }: { summary: PipelineValueSummar
       {/* Population Transparency: the operator never infers the population — it is stated explicitly. */}
       <dl className="rounded-lg border border-slate-100 bg-slate-50/60 p-3 text-[11px] text-slate-500">
         <div className="flex gap-2"><dt className="w-16 shrink-0 font-medium text-slate-600">Included</dt><dd>deals with an executed acquisition contract, not yet realized (stages Under contract, Buyer matched, Closing).</dd></div>
-        <div className="flex gap-2"><dt className="w-16 shrink-0 font-medium text-slate-600">Excluded</dt><dd>pre-contract deals; realized deals (executed assignment / Paid).</dd></div>
-        <div className="flex gap-2"><dt className="w-16 shrink-0 font-medium text-slate-600">Why</dt><dd>Pipeline Value is an operational inventory of contractual expected fees — no probability, no weighting, no forecast. Lost/Dead is not yet excluded (that business state does not exist yet).</dd></div>
+        <div className="flex gap-2"><dt className="w-16 shrink-0 font-medium text-slate-600">Excluded</dt><dd>pre-contract deals; realized deals (executed assignment / Paid); opportunities marked Lost or Dead.</dd></div>
+        <div className="flex gap-2"><dt className="w-16 shrink-0 font-medium text-slate-600">Why</dt><dd>Pipeline Value is an operational inventory of contractual expected fees — no probability, no weighting, no forecast.</dd></div>
       </dl>
 
       {/* Contributing-deal list — Inventory Integrity: every dollar in the total is a displayed, traceable deal

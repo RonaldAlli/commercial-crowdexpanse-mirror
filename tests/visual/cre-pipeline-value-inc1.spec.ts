@@ -59,7 +59,9 @@ test.describe("Pipeline Value — Increment 1 org summary (ADMIN, desktop)", () 
     await expect(section).toBeVisible();
     await expect(section.getByText("Operational inventory").first()).toBeVisible();
     await expect(section.getByText(/not a forecast/i)).toBeVisible();
-    await expect(section.getByText(/does not yet exclude Lost\/Dead/i)).toBeVisible();
+    // Since G-1, Lost/Dead are excluded (the earlier "not yet" limitation is gone).
+    await expect(section.getByText(/opportunities marked Lost or Dead/i)).toBeVisible();
+    await expect(section.getByText(/does not yet exclude Lost\/Dead/i)).toHaveCount(0);
     for (const b of ["By stage", "By channel", "By campaign"]) {
       await expect(section.getByText(b, { exact: true })).toBeVisible();
     }

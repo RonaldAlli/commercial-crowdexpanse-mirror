@@ -6,11 +6,10 @@ import { normalizeKey } from "./shape";
 // Pipeline Value — OPERATIONAL INVENTORY (never a forecast). Owner = Revenue (Financial State Authority).
 //
 // Pipeline Value = the unweighted SUM of Expected fee (`Opportunity.assignmentFeeUsd`) across the OPEN PIPELINE
-// population, over EXISTING active authority only (no probability, no weighting, no new backend). Population =
-// opportunities with an executed acquisition contract, not yet realized:
-//   stage ∈ { UNDER_CONTRACT, BUYER_MATCHED, CLOSING }  AND  NOT (assignment executed).
-// LIMITATION (disclosed in the UI): there is no Lost/Dead business state yet (gap G-1), so this cannot exclude
-// cold/lost deals — it represents ALL deals in the active contractual pipeline. No heuristic infers Lost/Dead.
+// population (no probability, no weighting). Population = opportunities with an executed acquisition contract,
+// not yet realized, and still ACTIVE:
+//   stage ∈ { UNDER_CONTRACT, BUYER_MATCHED, CLOSING }  AND  outcome = ACTIVE  AND  NOT (assignment executed).
+// Since Forecasting Backend Authority G-1, Lost/Dead deals (explicit outcomes) ARE excluded — no inference.
 //
 // Inventory Integrity: every breakdown reconciles to the total (each opportunity has exactly one stage, one
 // channel key, one campaign key), and each contributing dollar is a real `assignmentFeeUsd` on a real deal.
@@ -66,6 +65,7 @@ export async function pipelineValueSummary(organizationId: string): Promise<Pipe
     where: {
       organizationId,
       stage: { in: OPEN_PIPELINE_STAGES as unknown as OpportunityStage[] },
+      outcome: "ACTIVE", // G-1: exclude Lost/Dead — the open pipeline is ACTIVE deals only
       NOT: { assignment: { status: "EXECUTED" } }, // exclude realized (executed assignment); no-assignment deals stay in
     },
     select: { id: true, title: true, assignmentFeeUsd: true, stage: true, acquisitionChannel: true, acquisitionCampaign: true },

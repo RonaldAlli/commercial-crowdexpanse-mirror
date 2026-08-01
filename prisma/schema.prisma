@@ -36,6 +36,16 @@ enum OpportunityStage {
   PAID
 }
 
+// Forecasting Backend Authority G-1 — the deal's lifecycle outcome (owned by Opportunity). ACTIVE is the working
+// state; LOST and DEAD are explicit terminal outcomes (never inferred). LOST = viable but not proceeding
+// (reactivatable via ordinary audited transition); DEAD = can no longer become a transaction (reactivation only
+// via an explicit audited administrative action).
+enum OpportunityOutcome {
+  ACTIVE
+  LOST
+  DEAD
+}
+
 enum TaskStatus {
   BACKLOG
   IN_PROGRESS
@@ -1173,6 +1183,15 @@ model Opportunity {
   contractValueUsd Int?
   assignmentFeeUsd Int?
   summary          String?
+  // Forecasting Backend Authority G-1 — the deal's commercial lifecycle OUTCOME (Financial State Authority:
+  // owned by Opportunity). ACTIVE by default; LOST (viable but not proceeding — reactivatable, audited) or DEAD
+  // (can no longer become a transaction — admin-only audited reactivation). Explicit only (never inferred): a
+  // reason, actor, and timestamp are captured on transition. A non-ACTIVE deal leaves the open pipeline
+  // (Pipeline Value + forecast population exclude it).
+  outcome          OpportunityOutcome @default(ACTIVE)
+  outcomeReason    String?
+  outcomeAt        DateTime?
+  outcomeById      String?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
