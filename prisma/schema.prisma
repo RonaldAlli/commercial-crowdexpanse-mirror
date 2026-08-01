@@ -1180,6 +1180,11 @@ model Opportunity {
   acquisitionEventKey String?
   priority         String?
   targetCloseDate  DateTime?
+  // Forecasting Backend Authority G-2 — the date the fee is EXPECTED TO BE RECEIVED (cash), distinct from
+  // targetCloseDate (expected close). Owned by Opportunity (FD-5). DERIVED DEFAULT = targetCloseDate when null;
+  // an explicit value (set via the service) overrides and is then owned, not re-derived (FD-2). Used by
+  // forecasting time-phasing (a later increment); nothing displays it yet.
+  expectedPaymentDate DateTime?
   contractValueUsd Int?
   assignmentFeeUsd Int?
   summary          String?
