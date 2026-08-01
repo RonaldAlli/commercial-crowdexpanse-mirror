@@ -11,13 +11,14 @@ import Link from "next/link";
 
 import { requireUser } from "@/lib/auth";
 import { channelLabel } from "@/lib/acquisition-options";
-import { revenueByChannel, assignmentRevenueByCampaign, realizedRevenueEvents } from "@/lib/business-intelligence";
+import { revenueByChannel, assignmentRevenueByCampaign, realizedRevenueEvents, pipelineValueSummary } from "@/lib/business-intelligence";
 import type { AcquisitionChannel } from "@prisma/client";
 import { PageHeader } from "@/components/workspace-ui/PageHeader";
 import { WorkspaceSection } from "@/components/workspace-ui/WorkspaceSection";
 import { TaxonomyBadge } from "@/components/workspace-ui/TaxonomyBadge";
 import { StateBlock } from "@/components/workspace-ui/StateBlock";
 import { RevenueHealthCard } from "@/components/workspace-ui/revenue/RevenueHealthCard";
+import { PipelineValueSection } from "@/components/workspace-ui/revenue/PipelineValueSection";
 
 export const dynamic = "force-dynamic";
 
@@ -32,10 +33,11 @@ function execDate(d: Date | null): string {
 export default async function RevenuePage() {
   const user = await requireUser();
 
-  const [byChannel, byCampaign, events] = await Promise.all([
+  const [byChannel, byCampaign, events, pipelineValue] = await Promise.all([
     revenueByChannel(user.organizationId),
     assignmentRevenueByCampaign(user.organizationId),
     realizedRevenueEvents(user.organizationId),
+    pipelineValueSummary(user.organizationId),
   ]);
 
   // Realized total — the SAME authoritative reduction the Command Center uses (executed assignment fees, all-time).
@@ -49,6 +51,12 @@ export default async function RevenuePage() {
       />
 
       <RevenueHealthCard realizedUsd={realizedUsd} />
+
+      {/* Pipeline Value — OPERATIONAL INVENTORY (Financial State Authority: owned by Revenue). Kept separate from
+          Realized Revenue below; never a forecast. */}
+      <WorkspaceSection title="Pipeline value" id="revenue-pipeline-value" actions={<TaxonomyBadge kind="computed" />}>
+        <PipelineValueSection summary={pipelineValue} />
+      </WorkspaceSection>
 
       <WorkspaceSection
         title="Realized revenue — deals"
