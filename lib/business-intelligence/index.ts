@@ -8,6 +8,8 @@ export {
   revenueByAcquisitionEvent,
   realizedRevenueEvents,
 } from "./queries";
+export { pipelineValueSummary, aggregatePipelineValue, OPEN_PIPELINE_STAGES } from "./pipeline-value";
+export type { PipelineValueSummary, PipelineValueBreakdownRow, PipelineValueRow } from "./pipeline-value";
 export { UNKNOWN } from "./types";
 export type {
   RevenueByChannelRow,
