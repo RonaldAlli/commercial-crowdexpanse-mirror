@@ -66,7 +66,8 @@ export default async function RevenuePage() {
         {events.length === 0 ? (
           <StateBlock state="empty" message="No executed revenue yet — a deal appears here once its assignment is executed." />
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[32rem] text-sm">
             <thead>
               <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
                 <th className="py-2">Deal</th>
@@ -92,6 +93,7 @@ export default async function RevenuePage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </WorkspaceSection>
 

@@ -6,10 +6,14 @@
 // (Information Quality) and reconciles every breakdown to the total (Inventory Integrity). Computes nothing —
 // values come from pipelineValueSummary.
 
+import Link from "next/link";
+
 import type { PipelineValueSummary, PipelineValueBreakdownRow } from "@/lib/business-intelligence";
 import { channelLabel } from "@/lib/acquisition-options";
 import { stageLabel } from "@/lib/opportunity-options";
 import type { AcquisitionChannel, OpportunityStage } from "@prisma/client";
+
+const chLabel = (k: string | null) => (k == null || k === "UNKNOWN" ? "Unknown" : channelLabel(k as AcquisitionChannel));
 
 function usd(n: number): string {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -66,6 +70,49 @@ export function PipelineValueSection({ summary }: { summary: PipelineValueSummar
         <BreakdownTable title="By stage" rows={summary.byStage} label={(k) => stageLabel(k as OpportunityStage)} />
         <BreakdownTable title="By channel" rows={summary.byChannel} label={(k) => (k === "UNKNOWN" ? "Unknown" : channelLabel(k as AcquisitionChannel))} />
         <BreakdownTable title="By campaign" rows={summary.byCampaign} label={(k) => (k === "UNKNOWN" ? "Unknown" : k)} />
+      </div>
+
+      {/* Population Transparency: the operator never infers the population — it is stated explicitly. */}
+      <dl className="rounded-lg border border-slate-100 bg-slate-50/60 p-3 text-[11px] text-slate-500">
+        <div className="flex gap-2"><dt className="w-16 shrink-0 font-medium text-slate-600">Included</dt><dd>deals with an executed acquisition contract, not yet realized (stages Under contract, Buyer matched, Closing).</dd></div>
+        <div className="flex gap-2"><dt className="w-16 shrink-0 font-medium text-slate-600">Excluded</dt><dd>pre-contract deals; realized deals (executed assignment / Paid).</dd></div>
+        <div className="flex gap-2"><dt className="w-16 shrink-0 font-medium text-slate-600">Why</dt><dd>Pipeline Value is an operational inventory of contractual expected fees — no probability, no weighting, no forecast. Lost/Dead is not yet excluded (that business state does not exist yet).</dd></div>
+      </dl>
+
+      {/* Contributing-deal list — Inventory Integrity: every dollar in the total is a displayed, traceable deal
+          (Revenue Evidence · Revenue Traceability). Highest fee first. */}
+      <div>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Contributing deals</h3>
+        {summary.deals.length === 0 ? (
+          <p className="mt-1 text-xs text-slate-400">No deals in the active pipeline.</p>
+        ) : (
+          <div className="mt-2 overflow-x-auto">
+          <table className="w-full min-w-[32rem] text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
+                <th className="py-2">Deal</th>
+                <th className="py-2">Stage</th>
+                <th className="py-2">Channel</th>
+                <th className="py-2">Campaign</th>
+                <th className="py-2 text-right">Expected fee</th>
+              </tr>
+            </thead>
+            <tbody>
+              {summary.deals.map((d) => (
+                <tr key={d.opportunityId} className="border-b border-slate-50">
+                  <td className="py-2">
+                    <Link href={`/opportunity-workspace/${d.opportunityId}`} className="font-medium text-brand-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">{d.title}</Link>
+                  </td>
+                  <td className="py-2 text-slate-600">{stageLabel(d.stage as OpportunityStage)}</td>
+                  <td className="py-2 text-slate-600">{chLabel(d.channel)}</td>
+                  <td className="py-2 text-slate-600">{d.campaign ?? <span className="text-slate-400">Unknown</span>}</td>
+                  <td className="py-2 text-right tabular-nums font-medium text-slate-800">{d.feeUsd === 0 ? <span className="text-slate-400">Fee not set</span> : usd(d.feeUsd)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          </div>
+        )}
       </div>
     </div>
   );

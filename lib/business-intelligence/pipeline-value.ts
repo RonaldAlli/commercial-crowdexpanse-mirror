@@ -17,8 +17,11 @@ import { normalizeKey } from "./shape";
 
 export const OPEN_PIPELINE_STAGES = ["UNDER_CONTRACT", "BUYER_MATCHED", "CLOSING"] as const;
 
-export type PipelineValueRow = { assignmentFeeUsd: number | null; stage: string; channel: string | null; campaign: string | null };
+export type PipelineValueRow = { opportunityId: string; title: string; assignmentFeeUsd: number | null; stage: string; channel: string | null; campaign: string | null };
 export type PipelineValueBreakdownRow = { key: string; valueUsd: number; dealCount: number };
+// One contributing deal in the inventory (Inventory Integrity + Population Transparency: the list IS the
+// population, so Σ deal fees === totalUsd, and every dollar traces to a displayed Opportunity).
+export type PipelineValueDealRow = { opportunityId: string; title: string; stage: string; channel: string | null; campaign: string | null; feeUsd: number };
 export type PipelineValueSummary = {
   totalUsd: number;
   dealCount: number; // all opportunities in the population
@@ -26,6 +29,7 @@ export type PipelineValueSummary = {
   byStage: PipelineValueBreakdownRow[];
   byChannel: PipelineValueBreakdownRow[];
   byCampaign: PipelineValueBreakdownRow[];
+  deals: PipelineValueDealRow[]; // the contributing population, highest fee first
 };
 
 function groupSum(rows: PipelineValueRow[], dim: (r: PipelineValueRow) => string): PipelineValueBreakdownRow[] {
@@ -50,6 +54,9 @@ export function aggregatePipelineValue(rows: PipelineValueRow[]): PipelineValueS
     byStage: groupSum(rows, (r) => r.stage),
     byChannel: groupSum(rows, (r) => normalizeKey(r.channel)),
     byCampaign: groupSum(rows, (r) => normalizeKey(r.campaign)),
+    deals: rows
+      .map((r) => ({ opportunityId: r.opportunityId, title: r.title, stage: r.stage, channel: r.channel, campaign: r.campaign, feeUsd: r.assignmentFeeUsd ?? 0 }))
+      .sort((a, b) => b.feeUsd - a.feeUsd || a.title.localeCompare(b.title)),
   };
 }
 
@@ -61,7 +68,7 @@ export async function pipelineValueSummary(organizationId: string): Promise<Pipe
       stage: { in: OPEN_PIPELINE_STAGES as unknown as OpportunityStage[] },
       NOT: { assignment: { status: "EXECUTED" } }, // exclude realized (executed assignment); no-assignment deals stay in
     },
-    select: { assignmentFeeUsd: true, stage: true, acquisitionChannel: true, acquisitionCampaign: true },
+    select: { id: true, title: true, assignmentFeeUsd: true, stage: true, acquisitionChannel: true, acquisitionCampaign: true },
   });
-  return aggregatePipelineValue(rows.map((r) => ({ assignmentFeeUsd: r.assignmentFeeUsd, stage: r.stage, channel: r.acquisitionChannel, campaign: r.acquisitionCampaign })));
+  return aggregatePipelineValue(rows.map((r) => ({ opportunityId: r.id, title: r.title, assignmentFeeUsd: r.assignmentFeeUsd, stage: r.stage, channel: r.acquisitionChannel, campaign: r.acquisitionCampaign })));
 }
