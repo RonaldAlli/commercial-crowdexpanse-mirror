@@ -6,6 +6,7 @@ import type {
   BuyerCoverageRow,
   AssignmentRevenueByCampaignRow,
   RevenueByAcquisitionEventRow,
+  RealizedRevenueEventRow,
 } from "./types";
 
 // Business Query Primitives — Phase 1. Deterministic, organization-scoped (Authority Rule 1), all-time
@@ -61,6 +62,31 @@ export async function revenueByAcquisitionEvent(organizationId: string): Promise
   const acc = reduceRevenue(await fetchExecutedAssignments(organizationId), (a) => a.eventKey);
   const rows = Array.from(acc).map(([eventKey, v]) => ({ eventKey, ...v }));
   return orderByValueThenKey(rows, (r) => r.executedRevenueUsd, (r) => r.eventKey);
+}
+
+/**
+ * The realized-revenue population LISTED per deal (not grouped): one row per EXECUTED assignment, newest
+ * execution first. Same authoritative source as the grouped realized-revenue queries (BI Rule 1); no metric is
+ * computed — realizedUsd is the executed-fee snapshot, executedAt is the assignment's terminal resolution.
+ */
+export async function realizedRevenueEvents(organizationId: string): Promise<RealizedRevenueEventRow[]> {
+  const rows = await prisma.assignmentRecord.findMany({
+    where: { organizationId, status: "EXECUTED" },
+    select: {
+      executedFeeUsdSnapshot: true,
+      resolvedAt: true,
+      opportunity: { select: { id: true, title: true, acquisitionChannel: true, acquisitionCampaign: true } },
+    },
+    orderBy: [{ resolvedAt: "desc" }],
+  });
+  return rows.map((r) => ({
+    opportunityId: r.opportunity.id,
+    opportunityTitle: r.opportunity.title,
+    realizedUsd: r.executedFeeUsdSnapshot ?? 0,
+    executedAt: r.resolvedAt,
+    channel: normalizeKey(r.opportunity.acquisitionChannel),
+    campaign: r.opportunity.acquisitionCampaign,
+  }));
 }
 
 /**

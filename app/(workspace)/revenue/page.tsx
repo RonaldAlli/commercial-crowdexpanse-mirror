@@ -1,15 +1,17 @@
-// CRE Operating Workspace — Revenue Workspace, Milestone 1 (Realized Revenue), Increment 1.
+// CRE Operating Workspace — Revenue Workspace, Milestone 1 (Realized Revenue), Increments 1–2.
 //
 // Organization-level Executive Summary. A read-only CONSUMER of the business-intelligence authority (BI Rule 2 —
 // it never computes a metric itself): every figure is REALIZED revenue = executed assignment fees, all-time,
-// org-scoped. The realized total reuses the same reduction the Command Center uses (revenueAllTimeView). No
-// deal-level work, no Opportunity Workspace integration, no new calculations (Increment 1 scope). Expected and
-// Projected are surfaced by the Revenue Health card as per-deal truths, not aggregated here (Financial
-// Truthfulness).
+// org-scoped. The realized total reuses the same reduction the Command Center uses (revenueAllTimeView). Expected
+// and Projected are surfaced by the Revenue Health card as per-deal truths, not aggregated here (Financial
+// Truthfulness). Increment 2 adds the org-level Realized-revenue deal list (one row per EXECUTED assignment) —
+// each row traceable to its opportunity (Revenue Evidence). No new calculations; no accounting/forecasting.
+
+import Link from "next/link";
 
 import { requireUser } from "@/lib/auth";
 import { channelLabel } from "@/lib/acquisition-options";
-import { revenueByChannel, assignmentRevenueByCampaign } from "@/lib/business-intelligence";
+import { revenueByChannel, assignmentRevenueByCampaign, realizedRevenueEvents } from "@/lib/business-intelligence";
 import type { AcquisitionChannel } from "@prisma/client";
 import { PageHeader } from "@/components/workspace-ui/PageHeader";
 import { WorkspaceSection } from "@/components/workspace-ui/WorkspaceSection";
@@ -23,12 +25,17 @@ function usd(n: number): string {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 }
 
+function execDate(d: Date | null): string {
+  return d ? new Date(d).toISOString().slice(0, 10) : "—";
+}
+
 export default async function RevenuePage() {
   const user = await requireUser();
 
-  const [byChannel, byCampaign] = await Promise.all([
+  const [byChannel, byCampaign, events] = await Promise.all([
     revenueByChannel(user.organizationId),
     assignmentRevenueByCampaign(user.organizationId),
+    realizedRevenueEvents(user.organizationId),
   ]);
 
   // Realized total — the SAME authoritative reduction the Command Center uses (executed assignment fees, all-time).
@@ -42,6 +49,43 @@ export default async function RevenuePage() {
       />
 
       <RevenueHealthCard realizedUsd={realizedUsd} />
+
+      <WorkspaceSection
+        title="Realized revenue — deals"
+        id="revenue-deals"
+        actions={<TaxonomyBadge kind="computed" />}
+      >
+        {events.length === 0 ? (
+          <StateBlock state="empty" message="No executed revenue yet — a deal appears here once its assignment is executed." />
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
+                <th className="py-2">Deal</th>
+                <th className="py-2">Executed</th>
+                <th className="py-2">Channel</th>
+                <th className="py-2">Campaign</th>
+                <th className="py-2 text-right">Realized revenue</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((e) => (
+                <tr key={e.opportunityId} className="border-b border-slate-50">
+                  <td className="py-2">
+                    <Link href={`/opportunity-workspace/${e.opportunityId}`} className="font-medium text-brand-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+                      {e.opportunityTitle}
+                    </Link>
+                  </td>
+                  <td className="py-2 tabular-nums text-slate-500">{execDate(e.executedAt)}</td>
+                  <td className="py-2 text-slate-600">{e.channel === "UNKNOWN" ? "Unknown" : channelLabel(e.channel as AcquisitionChannel)}</td>
+                  <td className="py-2 text-slate-600">{e.campaign ?? <span className="text-slate-400">Unknown</span>}</td>
+                  <td className="py-2 text-right tabular-nums font-medium text-slate-800">{usd(e.realizedUsd)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </WorkspaceSection>
 
       <WorkspaceSection title="Realized revenue by channel" id="revenue-by-channel" actions={<TaxonomyBadge kind="computed" />}>
         {byChannel.length === 0 ? (
